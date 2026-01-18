@@ -1,15 +1,253 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+ generator client {
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  EMPLEADO
+}
+
+enum TipoMembresia {
+  VISITA
+  SEMANA
+  MES_ESTUDIANTE
+  MES_GENERAL
+  TRIMESTRE_ESTUDIANTE
+  TRIMESTRE_GENERAL
+  ANUAL_ESTUDIANTE
+  ANUAL_GENERAL
+  PROMOCION
+  RENACER
+  CONSULTA_NUTRICION
+}
+
+enum TipoInventario {
+  VENTA
+  AJUSTE
+  ENTRADA_BODEGA
+  ENTRADA_GYM
+  TRASPASO_A_GYM
+  TRASPASO_A_BODEGA
+}
+
+enum Ubicacion {
+  BODEGA
+  GYM
+}
+
+enum FormaPago {
+  EFECTIVO
+  TARJETA_DEBITO
+  TARJETA_CREDITO
+  TRANSFERENCIA
+}
+
+// ==================== BETTER AUTH ====================
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          Role      @default(EMPLEADO)
+  activo        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  sessions      Session[]
+  accounts      Account[]
+  cortes        Corte[]
+  inventarios   Inventario[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ==================== SOCIOS ====================
+
+model Socio {
+  id                   Int      @id @default(autoincrement())
+  numeroSocio          String   @unique
+  nombre               String?
+  telefono             String?
+  email                String?
+  fechaNacimiento      DateTime?
+  tipoMembresia        TipoMembresia?
+  descripcionMembresia String?
+  fechaInicio          DateTime?
+  fechaFin             DateTime?
+  totalVisitas         Int      @default(0)
+  ultimaVisita         DateTime?
+  activo               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  inventarios Inventario[]
+}
+
+
+
+// ==================== PRODUCTOS ====================
+
+model Producto {
+  id               Int      @id @default(autoincrement())
+  nombre           String   @unique
+  precioVenta      Decimal  @default(0) @db.Decimal(10, 2)
+  existenciaBodega Int      @default(0)
+  existenciaGym    Int      @default(0)
+  existenciaMin    Int      @default(0)
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  inventarios Inventario[]
+
+  @@map("productos")
+}
+
+// ==================== INVENTARIO ====================
+
+model Inventario {
+  id             Int             @id @default(autoincrement())
+  productoId     Int
+  tipo           TipoInventario
+  ubicacion      Ubicacion
+  /// Regla:
+  /// cantidad > 0 = entrada de stock
+  /// cantidad < 0 = salida de stock
+  cantidad       Int
+  
+  ticket         String?
+  socioId        Int?
+  userId         String
+  precioUnitario Decimal?        @db.Decimal(10, 2)
+  subtotal       Decimal?        @db.Decimal(10, 2)
+  descuento      Decimal?        @default(0) @db.Decimal(10, 2)
+  cargo          Decimal?        @default(0) @db.Decimal(10, 2)
+  total          Decimal?        @db.Decimal(10, 2)
+  formaPago      FormaPago?
+  
+  corteId           Int?
+  observaciones     String?
+  cancelada         Boolean  @default(false)
+  motivoCancelacion String?
+  fechaCancelacion  DateTime?
+  
+  /// Fecha real del movimiento (venta, ajuste, entrada)
+  fecha     DateTime @default(now())
+
+  /// Fecha en que el registro fue creado en el sistema
+  createdAt DateTime @default(now())
+
+  producto Producto @relation(fields: [productoId], references: [id])
+  socio    Socio?   @relation(fields: [socioId], references: [id])
+  usuario  User?    @relation(fields: [userId], references: [id])
+  corte    Corte?   @relation(fields: [corteId], references: [id])
+
+  @@index([productoId])
+  @@index([socioId])
+  @@index([userId])
+  @@index([corteId])
+  @@index([ticket])
+  @@index([tipo])
+  @@index([fecha])
+  @@index([productoId, fecha])
+  @@index([cancelada, fecha])
+  @@index([corteId, fecha])
+  @@map("inventario")
+}
+
+// ==================== CORTES ====================
+
+model Corte {
+  id                    Int      @id @default(autoincrement())
+  folio                 String   @unique
+  cajeroId              String
+  fechaApertura         DateTime
+  fechaCierre           DateTime?
+  fondoCaja             Decimal  @db.Decimal(10, 2)
+  cantidadTickets       Int      @default(0)
+  ventasMembresias      Decimal  @default(0) @db.Decimal(10, 2)
+  ventasProductosTasa0  Decimal  @default(0) @db.Decimal(10, 2)
+  ventasProductosTasa16 Decimal  @default(0) @db.Decimal(10, 2)
+  subtotal              Decimal  @default(0) @db.Decimal(10, 2)
+  iva                   Decimal  @default(0) @db.Decimal(10, 2)
+  totalVentas           Decimal  @default(0) @db.Decimal(10, 2)
+  efectivo              Decimal  @default(0) @db.Decimal(10, 2)
+  tarjetaDebito         Decimal  @default(0) @db.Decimal(10, 2)
+  tarjetaCredito        Decimal  @default(0) @db.Decimal(10, 2)
+  totalVoucher          Decimal  @default(0) @db.Decimal(10, 2)
+  totalRetiros          Decimal  @default(0) @db.Decimal(10, 2)
+  conceptoRetiros       String?
+  ventasCanceladas      Decimal  @default(0) @db.Decimal(10, 2)
+  totalCaja             Decimal  @default(0) @db.Decimal(10, 2)
+  diferencia            Decimal  @default(0) @db.Decimal(10, 2)
+  observaciones         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  cajero      User         @relation(fields: [cajeroId], references: [id])
+  inventarios Inventario[]
+
+  @@index([cajeroId])
+  @@index([fechaApertura])
+  @@index([fechaCierre])
+  @@map("cortes")
+}
+
+
