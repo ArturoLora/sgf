@@ -1,82 +1,99 @@
 import { PrismaClient } from "@prisma/client";
-import { createHash } from "crypto";
+import { auth } from "../lib/auth"; // Importar auth instance
 
 const prisma = new PrismaClient();
-
-function hashPassword(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
-}
 
 async function main() {
   console.log("🌱 Iniciando seed...");
 
-  const hashedPassword = hashPassword("123");
+  // ✅ Usar Better Auth API para crear usuarios - maneja el hash automáticamente
 
-  // Usuarios
-  const adminNacho = await prisma.user.upsert({
+  // Usuario Admin: Nacho
+  try {
+    await auth.api.signUpEmail({
+      body: {
+        name: "Nacho",
+        email: "nacho@nachogym.com",
+        password: "123",
+      },
+    });
+    console.log("✅ Admin Nacho creado");
+  } catch (e: any) {
+    if (e.message?.includes("already exists")) {
+      console.log("ℹ️  Nacho ya existe");
+    } else {
+      throw e;
+    }
+  }
+
+  // Usuario Empleado: Carlos
+  try {
+    await auth.api.signUpEmail({
+      body: {
+        name: "Carlos",
+        email: "carlos@nachogym.com",
+        password: "123",
+      },
+    });
+    console.log("✅ Empleado Carlos creado");
+  } catch (e: any) {
+    if (e.message?.includes("already exists")) {
+      console.log("ℹ️  Carlos ya existe");
+    } else {
+      throw e;
+    }
+  }
+
+  // Usuario Empleado: Andrew
+  try {
+    await auth.api.signUpEmail({
+      body: {
+        name: "Andrew",
+        email: "andrew@nachogym.com",
+        password: "123",
+      },
+    });
+    console.log("✅ Empleado Andrew creado");
+  } catch (e: any) {
+    if (e.message?.includes("already exists")) {
+      console.log("ℹ️  Andrew ya existe");
+    } else {
+      throw e;
+    }
+  }
+
+  // Actualizar roles manualmente
+  await prisma.user.update({
     where: { email: "nacho@nachogym.com" },
-    update: {},
-    create: {
-      id: "admin-001",
-      name: "Nacho",
-      email: "nacho@nachogym.com",
-      emailVerified: true,
-      role: "ADMIN",
-      activo: true,
-      accounts: {
-        create: {
-          id: "account-admin-001",
-          accountId: "admin-001",
-          providerId: "credential",
-          password: hashedPassword,
-        },
-      },
-    },
+    data: { role: "ADMIN", activo: true },
   });
 
-  const employeeCarlos = await prisma.user.upsert({
+  await prisma.user.update({
     where: { email: "carlos@nachogym.com" },
-    update: {},
-    create: {
-      id: "employee-001",
-      name: "Carlos",
-      email: "carlos@nachogym.com",
-      emailVerified: true,
-      role: "EMPLEADO",
-      activo: true,
-      accounts: {
-        create: {
-          id: "account-employee-001",
-          accountId: "employee-001",
-          providerId: "credential",
-          password: hashedPassword,
-        },
-      },
-    },
+    data: { role: "EMPLEADO", activo: true },
   });
 
-  const employeeAndrew = await prisma.user.upsert({
+  await prisma.user.update({
     where: { email: "andrew@nachogym.com" },
-    update: {},
-    create: {
-      id: "employee-002",
-      name: "Andrew",
-      email: "andrew@nachogym.com",
-      emailVerified: true,
-      role: "EMPLEADO",
-      activo: true,
-      accounts: {
-        create: {
-          id: "account-employee-002",
-          accountId: "employee-002",
-          providerId: "credential",
-          password: hashedPassword,
-        },
-      },
-    },
+    data: { role: "EMPLEADO", activo: true },
   });
 
-  console.log("✅ Usuarios creados");
+  console.log("✅ Roles actualizados");
+
+  // Obtener IDs de usuarios
+  const adminNacho = await prisma.user.findUnique({
+    where: { email: "nacho@nachogym.com" },
+  });
+  const employeeCarlos = await prisma.user.findUnique({
+    where: { email: "carlos@nachogym.com" },
+  });
+  const employeeAndrew = await prisma.user.findUnique({
+    where: { email: "andrew@nachogym.com" },
+  });
+
+  if (!adminNacho || !employeeCarlos || !employeeAndrew) {
+    throw new Error("No se pudieron crear los usuarios");
+  }
 
   // Socios con fechaFin calculada
   const socios = [
