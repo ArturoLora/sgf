@@ -66,7 +66,6 @@ export default function VentasForm({
     generarTicket();
   }, []);
 
-  // Cerrar dropdowns al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -100,17 +99,8 @@ export default function VentasForm({
       s.nombre?.toLowerCase().includes(busquedaSocio.toLowerCase()),
   );
 
-  const esMembresia = (producto: Producto) => {
-    return (
-      producto.nombre.includes("EFECTIVO") ||
-      producto.nombre === "VISITA" ||
-      producto.nombre.includes("MENSUALIDAD") ||
-      producto.nombre.includes("SEMANA")
-    );
-  };
-
   const agregarProducto = (producto: Producto, cantidad: number = 1) => {
-    if (!esMembresia(producto) && producto.existenciaGym < cantidad) {
+    if (producto.existenciaGym < cantidad) {
       setError(`Stock insuficiente. Disponible: ${producto.existenciaGym}`);
       return;
     }
@@ -156,11 +146,7 @@ export default function VentasForm({
     const linea = lineas[index];
     const producto = productos.find((p) => p.id === linea.productoId);
 
-    if (
-      producto &&
-      !esMembresia(producto) &&
-      producto.existenciaGym < nuevaCantidad
-    ) {
+    if (producto && producto.existenciaGym < nuevaCantidad) {
       setError(`Stock insuficiente. Disponible: ${producto.existenciaGym}`);
       return;
     }
@@ -260,7 +246,7 @@ export default function VentasForm({
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Panel Principal */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Búsqueda de Producto con posición absoluta */}
+          {/* Búsqueda de Producto */}
           <Card>
             <CardContent className="pt-6">
               <div className="relative" ref={searchRef}>
@@ -277,14 +263,12 @@ export default function VentasForm({
                   autoFocus
                 />
 
-                {/* Dropdown con posición absoluta */}
                 {mostrarResultadosProducto &&
                   busquedaProducto &&
                   productosFiltrados.length > 0 && (
                     <div className="absolute z-50 w-full mt-2 max-h-80 overflow-y-auto rounded-lg border bg-white shadow-xl">
                       {productosFiltrados.map((p) => {
-                        const sinStock =
-                          !esMembresia(p) && p.existenciaGym === 0;
+                        const sinStock = p.existenciaGym === 0;
                         return (
                           <button
                             key={p.id}
@@ -307,9 +291,7 @@ export default function VentasForm({
                             <Badge
                               variant={sinStock ? "destructive" : "default"}
                             >
-                              {esMembresia(p)
-                                ? "Membresía"
-                                : `Stock: ${p.existenciaGym}`}
+                              Stock: {p.existenciaGym}
                             </Badge>
                           </button>
                         );
@@ -320,7 +302,7 @@ export default function VentasForm({
             </CardContent>
           </Card>
 
-          {/* Carrito - altura fija para evitar desplazamiento */}
+          {/* Carrito */}
           <Card className="min-h-[400px]">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -408,7 +390,10 @@ export default function VentasForm({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Cliente
+                Cliente{" "}
+                <span className="text-xs text-gray-500 font-normal">
+                  (opcional)
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -447,7 +432,6 @@ export default function VentasForm({
                     }}
                     onFocus={() => setMostrarResultadosSocio(true)}
                   />
-                  {/* Dropdown absoluto para socios */}
                   {mostrarResultadosSocio &&
                     busquedaSocio &&
                     sociosFiltrados.length > 0 && (

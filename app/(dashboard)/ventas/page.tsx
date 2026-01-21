@@ -5,23 +5,39 @@ import { ProductosService, SociosService, CortesService } from "@/services";
 
 /**
  * Página de Ventas - Server Component
- * Los datos ya vienen serializados automáticamente desde los services
+ * Filtra productos de membresía para mostrar solo productos físicos
  */
 export default async function VentasPage() {
-  // Cargar datos en paralelo - ya vienen serializados automáticamente
-  const [corteActivo, productos, socios] = await Promise.all([
+  const [corteActivo, todosProductos, socios] = await Promise.all([
     CortesService.getCorteActivo(),
     ProductosService.getProductosActivos(),
     SociosService.getSociosActivos(),
   ]);
 
+  // Filtrar productos de membresía
+  const keywordsMembresias = [
+    "EFECTIVO",
+    "VISITA",
+    "MENSUALIDAD",
+    "SEMANA",
+    "TRIMESTRE",
+    "ANUAL",
+    "PROMOCION",
+    "RENACER",
+  ];
+
+  const productos = todosProductos.filter((p) => {
+    return !keywordsMembresias.some((keyword) =>
+      p.nombre.toUpperCase().includes(keyword),
+    );
+  });
+
   console.log("[Ventas Page] Datos cargados:", {
     corte: corteActivo ? `✅ ${corteActivo.folio}` : "❌ No hay corte",
-    productos: `✅ ${productos.length} productos`,
+    productos: `✅ ${productos.length} productos físicos`,
     socios: `✅ ${socios.length} socios`,
   });
 
-  // Si no hay corte activo, mostrar advertencia
   if (!corteActivo) {
     return (
       <div className="space-y-6">
@@ -43,7 +59,6 @@ export default async function VentasPage() {
     );
   }
 
-  // Renderizar formulario de ventas con datos ya serializados
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
