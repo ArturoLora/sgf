@@ -10,11 +10,13 @@ import {
   Package,
   Archive,
   Calculator,
+  History,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Ventas", href: "/ventas", icon: ShoppingCart },
+  { name: "Historial", href: "/ventas/historial", icon: History },
   { name: "Socios", href: "/socios", icon: Users },
   { name: "Productos", href: "/productos", icon: Package },
   { name: "Inventario", href: "/inventario", icon: Archive },

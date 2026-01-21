@@ -1,4 +1,4 @@
-NACHO GYM - Export 20260121_083136
+NACHO GYM - Export 20260121_083915
 
 
 ### CONFIGURACIÓN ###
@@ -1297,6 +1297,247 @@ export default async function DashboardPage() {
 
 
 
+=== app/(dashboard)/dashboard-stats.tsx ===
+
+// app/(dashboard)/dashboard-stats.tsx
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
+
+interface StatsProps {
+  ventas: number;
+  total: number;
+  sociosVencidos: number;
+  stockBajo: number;
+}
+
+export default function DashboardStats({
+  ventas,
+  total,
+  sociosVencidos,
+  stockBajo,
+}: StatsProps) {
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Ventas del Día</CardTitle>
+          <ShoppingCart className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{ventas}</div>
+          <p className="text-xs text-gray-500">tickets registrados</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Total del Día</CardTitle>
+          <DollarSign className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">${total.toFixed(2)}</div>
+          <p className="text-xs text-gray-500">en ventas</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Socios Vencidos</CardTitle>
+          <Users className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{sociosVencidos}</div>
+          <p className="text-xs text-gray-500">
+            {sociosVencidos === 1 ? "socio" : "socios"}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+          <TrendingUp className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stockBajo}</div>
+          <p className="text-xs text-gray-500">
+            {stockBajo === 1 ? "producto" : "productos"}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+
+=== app/(dashboard)/corte-alert.tsx ===
+
+// app/(dashboard)/corte-alert.tsx
+"use client";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle, CheckCircle } from "lucide-react";
+
+interface CorteAlertProps {
+  corteActivo: {
+    folio: string;
+    cajero: { name: string };
+    fechaApertura: string;
+    cantidadTickets: number;
+  } | null;
+}
+
+export default function CorteAlert({ corteActivo }: CorteAlertProps) {
+  if (corteActivo) {
+    return (
+      <Card className="border-green-200 bg-green-50">
+        <CardContent className="flex items-center justify-between p-6">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="h-6 w-6 text-green-600" />
+            <div>
+              <p className="font-semibold text-green-900">
+                Corte Activo: {corteActivo.folio}
+              </p>
+              <p className="text-sm text-green-700">
+                Cajero: {corteActivo.cajero.name} | Apertura:{" "}
+                {new Date(corteActivo.fechaApertura).toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className="bg-white">
+            Tickets: {corteActivo.cantidadTickets}
+          </Badge>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-yellow-200 bg-yellow-50">
+      <CardContent className="flex items-center gap-3 p-6">
+        <AlertCircle className="h-6 w-6 text-yellow-600" />
+        <p className="font-semibold text-yellow-900">
+          No hay corte activo. Debe abrir uno para registrar ventas.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
+=== app/(dashboard)/alertas-dashboard.tsx ===
+
+// app/(dashboard)/alertas-dashboard.tsx
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle } from "lucide-react";
+
+interface Socio {
+  id: number;
+  nombre: string;
+  numeroSocio: string;
+}
+
+interface Producto {
+  id: number;
+  nombre: string;
+  existenciaGym: number;
+  existenciaBodega: number;
+  existenciaMin: number;
+}
+
+interface AlertasProps {
+  sociosVencidos: Socio[];
+  stockBajo: Producto[];
+}
+
+export default function AlertasDashboard({
+  sociosVencidos,
+  stockBajo,
+}: AlertasProps) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {sociosVencidos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              Socios con Membresía Vencida
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sociosVencidos.slice(0, 5).map((socio) => (
+                <div
+                  key={socio.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div>
+                    <p className="font-medium">{socio.nombre}</p>
+                    <p className="text-sm text-gray-500">{socio.numeroSocio}</p>
+                  </div>
+                  <Badge variant="destructive">Vencido</Badge>
+                </div>
+              ))}
+              {sociosVencidos.length > 5 && (
+                <p className="text-sm text-gray-500">
+                  + {sociosVencidos.length - 5} más
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {stockBajo.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              Productos con Stock Bajo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {stockBajo.slice(0, 5).map((producto) => (
+                <div
+                  key={producto.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div>
+                    <p className="font-medium">{producto.nombre}</p>
+                    <p className="text-sm text-gray-500">
+                      Gym: {producto.existenciaGym} | Bodega:{" "}
+                      {producto.existenciaBodega}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="bg-yellow-50">
+                    Min: {producto.existenciaMin}
+                  </Badge>
+                </div>
+              ))}
+              {stockBajo.length > 5 && (
+                <p className="text-sm text-gray-500">
+                  + {stockBajo.length - 5} más
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+
+
 === app/(dashboard)/ventas/page.tsx ===
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -2433,6 +2674,214 @@ export default function CortesManager({
         />
       )}
     </div>
+  );
+}
+
+
+
+=== app/(dashboard)/cortes/cortes-filtros.tsx ===
+
+// app/(dashboard)/cortes/cortes-filtros.tsx
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, X, Filter } from "lucide-react";
+
+interface FiltrosCortes {
+  busqueda: string;
+  fechaInicio: string;
+  fechaFin: string;
+  cajero: string;
+  estado: "todos" | "activos" | "cerrados";
+  ordenarPor: "fecha" | "total" | "diferencia" | "tickets";
+  orden: "asc" | "desc";
+}
+
+interface CortesFiltrosProps {
+  onFiltrar: (filtros: FiltrosCortes) => void;
+  cajeros: Array<{ id: string; name: string }>;
+}
+
+export default function CortesFiltros({
+  onFiltrar,
+  cajeros,
+}: CortesFiltrosProps) {
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [filtros, setFiltros] = useState<FiltrosCortes>({
+    busqueda: "",
+    fechaInicio: "",
+    fechaFin: "",
+    cajero: "todos",
+    estado: "todos",
+    ordenarPor: "fecha",
+    orden: "desc",
+  });
+
+  const handleChange = (key: keyof FiltrosCortes, value: string) => {
+    const nuevosFiltros = { ...filtros, [key]: value };
+    setFiltros(nuevosFiltros);
+    onFiltrar(nuevosFiltros);
+  };
+
+  const limpiarFiltros = () => {
+    const filtrosLimpios: FiltrosCortes = {
+      busqueda: "",
+      fechaInicio: "",
+      fechaFin: "",
+      cajero: "todos",
+      estado: "todos",
+      ordenarPor: "fecha",
+      orden: "desc",
+    };
+    setFiltros(filtrosLimpios);
+    onFiltrar(filtrosLimpios);
+  };
+
+  const hayFiltrosActivos =
+    filtros.busqueda ||
+    filtros.fechaInicio ||
+    filtros.fechaFin ||
+    filtros.cajero !== "todos" ||
+    filtros.estado !== "todos";
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-4">
+        {/* Búsqueda Rápida */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Buscar por folio, cajero, observaciones..."
+              value={filtros.busqueda}
+              onChange={(e) => handleChange("busqueda", e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className="gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            Filtros
+          </Button>
+          {hayFiltrosActivos && (
+            <Button variant="ghost" onClick={limpiarFiltros} className="gap-2">
+              <X className="h-4 w-4" />
+              Limpiar
+            </Button>
+          )}
+        </div>
+
+        {/* Filtros Avanzados */}
+        {mostrarFiltros && (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 pt-4 border-t">
+            <div className="space-y-2">
+              <Label>Fecha Inicio</Label>
+              <Input
+                type="date"
+                value={filtros.fechaInicio}
+                onChange={(e) => handleChange("fechaInicio", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Fecha Fin</Label>
+              <Input
+                type="date"
+                value={filtros.fechaFin}
+                onChange={(e) => handleChange("fechaFin", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cajero</Label>
+              <Select
+                value={filtros.cajero}
+                onValueChange={(value) => handleChange("cajero", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {cajeros.map((cajero) => (
+                    <SelectItem key={cajero.id} value={cajero.id}>
+                      {cajero.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Select
+                value={filtros.estado}
+                onValueChange={(value: any) => handleChange("estado", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="activos">Activos</SelectItem>
+                  <SelectItem value="cerrados">Cerrados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Ordenar Por</Label>
+              <Select
+                value={filtros.ordenarPor}
+                onValueChange={(value: any) =>
+                  handleChange("ordenarPor", value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fecha">Fecha</SelectItem>
+                  <SelectItem value="total">Total Ventas</SelectItem>
+                  <SelectItem value="diferencia">Diferencia</SelectItem>
+                  <SelectItem value="tickets">Tickets</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Orden</Label>
+              <Select
+                value={filtros.orden}
+                onValueChange={(value: any) => handleChange("orden", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Mayor a Menor</SelectItem>
+                  <SelectItem value="asc">Menor a Mayor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -5945,6 +6394,7 @@ export async function verificarVigencia(socioId: number): Promise<{
 
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { serializeDecimal } from "./utils";
 
 const prisma = new PrismaClient();
 
@@ -5984,7 +6434,7 @@ function formatDate(date: Date): string {
 // ==================== REPORTES DE VENTAS ====================
 
 export async function getReporteVentasPorProducto(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ): Promise<ReporteVentasProducto[]> {
   const ventas = await prisma.inventario.findMany({
     where: {
@@ -6004,40 +6454,43 @@ export async function getReporteVentasPorProducto(
     },
   });
 
-  const reportePorProducto = ventas.reduce((acc, venta) => {
-    const id = venta.producto.id;
-    if (!acc[id]) {
-      acc[id] = {
-        productoId: id,
-        productoNombre: venta.producto.nombre,
-        cantidadVendida: 0,
-        totalVentas: new Decimal(0),
-        cantidadCancelada: 0,
-        totalCancelado: new Decimal(0),
-      };
-    }
+  const reportePorProducto = ventas.reduce(
+    (acc, venta) => {
+      const id = venta.producto.id;
+      if (!acc[id]) {
+        acc[id] = {
+          productoId: id,
+          productoNombre: venta.producto.nombre,
+          cantidadVendida: 0,
+          totalVentas: new Decimal(0),
+          cantidadCancelada: 0,
+          totalCancelado: new Decimal(0),
+        };
+      }
 
-    const cantidad = Math.abs(venta.cantidad);
-    const total = toDecimal(venta.total || 0);
+      const cantidad = Math.abs(venta.cantidad);
+      const total = toDecimal(venta.total || 0);
 
-    if (venta.cancelada) {
-      acc[id].cantidadCancelada += cantidad;
-      acc[id].totalCancelado = acc[id].totalCancelado.plus(total);
-    } else {
-      acc[id].cantidadVendida += cantidad;
-      acc[id].totalVentas = acc[id].totalVentas.plus(total);
-    }
+      if (venta.cancelada) {
+        acc[id].cantidadCancelada += cantidad;
+        acc[id].totalCancelado = acc[id].totalCancelado.plus(total);
+      } else {
+        acc[id].cantidadVendida += cantidad;
+        acc[id].totalVentas = acc[id].totalVentas.plus(total);
+      }
 
-    return acc;
-  }, {} as Record<number, ReporteVentasProducto>);
+      return acc;
+    },
+    {} as Record<number, ReporteVentasProducto>,
+  );
 
   return Object.values(reportePorProducto).sort(
-    (a, b) => Number(b.totalVentas) - Number(a.totalVentas)
+    (a, b) => Number(b.totalVentas) - Number(a.totalVentas),
   );
 }
 
 export async function getReporteVentasDiarias(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ): Promise<ReporteVentasDiarias[]> {
   const ventas = await prisma.inventario.findMany({
     where: {
@@ -6049,31 +6502,42 @@ export async function getReporteVentasDiarias(
     },
   });
 
-  const ventasPorDia = ventas.reduce((acc, venta) => {
-    const fecha = formatDate(venta.fecha);
-    if (!acc[fecha]) {
-      acc[fecha] = {
-        fecha,
-        tickets: new Set<string>(),
-        totalVentas: new Decimal(0),
-        totalCancelado: new Decimal(0),
-      };
-    }
+  const ventasPorDia = ventas.reduce(
+    (acc, venta) => {
+      const fecha = formatDate(venta.fecha);
+      if (!acc[fecha]) {
+        acc[fecha] = {
+          fecha,
+          tickets: new Set<string>(),
+          totalVentas: new Decimal(0),
+          totalCancelado: new Decimal(0),
+        };
+      }
 
-    if (venta.ticket) {
-      acc[fecha].tickets.add(venta.ticket);
-    }
+      if (venta.ticket) {
+        acc[fecha].tickets.add(venta.ticket);
+      }
 
-    const total = toDecimal(venta.total || 0);
+      const total = toDecimal(venta.total || 0);
 
-    if (venta.cancelada) {
-      acc[fecha].totalCancelado = acc[fecha].totalCancelado.plus(total);
-    } else {
-      acc[fecha].totalVentas = acc[fecha].totalVentas.plus(total);
-    }
+      if (venta.cancelada) {
+        acc[fecha].totalCancelado = acc[fecha].totalCancelado.plus(total);
+      } else {
+        acc[fecha].totalVentas = acc[fecha].totalVentas.plus(total);
+      }
 
-    return acc;
-  }, {} as Record<string, { fecha: string; tickets: Set<string>; totalVentas: Decimal; totalCancelado: Decimal }>);
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        fecha: string;
+        tickets: Set<string>;
+        totalVentas: Decimal;
+        totalCancelado: Decimal;
+      }
+    >,
+  );
 
   return Object.values(ventasPorDia)
     .map((dia) => ({
@@ -6086,7 +6550,7 @@ export async function getReporteVentasDiarias(
 }
 
 export async function getReporteVentasPorFormaPago(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ) {
   const ventas = await prisma.inventario.findMany({
     where: {
@@ -6126,15 +6590,13 @@ export async function getReporteVentasPorFormaPago(
         cantidad: 0,
         total: new Decimal(0),
       },
-    }
+    },
   );
 
   return Object.values(reporte);
 }
 
-export async function getReporteVentasCanceladas(
-  params: ReportePeriodoParams
-) {
+export async function getReporteVentasCanceladas(params: ReportePeriodoParams) {
   const ventas = await prisma.inventario.findMany({
     where: {
       tipo: "VENTA",
@@ -6167,7 +6629,7 @@ export async function getReporteVentasCanceladas(
 
   const totalCancelado = ventas.reduce(
     (sum, v) => sum.plus(toDecimal(v.total || 0)),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   return {
@@ -6180,7 +6642,7 @@ export async function getReporteVentasCanceladas(
 // ==================== REPORTES DE INVENTARIO ====================
 
 export async function getReporteMovimientosInventario(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ) {
   const movimientos = await prisma.inventario.findMany({
     where: {
@@ -6216,7 +6678,7 @@ export async function getReporteMovimientosInventario(
       acc[tipo].cantidad += 1;
       return acc;
     },
-    {} as Record<string, { tipo: string; cantidad: number }>
+    {} as Record<string, { tipo: string; cantidad: number }>,
   );
 
   return {
@@ -6240,20 +6702,20 @@ export async function getReporteStockActual() {
         Number(p.precioVenta) * (p.existenciaBodega + p.existenciaGym);
       return acc;
     },
-    { bodega: 0, gym: 0, total: 0, valorTotal: 0 }
+    { bodega: 0, gym: 0, total: 0, valorTotal: 0 },
   );
 
   const bajoStock = productos.filter(
     (p) =>
-      p.existenciaGym < p.existenciaMin ||
-      p.existenciaBodega < p.existenciaMin
+      p.existenciaGym < p.existenciaMin || p.existenciaBodega < p.existenciaMin,
   );
 
-  return {
+  // ✅ Serializar antes de retornar
+  return serializeDecimal({
     productos,
     stockTotal,
     bajoStock,
-  };
+  });
 }
 
 // ==================== REPORTES DE SOCIOS ====================
@@ -6282,22 +6744,25 @@ export async function getReporteNuevosSocios(params: ReportePeriodoParams) {
     orderBy: { createdAt: "desc" },
   });
 
-  const porDia = socios.reduce((acc, socio) => {
-    const fecha = formatDate(socio.createdAt);
-    if (!acc[fecha]) {
-      acc[fecha] = {
-        fecha,
-        cantidad: 0,
-      };
-    }
-    acc[fecha].cantidad += 1;
-    return acc;
-  }, {} as Record<string, { fecha: string; cantidad: number }>);
+  const porDia = socios.reduce(
+    (acc, socio) => {
+      const fecha = formatDate(socio.createdAt);
+      if (!acc[fecha]) {
+        acc[fecha] = {
+          fecha,
+          cantidad: 0,
+        };
+      }
+      acc[fecha].cantidad += 1;
+      return acc;
+    },
+    {} as Record<string, { fecha: string; cantidad: number }>,
+  );
 
   return {
     socios,
     porDia: Object.values(porDia).sort((a, b) =>
-      a.fecha.localeCompare(b.fecha)
+      a.fecha.localeCompare(b.fecha),
     ),
     total: socios.length,
   };
@@ -6325,28 +6790,33 @@ export async function getReporteVisitasSocios(params: ReportePeriodoParams) {
     },
   });
 
-  const visitasPorSocio = visitas.reduce((acc, visita) => {
-    const socioId = visita.socioId!;
-    if (!acc[socioId]) {
-      acc[socioId] = {
-        socio: visita.socio!,
-        cantidadVisitas: 0,
-      };
-    }
-    acc[socioId].cantidadVisitas += 1;
-    return acc;
-  }, {} as Record<number, { socio: any; cantidadVisitas: number }>);
+  const visitasPorSocio = visitas.reduce(
+    (acc, visita) => {
+      const socioId = visita.socioId!;
+      if (!acc[socioId]) {
+        acc[socioId] = {
+          socio: visita.socio!,
+          cantidadVisitas: 0,
+        };
+      }
+      acc[socioId].cantidadVisitas += 1;
+      return acc;
+    },
+    {} as Record<number, { socio: any; cantidadVisitas: number }>,
+  );
 
   return Object.values(visitasPorSocio).sort(
-    (a, b) => b.cantidadVisitas - a.cantidadVisitas
+    (a, b) => b.cantidadVisitas - a.cantidadVisitas,
   );
 }
 
 // ==================== DASHBOARD ====================
 
 export async function getDashboardResumen(params?: ReportePeriodoParams) {
-  const fechaInicio = params?.fechaInicio || new Date(new Date().setHours(0, 0, 0, 0));
-  const fechaFin = params?.fechaFin || new Date(new Date().setHours(23, 59, 59, 999));
+  const fechaInicio =
+    params?.fechaInicio || new Date(new Date().setHours(0, 0, 0, 0));
+  const fechaFin =
+    params?.fechaFin || new Date(new Date().setHours(23, 59, 59, 999));
 
   const [ventasHoy, sociosActivos, productosActivos, corteActivo] =
     await Promise.all([
@@ -6376,7 +6846,7 @@ export async function getDashboardResumen(params?: ReportePeriodoParams) {
 
   const totalVentasHoy = ventasHoy.reduce(
     (sum, v) => sum.plus(toDecimal(v.total || 0)),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   const ticketsHoy = new Set(ventasHoy.map((v) => v.ticket)).size;
@@ -6438,12 +6908,12 @@ export async function getReporteCortes(params: ReportePeriodoParams) {
 
   const totalVentas = cortes.reduce(
     (sum, c) => sum.plus(toDecimal(c.totalVentas)),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   const totalDiferencias = cortes.reduce(
     (sum, c) => sum.plus(toDecimal(Math.abs(Number(c.diferencia)))),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   const promedioVentas =
