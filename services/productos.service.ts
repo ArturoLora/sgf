@@ -1,4 +1,6 @@
 import { PrismaClient, Ubicacion } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+import { serializeDecimal } from "./utils";
 
 const prisma = new PrismaClient();
 
@@ -44,15 +46,17 @@ export async function getAllProductos(params?: SearchProductosParams) {
     orderBy: { nombre: "asc" },
   });
 
+  let result = productos;
+
   if (params?.bajoStock) {
-    return productos.filter(
+    result = productos.filter(
       (p) =>
         p.existenciaGym < p.existenciaMin ||
-        p.existenciaBodega < p.existenciaMin
+        p.existenciaBodega < p.existenciaMin,
     );
   }
 
-  return productos;
+  return serializeDecimal(result);
 }
 
 export async function getProductoById(id: number) {
@@ -83,7 +87,7 @@ export async function getProductoById(id: number) {
     throw new Error("Producto no encontrado");
   }
 
-  return producto;
+  return serializeDecimal(producto);
 }
 
 export async function createProducto(data: CreateProductoInput) {
@@ -103,7 +107,7 @@ export async function createProducto(data: CreateProductoInput) {
     },
   });
 
-  return producto;
+  return serializeDecimal(producto);
 }
 
 export async function updateProducto(id: number, data: UpdateProductoInput) {
@@ -130,7 +134,7 @@ export async function updateProducto(id: number, data: UpdateProductoInput) {
     data,
   });
 
-  return updatedProducto;
+  return serializeDecimal(updatedProducto);
 }
 
 export async function toggleProductoStatus(id: number) {
@@ -147,14 +151,16 @@ export async function toggleProductoStatus(id: number) {
     data: { activo: !producto.activo },
   });
 
-  return updatedProducto;
+  return serializeDecimal(updatedProducto);
 }
 
 export async function getProductosActivos() {
-  return await prisma.producto.findMany({
+  const productos = await prisma.producto.findMany({
     where: { activo: true },
     orderBy: { nombre: "asc" },
   });
+
+  return serializeDecimal(productos);
 }
 
 export async function getProductosBajoStock() {
@@ -162,16 +168,17 @@ export async function getProductosBajoStock() {
     where: { activo: true },
   });
 
-  return productos.filter(
+  const result = productos.filter(
     (p) =>
-      p.existenciaGym < p.existenciaMin ||
-      p.existenciaBodega < p.existenciaMin
+      p.existenciaGym < p.existenciaMin || p.existenciaBodega < p.existenciaMin,
   );
+
+  return serializeDecimal(result);
 }
 
 export async function getExistenciaProducto(
   productoId: number,
-  ubicacion?: Ubicacion
+  ubicacion?: Ubicacion,
 ) {
   const producto = await prisma.producto.findUnique({
     where: { id: productoId },
@@ -187,11 +194,11 @@ export async function getExistenciaProducto(
     return producto.existenciaGym;
   }
 
-  return {
+  return serializeDecimal({
     bodega: producto.existenciaBodega,
     gym: producto.existenciaGym,
     total: producto.existenciaBodega + producto.existenciaGym,
-  };
+  });
 }
 
 export async function getProductosMembresia() {
@@ -207,7 +214,7 @@ export async function getProductosMembresia() {
     orderBy: { nombre: "asc" },
   });
 
-  return productos;
+  return serializeDecimal(productos);
 }
 
 export async function getProductosVenta() {
@@ -225,7 +232,7 @@ export async function getProductosVenta() {
     orderBy: { nombre: "asc" },
   });
 
-  return productos;
+  return serializeDecimal(productos);
 }
 
 export async function getEstadisticasProductos() {
@@ -237,10 +244,10 @@ export async function getEstadisticasProductos() {
   });
 
   const bajoStockGym = productos.filter(
-    (p) => p.existenciaGym < p.existenciaMin
+    (p) => p.existenciaGym < p.existenciaMin,
   ).length;
   const bajoStockBodega = productos.filter(
-    (p) => p.existenciaBodega < p.existenciaMin
+    (p) => p.existenciaBodega < p.existenciaMin,
   ).length;
 
   const valorInventario = productos.reduce((sum, p) => {

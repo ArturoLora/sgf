@@ -1,4 +1,6 @@
 import { PrismaClient, TipoMembresia } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+import { serializeDecimal } from "./utils";
 
 const prisma = new PrismaClient();
 
@@ -45,38 +47,31 @@ export interface SearchSociosParams {
 
 function calcularFechaFin(
   fechaInicio: Date,
-  tipoMembresia: TipoMembresia
+  tipoMembresia: TipoMembresia,
 ): Date {
   const fecha = new Date(fechaInicio);
 
   switch (tipoMembresia) {
     case "VISITA":
-      // Una visita no tiene fecha fin
       return fecha;
-
     case "SEMANA":
       fecha.setDate(fecha.getDate() + 7);
       break;
-
     case "MES_ESTUDIANTE":
     case "MES_GENERAL":
       fecha.setMonth(fecha.getMonth() + 1);
       break;
-
     case "TRIMESTRE_ESTUDIANTE":
     case "TRIMESTRE_GENERAL":
       fecha.setMonth(fecha.getMonth() + 3);
       break;
-
     case "ANUAL_ESTUDIANTE":
     case "ANUAL_GENERAL":
       fecha.setFullYear(fecha.getFullYear() + 1);
       break;
-
     case "PROMOCION":
     case "RENACER":
     case "CONSULTA_NUTRICION":
-      // Membresías especiales sin vigencia definida
       fecha.setMonth(fecha.getMonth() + 1);
       break;
   }
@@ -86,7 +81,7 @@ function calcularFechaFin(
 
 export function calcularFechasMembresia(
   tipoMembresia: TipoMembresia,
-  fechaInicio?: Date
+  fechaInicio?: Date,
 ): { fechaInicio: Date; fechaFin: Date } {
   const inicio = fechaInicio || new Date();
   const fin = calcularFechaFin(inicio, tipoMembresia);
@@ -119,10 +114,12 @@ export async function getAllSocios(params?: SearchSociosParams) {
     where.tipoMembresia = params.tipoMembresia;
   }
 
-  return await prisma.socio.findMany({
+  const socios = await prisma.socio.findMany({
     where,
     orderBy: { createdAt: "desc" },
   });
+
+  return serializeDecimal(socios);
 }
 
 export async function getSocioById(id: number) {
@@ -149,7 +146,7 @@ export async function getSocioById(id: number) {
     throw new Error("Socio no encontrado");
   }
 
-  return socio;
+  return serializeDecimal(socio);
 }
 
 export async function getSocioByNumero(numeroSocio: string) {
@@ -176,7 +173,7 @@ export async function getSocioByNumero(numeroSocio: string) {
     throw new Error("Socio no encontrado");
   }
 
-  return socio;
+  return serializeDecimal(socio);
 }
 
 export async function createSocio(data: CreateSocioInput) {
@@ -199,7 +196,7 @@ export async function createSocio(data: CreateSocioInput) {
     },
   });
 
-  return socio;
+  return serializeDecimal(socio);
 }
 
 export async function updateSocio(id: number, data: UpdateSocioInput) {
@@ -223,7 +220,7 @@ export async function updateSocio(id: number, data: UpdateSocioInput) {
     },
   });
 
-  return updatedSocio;
+  return serializeDecimal(updatedSocio);
 }
 
 export async function toggleSocioStatus(id: number) {
@@ -240,7 +237,7 @@ export async function toggleSocioStatus(id: number) {
     data: { activo: !socio.activo },
   });
 
-  return updatedSocio;
+  return serializeDecimal(updatedSocio);
 }
 
 export async function registrarVisita(socioId: number) {
@@ -264,14 +261,16 @@ export async function registrarVisita(socioId: number) {
     },
   });
 
-  return updatedSocio;
+  return serializeDecimal(updatedSocio);
 }
 
 export async function getSociosActivos() {
-  return await prisma.socio.findMany({
+  const socios = await prisma.socio.findMany({
     where: { activo: true },
     orderBy: { nombre: "asc" },
   });
+
+  return serializeDecimal(socios);
 }
 
 export async function getSociosPorVencer(dias: number = 7) {
@@ -279,7 +278,7 @@ export async function getSociosPorVencer(dias: number = 7) {
   const fechaLimite = new Date();
   fechaLimite.setDate(fechaLimite.getDate() + dias);
 
-  return await prisma.socio.findMany({
+  const socios = await prisma.socio.findMany({
     where: {
       activo: true,
       fechaFin: {
@@ -292,6 +291,8 @@ export async function getSociosPorVencer(dias: number = 7) {
     },
     orderBy: { fechaFin: "asc" },
   });
+
+  return serializeDecimal(socios);
 }
 
 export async function getEstadisticasSocios() {
@@ -335,13 +336,13 @@ export async function renovarMembresia(data: RenovarMembresiaInput) {
     },
   });
 
-  return updatedSocio;
+  return serializeDecimal(updatedSocio);
 }
 
 export async function getSociosVencidos() {
   const hoy = new Date();
 
-  return await prisma.socio.findMany({
+  const socios = await prisma.socio.findMany({
     where: {
       activo: true,
       fechaFin: {
@@ -353,6 +354,8 @@ export async function getSociosVencidos() {
     },
     orderBy: { fechaFin: "desc" },
   });
+
+  return serializeDecimal(socios);
 }
 
 export async function verificarVigencia(socioId: number): Promise<{

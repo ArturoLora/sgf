@@ -1,5 +1,6 @@
 import { PrismaClient, Role } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { serializeDecimal } from "./utils";
 
 const prisma = new PrismaClient();
 
@@ -26,10 +27,7 @@ function toDecimal(value: number | Decimal): Decimal {
 }
 
 function addDecimals(...values: (number | Decimal)[]): Decimal {
-  return values.reduce(
-    (sum, val) => sum.plus(toDecimal(val)),
-    new Decimal(0)
-  );
+  return values.reduce((sum, val) => sum.plus(toDecimal(val)), new Decimal(0));
 }
 
 function subtractDecimals(a: number | Decimal, b: number | Decimal): Decimal {
@@ -98,7 +96,7 @@ export async function abrirCorte(data: AbrirCorteInput) {
     },
   });
 
-  return corte;
+  return serializeDecimal(corte);
 }
 
 export async function cerrarCorte(data: CerrarCorteInput) {
@@ -167,7 +165,7 @@ export async function cerrarCorte(data: CerrarCorteInput) {
   const subtotal = addDecimals(
     ventasMembresias,
     ventasProductosTasa0,
-    ventasProductosTasa16
+    ventasProductosTasa16,
   );
 
   const iva = ventasProductosTasa16.times(0.16);
@@ -180,10 +178,9 @@ export async function cerrarCorte(data: CerrarCorteInput) {
 
   const totalCaja = toDecimal(data.totalCaja);
 
-  const totalEsperado = addDecimals(
-    corte.fondoCaja,
-    efectivo
-  ).minus(totalRetiros);
+  const totalEsperado = addDecimals(corte.fondoCaja, efectivo).minus(
+    totalRetiros,
+  );
 
   const diferencia = subtractDecimals(totalCaja, totalEsperado);
 
@@ -219,7 +216,7 @@ export async function cerrarCorte(data: CerrarCorteInput) {
     },
   });
 
-  return corteActualizado;
+  return serializeDecimal(corteActualizado);
 }
 
 export async function getCorteActivo() {
@@ -257,7 +254,7 @@ export async function getCorteActivo() {
     },
   });
 
-  return corte;
+  return corte ? serializeDecimal(corte) : null;
 }
 
 export async function getCorteById(id: number) {
@@ -297,11 +294,11 @@ export async function getCorteById(id: number) {
     throw new Error("Corte no encontrado");
   }
 
-  return corte;
+  return serializeDecimal(corte);
 }
 
 export async function getAllCortes(limite?: number) {
-  return await prisma.corte.findMany({
+  const cortes = await prisma.corte.findMany({
     include: {
       cajero: {
         select: {
@@ -314,10 +311,12 @@ export async function getAllCortes(limite?: number) {
     orderBy: { fechaApertura: "desc" },
     take: limite,
   });
+
+  return serializeDecimal(cortes);
 }
 
 export async function getCortesEntreFechas(fechaInicio: Date, fechaFin: Date) {
-  return await prisma.corte.findMany({
+  const cortes = await prisma.corte.findMany({
     where: {
       fechaApertura: {
         gte: fechaInicio,
@@ -335,10 +334,12 @@ export async function getCortesEntreFechas(fechaInicio: Date, fechaFin: Date) {
     },
     orderBy: { fechaApertura: "desc" },
   });
+
+  return serializeDecimal(cortes);
 }
 
 export async function getCortesPorCajero(cajeroId: string, limite?: number) {
-  return await prisma.corte.findMany({
+  const cortes = await prisma.corte.findMany({
     where: { cajeroId },
     include: {
       cajero: {
@@ -352,6 +353,8 @@ export async function getCortesPorCajero(cajeroId: string, limite?: number) {
     orderBy: { fechaApertura: "desc" },
     take: limite,
   });
+
+  return serializeDecimal(cortes);
 }
 
 export async function getResumenVentasCorte(corteId: number) {
@@ -370,21 +373,27 @@ export async function getResumenVentasCorte(corteId: number) {
     },
   });
 
-  const resumenPorProducto = ventas.reduce((acc, venta) => {
-    const nombre = venta.producto.nombre;
-    if (!acc[nombre]) {
-      acc[nombre] = {
-        producto: nombre,
-        cantidad: 0,
-        total: new Decimal(0),
-      };
-    }
-    acc[nombre].cantidad += Math.abs(venta.cantidad);
-    acc[nombre].total = acc[nombre].total.plus(toDecimal(venta.total || 0));
-    return acc;
-  }, {} as Record<string, { producto: string; cantidad: number; total: Decimal }>);
+  const resumenPorProducto = ventas.reduce(
+    (acc, venta) => {
+      const nombre = venta.producto.nombre;
+      if (!acc[nombre]) {
+        acc[nombre] = {
+          producto: nombre,
+          cantidad: 0,
+          total: new Decimal(0),
+        };
+      }
+      acc[nombre].cantidad += Math.abs(venta.cantidad);
+      acc[nombre].total = acc[nombre].total.plus(toDecimal(venta.total || 0));
+      return acc;
+    },
+    {} as Record<
+      string,
+      { producto: string; cantidad: number; total: Decimal }
+    >, // ✅ Todo en una línea
+  );
 
-  return Object.values(resumenPorProducto);
+  return serializeDecimal(Object.values(resumenPorProducto));
 }
 
 export async function getResumenPorFormaPago(corteId: number) {
@@ -408,15 +417,15 @@ export async function getResumenPorFormaPago(corteId: number) {
       TARJETA_DEBITO: new Decimal(0),
       TARJETA_CREDITO: new Decimal(0),
       TRANSFERENCIA: new Decimal(0),
-    }
+    },
   );
 
-  return resumen;
+  return serializeDecimal(resumen);
 }
 
 export async function getEstadisticasCortes(
   fechaInicio?: Date,
-  fechaFin?: Date
+  fechaFin?: Date,
 ) {
   const where: any = {};
 
@@ -434,22 +443,22 @@ export async function getEstadisticasCortes(
   const totalCortes = cortes.length;
   const totalVentas = cortes.reduce(
     (sum, c) => sum.plus(toDecimal(c.totalVentas)),
-    new Decimal(0)
+    new Decimal(0),
   );
   const promedioVentas =
     totalCortes > 0 ? totalVentas.dividedBy(totalCortes) : new Decimal(0);
 
   const totalDiferencias = cortes.reduce(
     (sum, c) => sum.plus(toDecimal(Math.abs(Number(c.diferencia)))),
-    new Decimal(0)
+    new Decimal(0),
   );
 
-  return {
+  return serializeDecimal({
     totalCortes,
     totalVentas,
     promedioVentas,
     totalDiferencias,
-  };
+  });
 }
 
 export async function cancelarCorte(corteId: number, userRole: Role) {

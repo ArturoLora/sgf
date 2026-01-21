@@ -4,7 +4,9 @@ import {
   Ubicacion,
   FormaPago,
 } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 import { calcularFechasMembresia } from "./socios.service";
+import { serializeDecimal } from "./utils";
 
 const prisma = new PrismaClient();
 
@@ -59,7 +61,7 @@ export interface CancelarVentaInput {
 async function validarExistencia(
   productoId: number,
   cantidad: number,
-  ubicacion: Ubicacion
+  ubicacion: Ubicacion,
 ) {
   const producto = await prisma.producto.findUnique({
     where: { id: productoId },
@@ -69,7 +71,6 @@ async function validarExistencia(
     throw new Error("Producto no encontrado");
   }
 
-  // Verificar si es un producto de membresía (no requiere stock)
   const esMembresia =
     producto.nombre.includes("EFECTIVO") ||
     producto.nombre.includes("VISITA") ||
@@ -78,7 +79,6 @@ async function validarExistencia(
     producto.nombre.includes("TRIMESTRE") ||
     producto.nombre.includes("ANUAL");
 
-  // Solo validar stock para productos físicos
   if (!esMembresia) {
     const existenciaActual =
       ubicacion === "BODEGA"
@@ -87,7 +87,7 @@ async function validarExistencia(
 
     if (existenciaActual < cantidad) {
       throw new Error(
-        `Stock insuficiente en ${ubicacion}. Disponible: ${existenciaActual}, Solicitado: ${cantidad}`
+        `Stock insuficiente en ${ubicacion}. Disponible: ${existenciaActual}, Solicitado: ${cantidad}`,
       );
     }
   }
@@ -101,7 +101,7 @@ export async function createVenta(data: CreateVentaInput) {
   const producto = await validarExistencia(
     data.productoId,
     data.cantidad,
-    "GYM"
+    "GYM",
   );
 
   const precioUnitario = data.precioUnitario || producto.precioVenta;
@@ -110,7 +110,6 @@ export async function createVenta(data: CreateVentaInput) {
   const cargo = data.cargo || 0;
   const total = subtotal - Number(descuento) + Number(cargo);
 
-  // Verificar si es una membresía
   const esMembresia =
     producto.nombre.includes("EFECTIVO") ||
     producto.nombre.includes("VISITA") ||
@@ -119,7 +118,6 @@ export async function createVenta(data: CreateVentaInput) {
     producto.nombre.includes("TRIMESTRE") ||
     producto.nombre.includes("ANUAL");
 
-  // Crear venta y actualizar stock solo si es producto físico
   const operaciones: any[] = [
     prisma.inventario.create({
       data: {
@@ -151,7 +149,6 @@ export async function createVenta(data: CreateVentaInput) {
     }),
   ];
 
-  // Solo actualizar stock si NO es membresía
   if (!esMembresia) {
     operaciones.push(
       prisma.producto.update({
@@ -159,13 +156,12 @@ export async function createVenta(data: CreateVentaInput) {
         data: {
           existenciaGym: producto.existenciaGym - data.cantidad,
         },
-      })
+      }),
     );
   }
 
   const [inventario] = await prisma.$transaction(operaciones);
 
-  // Si es venta de membresía y hay socio, actualizar fechas
   if (data.socioId && esMembresia) {
     const socio = await prisma.socio.findUnique({
       where: { id: data.socioId },
@@ -185,7 +181,6 @@ export async function createVenta(data: CreateVentaInput) {
       });
     }
   } else if (data.socioId) {
-    // Si no es membresía, solo registrar visita
     await prisma.socio.update({
       where: { id: data.socioId },
       data: {
@@ -195,7 +190,7 @@ export async function createVenta(data: CreateVentaInput) {
     });
   }
 
-  return inventario;
+  return serializeDecimal(inventario);
 }
 
 export async function cancelarVenta(data: CancelarVentaInput) {
@@ -239,7 +234,7 @@ export async function cancelarVenta(data: CancelarVentaInput) {
     }),
   ]);
 
-  return inventarioCancelado;
+  return serializeDecimal(inventarioCancelado);
 }
 
 // ==================== SERVICIOS DE ENTRADA ====================
@@ -285,7 +280,7 @@ export async function createEntrada(data: CreateEntradaInput) {
     }),
   ]);
 
-  return inventario;
+  return serializeDecimal(inventario);
 }
 
 // ==================== SERVICIOS DE TRASPASO ====================
@@ -296,7 +291,7 @@ export async function createTraspaso(data: CreateTraspasoInput) {
   const producto = await validarExistencia(
     data.productoId,
     data.cantidad,
-    origen
+    origen,
   );
 
   const tipo: TipoInventario =
@@ -338,7 +333,7 @@ export async function createTraspaso(data: CreateTraspasoInput) {
     }),
   ]);
 
-  return inventario;
+  return serializeDecimal(inventario);
 }
 
 // ==================== SERVICIOS DE AJUSTE ====================
@@ -360,7 +355,7 @@ export async function createAjuste(data: CreateAjusteInput) {
 
   if (nuevaExistencia < 0) {
     throw new Error(
-      `El ajuste resultaría en existencia negativa. Existencia actual: ${existenciaActual}`
+      `El ajuste resultaría en existencia negativa. Existencia actual: ${existenciaActual}`,
     );
   }
 
@@ -392,16 +387,16 @@ export async function createAjuste(data: CreateAjusteInput) {
     }),
   ]);
 
-  return inventario;
+  return serializeDecimal(inventario);
 }
 
 // ==================== CONSULTAS ====================
 
 export async function getMovimientosByProducto(
   productoId: number,
-  limite?: number
+  limite?: number,
 ) {
-  return await prisma.inventario.findMany({
+  const movimientos = await prisma.inventario.findMany({
     where: { productoId },
     include: {
       producto: {
@@ -424,10 +419,12 @@ export async function getMovimientosByProducto(
     orderBy: { fecha: "desc" },
     take: limite,
   });
+
+  return serializeDecimal(movimientos);
 }
 
 export async function getMovimientosByFecha(fechaInicio: Date, fechaFin: Date) {
-  return await prisma.inventario.findMany({
+  const movimientos = await prisma.inventario.findMany({
     where: {
       fecha: {
         gte: fechaInicio,
@@ -455,10 +452,12 @@ export async function getMovimientosByFecha(fechaInicio: Date, fechaFin: Date) {
     },
     orderBy: { fecha: "desc" },
   });
+
+  return serializeDecimal(movimientos);
 }
 
 export async function getVentasByTicket(ticket: string) {
-  return await prisma.inventario.findMany({
+  const ventas = await prisma.inventario.findMany({
     where: {
       ticket,
       tipo: "VENTA",
@@ -484,10 +483,12 @@ export async function getVentasByTicket(ticket: string) {
     },
     orderBy: { fecha: "asc" },
   });
+
+  return serializeDecimal(ventas);
 }
 
 export async function getVentasByCorte(corteId: number) {
-  return await prisma.inventario.findMany({
+  const ventas = await prisma.inventario.findMany({
     where: {
       corteId,
       tipo: "VENTA",
@@ -508,6 +509,8 @@ export async function getVentasByCorte(corteId: number) {
     },
     orderBy: { fecha: "asc" },
   });
+
+  return serializeDecimal(ventas);
 }
 
 export async function getVentasCanceladas(fechaInicio?: Date, fechaFin?: Date) {
@@ -523,7 +526,7 @@ export async function getVentasCanceladas(fechaInicio?: Date, fechaFin?: Date) {
     };
   }
 
-  return await prisma.inventario.findMany({
+  const ventas = await prisma.inventario.findMany({
     where,
     include: {
       producto: {
@@ -545,4 +548,6 @@ export async function getVentasCanceladas(fechaInicio?: Date, fechaFin?: Date) {
     },
     orderBy: { fechaCancelacion: "desc" },
   });
+
+  return serializeDecimal(ventas);
 }
