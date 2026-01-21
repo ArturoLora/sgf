@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { serializeDecimal } from "./utils";
 
 const prisma = new PrismaClient();
 
@@ -39,7 +40,7 @@ function formatDate(date: Date): string {
 // ==================== REPORTES DE VENTAS ====================
 
 export async function getReporteVentasPorProducto(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ): Promise<ReporteVentasProducto[]> {
   const ventas = await prisma.inventario.findMany({
     where: {
@@ -59,40 +60,43 @@ export async function getReporteVentasPorProducto(
     },
   });
 
-  const reportePorProducto = ventas.reduce((acc, venta) => {
-    const id = venta.producto.id;
-    if (!acc[id]) {
-      acc[id] = {
-        productoId: id,
-        productoNombre: venta.producto.nombre,
-        cantidadVendida: 0,
-        totalVentas: new Decimal(0),
-        cantidadCancelada: 0,
-        totalCancelado: new Decimal(0),
-      };
-    }
+  const reportePorProducto = ventas.reduce(
+    (acc, venta) => {
+      const id = venta.producto.id;
+      if (!acc[id]) {
+        acc[id] = {
+          productoId: id,
+          productoNombre: venta.producto.nombre,
+          cantidadVendida: 0,
+          totalVentas: new Decimal(0),
+          cantidadCancelada: 0,
+          totalCancelado: new Decimal(0),
+        };
+      }
 
-    const cantidad = Math.abs(venta.cantidad);
-    const total = toDecimal(venta.total || 0);
+      const cantidad = Math.abs(venta.cantidad);
+      const total = toDecimal(venta.total || 0);
 
-    if (venta.cancelada) {
-      acc[id].cantidadCancelada += cantidad;
-      acc[id].totalCancelado = acc[id].totalCancelado.plus(total);
-    } else {
-      acc[id].cantidadVendida += cantidad;
-      acc[id].totalVentas = acc[id].totalVentas.plus(total);
-    }
+      if (venta.cancelada) {
+        acc[id].cantidadCancelada += cantidad;
+        acc[id].totalCancelado = acc[id].totalCancelado.plus(total);
+      } else {
+        acc[id].cantidadVendida += cantidad;
+        acc[id].totalVentas = acc[id].totalVentas.plus(total);
+      }
 
-    return acc;
-  }, {} as Record<number, ReporteVentasProducto>);
+      return acc;
+    },
+    {} as Record<number, ReporteVentasProducto>,
+  );
 
   return Object.values(reportePorProducto).sort(
-    (a, b) => Number(b.totalVentas) - Number(a.totalVentas)
+    (a, b) => Number(b.totalVentas) - Number(a.totalVentas),
   );
 }
 
 export async function getReporteVentasDiarias(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ): Promise<ReporteVentasDiarias[]> {
   const ventas = await prisma.inventario.findMany({
     where: {
@@ -104,31 +108,42 @@ export async function getReporteVentasDiarias(
     },
   });
 
-  const ventasPorDia = ventas.reduce((acc, venta) => {
-    const fecha = formatDate(venta.fecha);
-    if (!acc[fecha]) {
-      acc[fecha] = {
-        fecha,
-        tickets: new Set<string>(),
-        totalVentas: new Decimal(0),
-        totalCancelado: new Decimal(0),
-      };
-    }
+  const ventasPorDia = ventas.reduce(
+    (acc, venta) => {
+      const fecha = formatDate(venta.fecha);
+      if (!acc[fecha]) {
+        acc[fecha] = {
+          fecha,
+          tickets: new Set<string>(),
+          totalVentas: new Decimal(0),
+          totalCancelado: new Decimal(0),
+        };
+      }
 
-    if (venta.ticket) {
-      acc[fecha].tickets.add(venta.ticket);
-    }
+      if (venta.ticket) {
+        acc[fecha].tickets.add(venta.ticket);
+      }
 
-    const total = toDecimal(venta.total || 0);
+      const total = toDecimal(venta.total || 0);
 
-    if (venta.cancelada) {
-      acc[fecha].totalCancelado = acc[fecha].totalCancelado.plus(total);
-    } else {
-      acc[fecha].totalVentas = acc[fecha].totalVentas.plus(total);
-    }
+      if (venta.cancelada) {
+        acc[fecha].totalCancelado = acc[fecha].totalCancelado.plus(total);
+      } else {
+        acc[fecha].totalVentas = acc[fecha].totalVentas.plus(total);
+      }
 
-    return acc;
-  }, {} as Record<string, { fecha: string; tickets: Set<string>; totalVentas: Decimal; totalCancelado: Decimal }>);
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        fecha: string;
+        tickets: Set<string>;
+        totalVentas: Decimal;
+        totalCancelado: Decimal;
+      }
+    >,
+  );
 
   return Object.values(ventasPorDia)
     .map((dia) => ({
@@ -141,7 +156,7 @@ export async function getReporteVentasDiarias(
 }
 
 export async function getReporteVentasPorFormaPago(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ) {
   const ventas = await prisma.inventario.findMany({
     where: {
@@ -181,15 +196,13 @@ export async function getReporteVentasPorFormaPago(
         cantidad: 0,
         total: new Decimal(0),
       },
-    }
+    },
   );
 
   return Object.values(reporte);
 }
 
-export async function getReporteVentasCanceladas(
-  params: ReportePeriodoParams
-) {
+export async function getReporteVentasCanceladas(params: ReportePeriodoParams) {
   const ventas = await prisma.inventario.findMany({
     where: {
       tipo: "VENTA",
@@ -222,7 +235,7 @@ export async function getReporteVentasCanceladas(
 
   const totalCancelado = ventas.reduce(
     (sum, v) => sum.plus(toDecimal(v.total || 0)),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   return {
@@ -235,7 +248,7 @@ export async function getReporteVentasCanceladas(
 // ==================== REPORTES DE INVENTARIO ====================
 
 export async function getReporteMovimientosInventario(
-  params: ReportePeriodoParams
+  params: ReportePeriodoParams,
 ) {
   const movimientos = await prisma.inventario.findMany({
     where: {
@@ -271,7 +284,7 @@ export async function getReporteMovimientosInventario(
       acc[tipo].cantidad += 1;
       return acc;
     },
-    {} as Record<string, { tipo: string; cantidad: number }>
+    {} as Record<string, { tipo: string; cantidad: number }>,
   );
 
   return {
@@ -295,20 +308,20 @@ export async function getReporteStockActual() {
         Number(p.precioVenta) * (p.existenciaBodega + p.existenciaGym);
       return acc;
     },
-    { bodega: 0, gym: 0, total: 0, valorTotal: 0 }
+    { bodega: 0, gym: 0, total: 0, valorTotal: 0 },
   );
 
   const bajoStock = productos.filter(
     (p) =>
-      p.existenciaGym < p.existenciaMin ||
-      p.existenciaBodega < p.existenciaMin
+      p.existenciaGym < p.existenciaMin || p.existenciaBodega < p.existenciaMin,
   );
 
-  return {
+  // ✅ Serializar antes de retornar
+  return serializeDecimal({
     productos,
     stockTotal,
     bajoStock,
-  };
+  });
 }
 
 // ==================== REPORTES DE SOCIOS ====================
@@ -337,22 +350,25 @@ export async function getReporteNuevosSocios(params: ReportePeriodoParams) {
     orderBy: { createdAt: "desc" },
   });
 
-  const porDia = socios.reduce((acc, socio) => {
-    const fecha = formatDate(socio.createdAt);
-    if (!acc[fecha]) {
-      acc[fecha] = {
-        fecha,
-        cantidad: 0,
-      };
-    }
-    acc[fecha].cantidad += 1;
-    return acc;
-  }, {} as Record<string, { fecha: string; cantidad: number }>);
+  const porDia = socios.reduce(
+    (acc, socio) => {
+      const fecha = formatDate(socio.createdAt);
+      if (!acc[fecha]) {
+        acc[fecha] = {
+          fecha,
+          cantidad: 0,
+        };
+      }
+      acc[fecha].cantidad += 1;
+      return acc;
+    },
+    {} as Record<string, { fecha: string; cantidad: number }>,
+  );
 
   return {
     socios,
     porDia: Object.values(porDia).sort((a, b) =>
-      a.fecha.localeCompare(b.fecha)
+      a.fecha.localeCompare(b.fecha),
     ),
     total: socios.length,
   };
@@ -380,28 +396,33 @@ export async function getReporteVisitasSocios(params: ReportePeriodoParams) {
     },
   });
 
-  const visitasPorSocio = visitas.reduce((acc, visita) => {
-    const socioId = visita.socioId!;
-    if (!acc[socioId]) {
-      acc[socioId] = {
-        socio: visita.socio!,
-        cantidadVisitas: 0,
-      };
-    }
-    acc[socioId].cantidadVisitas += 1;
-    return acc;
-  }, {} as Record<number, { socio: any; cantidadVisitas: number }>);
+  const visitasPorSocio = visitas.reduce(
+    (acc, visita) => {
+      const socioId = visita.socioId!;
+      if (!acc[socioId]) {
+        acc[socioId] = {
+          socio: visita.socio!,
+          cantidadVisitas: 0,
+        };
+      }
+      acc[socioId].cantidadVisitas += 1;
+      return acc;
+    },
+    {} as Record<number, { socio: any; cantidadVisitas: number }>,
+  );
 
   return Object.values(visitasPorSocio).sort(
-    (a, b) => b.cantidadVisitas - a.cantidadVisitas
+    (a, b) => b.cantidadVisitas - a.cantidadVisitas,
   );
 }
 
 // ==================== DASHBOARD ====================
 
 export async function getDashboardResumen(params?: ReportePeriodoParams) {
-  const fechaInicio = params?.fechaInicio || new Date(new Date().setHours(0, 0, 0, 0));
-  const fechaFin = params?.fechaFin || new Date(new Date().setHours(23, 59, 59, 999));
+  const fechaInicio =
+    params?.fechaInicio || new Date(new Date().setHours(0, 0, 0, 0));
+  const fechaFin =
+    params?.fechaFin || new Date(new Date().setHours(23, 59, 59, 999));
 
   const [ventasHoy, sociosActivos, productosActivos, corteActivo] =
     await Promise.all([
@@ -431,7 +452,7 @@ export async function getDashboardResumen(params?: ReportePeriodoParams) {
 
   const totalVentasHoy = ventasHoy.reduce(
     (sum, v) => sum.plus(toDecimal(v.total || 0)),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   const ticketsHoy = new Set(ventasHoy.map((v) => v.ticket)).size;
@@ -493,12 +514,12 @@ export async function getReporteCortes(params: ReportePeriodoParams) {
 
   const totalVentas = cortes.reduce(
     (sum, c) => sum.plus(toDecimal(c.totalVentas)),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   const totalDiferencias = cortes.reduce(
     (sum, c) => sum.plus(toDecimal(Math.abs(Number(c.diferencia)))),
-    new Decimal(0)
+    new Decimal(0),
   );
 
   const promedioVentas =

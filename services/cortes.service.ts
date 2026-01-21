@@ -221,40 +221,57 @@ export async function cerrarCorte(data: CerrarCorteInput) {
 
 export async function getCorteActivo() {
   const corte = await prisma.corte.findFirst({
-    where: {
-      fechaCierre: null,
-    },
+    where: { fechaCierre: null },
     include: {
       cajero: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
+        select: { id: true, name: true, email: true },
       },
       inventarios: {
-        where: {
-          tipo: "VENTA",
-        },
+        where: { tipo: "VENTA", cancelada: false },
         include: {
-          producto: {
-            select: {
-              nombre: true,
-            },
-          },
-          socio: {
-            select: {
-              numeroSocio: true,
-              nombre: true,
-            },
-          },
+          producto: { select: { nombre: true } },
+          socio: { select: { numeroSocio: true, nombre: true } },
         },
         orderBy: { fecha: "desc" },
       },
     },
   });
 
-  return corte ? serializeDecimal(corte) : null;
+  if (!corte) return null;
+
+  // Recalcular totales en tiempo real
+  const tickets = new Set(corte.inventarios.map((i) => i.ticket)).size;
+
+  let efectivo = 0;
+  let tarjetaDebito = 0;
+  let tarjetaCredito = 0;
+  let totalVentas = 0;
+
+  corte.inventarios.forEach((venta) => {
+    const total = Number(venta.total || 0);
+    totalVentas += total;
+
+    switch (venta.formaPago) {
+      case "EFECTIVO":
+        efectivo += total;
+        break;
+      case "TARJETA_DEBITO":
+        tarjetaDebito += total;
+        break;
+      case "TARJETA_CREDITO":
+        tarjetaCredito += total;
+        break;
+    }
+  });
+
+  return serializeDecimal({
+    ...corte,
+    cantidadTickets: tickets,
+    efectivo,
+    tarjetaDebito,
+    tarjetaCredito,
+    totalVentas,
+  });
 }
 
 export async function getCorteById(id: number) {

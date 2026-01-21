@@ -1,18 +1,31 @@
+// app/(dashboard)/cortes/cortes-manager.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Plus, X } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Plus,
+  X,
+  Eye,
+  Package,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import AbrirCorteModal from "./abrir-corte-modal";
 import CerrarCorteModal from "./cerrar-corte-modal";
+import DetalleCorteModal from "./detalle-corte-modal";
+import CortesFiltros from "./cortes-filtros";
 
 interface Corte {
   id: number;
   folio: string;
   cajero: {
+    id: string;
     name: string;
     email: string;
   };
@@ -34,18 +47,123 @@ interface CortesManagerProps {
   userId: string;
   initialCorteActivo: Corte | null;
   initialCortes: Corte[];
+  cajeros: Array<{ id: string; name: string }>;
 }
+
+interface FiltrosCortes {
+  busqueda: string;
+  fechaInicio: string;
+  fechaFin: string;
+  cajero: string;
+  estado: "todos" | "activos" | "cerrados";
+  ordenarPor: "fecha" | "total" | "diferencia" | "tickets";
+  orden: "asc" | "desc";
+}
+
+const ITEMS_POR_PAGINA = 10;
 
 export default function CortesManager({
   userId,
   initialCorteActivo,
   initialCortes,
+  cajeros,
 }: CortesManagerProps) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showAbrirModal, setShowAbrirModal] = useState(false);
   const [showCerrarModal, setShowCerrarModal] = useState(false);
+  const [corteSeleccionado, setCorteSeleccionado] = useState<number | null>(
+    null,
+  );
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [filtros, setFiltros] = useState<FiltrosCortes>({
+    busqueda: "",
+    fechaInicio: "",
+    fechaFin: "",
+    cajero: "todos",
+    estado: "todos",
+    ordenarPor: "fecha",
+    orden: "desc",
+  });
+
+  // Filtrar cortes cerrados (excluir activo del historial)
+  const cortesCerrados = useMemo(() => {
+    return initialCortes.filter((c) => c.fechaCierre !== null);
+  }, [initialCortes]);
+
+  const cortesFiltrados = useMemo(() => {
+    let resultado = [...cortesCerrados];
+
+    if (filtros.busqueda) {
+      const busqueda = filtros.busqueda.toLowerCase();
+      resultado = resultado.filter(
+        (c) =>
+          c.folio.toLowerCase().includes(busqueda) ||
+          c.cajero.name.toLowerCase().includes(busqueda) ||
+          c.observaciones?.toLowerCase().includes(busqueda),
+      );
+    }
+
+    if (filtros.fechaInicio) {
+      const inicio = new Date(filtros.fechaInicio);
+      resultado = resultado.filter((c) => new Date(c.fechaApertura) >= inicio);
+    }
+
+    if (filtros.fechaFin) {
+      const fin = new Date(filtros.fechaFin);
+      fin.setHours(23, 59, 59, 999);
+      resultado = resultado.filter((c) => new Date(c.fechaApertura) <= fin);
+    }
+
+    if (filtros.cajero !== "todos") {
+      resultado = resultado.filter((c) => c.cajero.id === filtros.cajero);
+    }
+
+    resultado.sort((a, b) => {
+      let valorA: any, valorB: any;
+
+      switch (filtros.ordenarPor) {
+        case "fecha":
+          valorA = new Date(a.fechaApertura).getTime();
+          valorB = new Date(b.fechaApertura).getTime();
+          break;
+        case "total":
+          valorA = Number(a.totalVentas);
+          valorB = Number(b.totalVentas);
+          break;
+        case "diferencia":
+          valorA = Math.abs(Number(a.diferencia));
+          valorB = Math.abs(Number(b.diferencia));
+          break;
+        case "tickets":
+          valorA = a.cantidadTickets;
+          valorB = b.cantidadTickets;
+          break;
+        default:
+          valorA = new Date(a.fechaApertura).getTime();
+          valorB = new Date(b.fechaApertura).getTime();
+      }
+
+      return filtros.orden === "asc" ? valorA - valorB : valorB - valorA;
+    });
+
+    return resultado;
+  }, [cortesCerrados, filtros]);
+
+  // Paginación
+  const totalPaginas = Math.ceil(cortesFiltrados.length / ITEMS_POR_PAGINA);
+  const inicio = (paginaActual - 1) * ITEMS_POR_PAGINA;
+  const cortesPaginados = cortesFiltrados.slice(
+    inicio,
+    inicio + ITEMS_POR_PAGINA,
+  );
+
+  // Reset página al cambiar filtros
+  const handleFiltrar = (nuevosFiltros: FiltrosCortes) => {
+    setFiltros(nuevosFiltros);
+    setPaginaActual(1);
+  };
 
   const handleSuccess = (mensaje: string) => {
     setSuccess(mensaje);
@@ -92,14 +210,25 @@ export default function CortesManager({
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 Corte Activo: {initialCorteActivo.folio}
               </CardTitle>
-              <Button
-                onClick={() => setShowCerrarModal(true)}
-                variant="destructive"
-                className="gap-2"
-              >
-                <XCircle className="h-4 w-4" />
-                Cerrar Corte
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setCorteSeleccionado(initialCorteActivo.id)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  Ver Detalle
+                </Button>
+                <Button
+                  onClick={() => setShowCerrarModal(true)}
+                  variant="destructive"
+                  className="gap-2"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cerrar Corte
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -157,54 +286,147 @@ export default function CortesManager({
         </Card>
       )}
 
+      {/* Filtros */}
+      <CortesFiltros onFiltrar={handleFiltrar} cajeros={cajeros} />
+
       {/* Historial de Cortes */}
       <Card>
         <CardHeader>
-          <CardTitle>Historial de Cortes</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Historial de Cortes</span>
+            <span className="text-sm font-normal text-gray-500">
+              {cortesFiltrados.length} resultados
+            </span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {initialCortes.length === 0 ? (
+          {cortesPaginados.length === 0 ? (
             <p className="text-center text-gray-500 py-8">
-              No hay cortes registrados
+              {cortesFiltrados.length === 0
+                ? "No hay cortes que coincidan con los filtros"
+                : "No hay cortes cerrados"}
             </p>
           ) : (
-            <div className="space-y-3">
-              {initialCortes.map((corte) => (
-                <div
-                  key={corte.id}
-                  className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <p className="font-semibold">{corte.folio}</p>
-                      <Badge
-                        variant={corte.fechaCierre ? "secondary" : "default"}
-                      >
-                        {corte.fechaCierre ? "Cerrado" : "Activo"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      {corte.cajero.name} ·{" "}
-                      {new Date(corte.fechaApertura).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Total Ventas</p>
-                    <p className="text-lg font-bold">
-                      ${Number(corte.totalVentas).toFixed(2)}
-                    </p>
-                    {corte.fechaCierre && corte.diferencia !== 0 && (
-                      <p
-                        className={`text-sm ${corte.diferencia > 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {corte.diferencia > 0 ? "+" : ""}
-                        {Number(corte.diferencia).toFixed(2)}
+            <>
+              <div className="space-y-3">
+                {cortesPaginados.map((corte) => (
+                  <div
+                    key={corte.id}
+                    className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <p className="font-semibold">{corte.folio}</p>
+                        <Badge variant="outline" className="gap-1">
+                          <Package className="h-3 w-3" />
+                          {corte.cantidadTickets} tickets
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {corte.cajero.name} ·{" "}
+                        {new Date(corte.fechaApertura).toLocaleDateString()}
                       </p>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Total Ventas</p>
+                        <p className="text-lg font-bold">
+                          ${Number(corte.totalVentas).toFixed(2)}
+                        </p>
+                        {corte.diferencia !== 0 && (
+                          <p
+                            className={`text-sm ${
+                              corte.diferencia > 0
+                                ? "text-green-600"
+                                : "text-red-600"
+                            }`}
+                          >
+                            {corte.diferencia > 0 ? "+" : ""}$
+                            {Number(corte.diferencia).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => setCorteSeleccionado(corte.id)}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Ver
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Paginación */}
+              {totalPaginas > 1 && (
+                <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                  <p className="text-sm text-gray-600">
+                    Mostrando {inicio + 1}-
+                    {Math.min(
+                      inicio + ITEMS_POR_PAGINA,
+                      cortesFiltrados.length,
+                    )}{" "}
+                    de {cortesFiltrados.length}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                      disabled={paginaActual === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from(
+                        { length: Math.min(5, totalPaginas) },
+                        (_, i) => {
+                          let pageNum;
+                          if (totalPaginas <= 5) {
+                            pageNum = i + 1;
+                          } else if (paginaActual <= 3) {
+                            pageNum = i + 1;
+                          } else if (paginaActual >= totalPaginas - 2) {
+                            pageNum = totalPaginas - 4 + i;
+                          } else {
+                            pageNum = paginaActual - 2 + i;
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={
+                                paginaActual === pageNum ? "default" : "outline"
+                              }
+                              size="sm"
+                              onClick={() => setPaginaActual(pageNum)}
+                              className="w-9"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        },
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPaginaActual((p) => Math.min(totalPaginas, p + 1))
+                      }
+                      disabled={paginaActual === totalPaginas}
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -231,6 +453,13 @@ export default function CortesManager({
             handleSuccess(msg);
           }}
           onError={setError}
+        />
+      )}
+
+      {corteSeleccionado && (
+        <DetalleCorteModal
+          corteId={corteSeleccionado}
+          onClose={() => setCorteSeleccionado(null)}
         />
       )}
     </div>
