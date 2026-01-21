@@ -61,6 +61,13 @@ add_file_content "app/(dashboard)/cortes/cortes-filtros.tsx"
 add_file_content "app/(dashboard)/cortes/abrir-corte-modal.tsx"
 add_file_content "app/(dashboard)/cortes/cerrar-corte-modal.tsx"
 add_file_content "app/(dashboard)/cortes/detalle-corte-modal.tsx"
+add_file_content "app/(dashboard)/socios/page.tsx"
+add_file_content "app/(dashboard)/socios/socios-manager.tsx"
+add_file_content "app/(dashboard)/socios/socios-filtros.tsx"
+add_file_content "app/(dashboard)/socios/crear-socio-modal.tsx"
+add_file_content "app/(dashboard)/socios/editar-socio-modal.tsx"
+add_file_content "app/(dashboard)/socios/detalle-socio-modal.tsx"
+add_file_content "app/(dashboard)/socios/renovar-membresia-modal.tsx"
 
 # COMPONENTS
 add_section "COMPONENTES"

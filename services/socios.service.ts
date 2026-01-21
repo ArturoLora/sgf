@@ -18,6 +18,15 @@ export interface CreateSocioInput {
   fechaFin?: Date;
 }
 
+export interface CreateSocioConVentaInput extends CreateSocioInput {
+  userId?: string;
+  formaPago?:
+    | "EFECTIVO"
+    | "TARJETA_DEBITO"
+    | "TARJETA_CREDITO"
+    | "TRANSFERENCIA";
+}
+
 export interface UpdateSocioInput {
   nombre?: string;
   telefono?: string;
@@ -35,6 +44,15 @@ export interface RenovarMembresiaInput {
   tipoMembresia: TipoMembresia;
   descripcionMembresia?: string;
   fechaInicio?: Date;
+}
+
+export interface RenovarMembresiaConVentaInput extends RenovarMembresiaInput {
+  userId: string;
+  formaPago?:
+    | "EFECTIVO"
+    | "TARJETA_DEBITO"
+    | "TARJETA_CREDITO"
+    | "TRANSFERENCIA";
 }
 
 export interface SearchSociosParams {
@@ -129,7 +147,7 @@ export async function getSocioById(id: number) {
       inventarios: {
         where: { tipo: "VENTA", cancelada: false },
         orderBy: { fecha: "desc" },
-        take: 10,
+        take: 20,
         include: {
           producto: {
             select: {
@@ -176,7 +194,7 @@ export async function getSocioByNumero(numeroSocio: string) {
   return serializeDecimal(socio);
 }
 
-export async function createSocio(data: CreateSocioInput) {
+export async function createSocio(data: CreateSocioConVentaInput) {
   const existingSocio = await prisma.socio.findUnique({
     where: { numeroSocio: data.numeroSocio },
   });
@@ -187,14 +205,76 @@ export async function createSocio(data: CreateSocioInput) {
 
   const socio = await prisma.socio.create({
     data: {
-      ...data,
+      numeroSocio: data.numeroSocio,
+      nombre: data.nombre,
+      telefono: data.telefono,
+      email: data.email,
       fechaNacimiento: data.fechaNacimiento
         ? new Date(data.fechaNacimiento)
         : undefined,
+      tipoMembresia: data.tipoMembresia,
+      descripcionMembresia: data.descripcionMembresia,
       fechaInicio: data.fechaInicio ? new Date(data.fechaInicio) : undefined,
       fechaFin: data.fechaFin ? new Date(data.fechaFin) : undefined,
     },
   });
+
+  // Si tiene membresía y userId, crear venta
+  if (data.tipoMembresia && data.userId) {
+    const keywordMap: Record<string, string> = {
+      MES_ESTUDIANTE: "MENSUALIDAD ESTUDIANTE",
+      MES_GENERAL: "MENSUALIDAD GENERAL",
+      SEMANA: "SEMANA",
+      VISITA: "VISITA",
+      TRIMESTRE_ESTUDIANTE: "TRIMESTRE ESTUDIANTE",
+      TRIMESTRE_GENERAL: "TRIMESTRE GENERAL",
+      ANUAL_ESTUDIANTE: "ANUAL ESTUDIANTE",
+      ANUAL_GENERAL: "ANUAL GENERAL",
+      PROMOCION: "PROMOCION",
+      RENACER: "RENACER",
+    };
+
+    const keyword = keywordMap[data.tipoMembresia] || data.tipoMembresia;
+
+    const producto = await prisma.producto.findFirst({
+      where: {
+        nombre: { contains: keyword, mode: "insensitive" },
+        activo: true,
+      },
+    });
+
+    if (producto) {
+      const corteActivo = await prisma.corte.findFirst({
+        where: { fechaCierre: null },
+      });
+
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.floor(Math.random() * 100)
+        .toString()
+        .padStart(2, "0");
+      const ticket = `NEW${timestamp}${random}`;
+
+      await prisma.inventario.create({
+        data: {
+          productoId: producto.id,
+          tipo: "VENTA",
+          ubicacion: "GYM",
+          cantidad: -1,
+          ticket,
+          socioId: socio.id,
+          userId: data.userId,
+          precioUnitario: producto.precioVenta,
+          subtotal: producto.precioVenta,
+          descuento: 0,
+          cargo: 0,
+          total: producto.precioVenta,
+          formaPago: data.formaPago || "EFECTIVO",
+          corteId: corteActivo?.id,
+          observaciones: `Alta de socio: ${data.descripcionMembresia || data.tipoMembresia}`,
+        },
+      });
+    }
+  }
 
   return serializeDecimal(socio);
 }
@@ -314,7 +394,7 @@ export async function getEstadisticasSocios() {
   };
 }
 
-export async function renovarMembresia(data: RenovarMembresiaInput) {
+export async function renovarMembresia(data: RenovarMembresiaConVentaInput) {
   const socio = await prisma.socio.findUnique({
     where: { id: data.socioId },
   });
@@ -325,16 +405,81 @@ export async function renovarMembresia(data: RenovarMembresiaInput) {
 
   const fechas = calcularFechasMembresia(data.tipoMembresia, data.fechaInicio);
 
-  const updatedSocio = await prisma.socio.update({
-    where: { id: data.socioId },
-    data: {
-      tipoMembresia: data.tipoMembresia,
-      descripcionMembresia: data.descripcionMembresia,
-      fechaInicio: fechas.fechaInicio,
-      fechaFin: fechas.fechaFin,
+  // Buscar producto de membresía correspondiente
+  const keywordMap: Record<string, string> = {
+    MES_ESTUDIANTE: "MENSUALIDAD ESTUDIANTE",
+    MES_GENERAL: "MENSUALIDAD GENERAL",
+    SEMANA: "SEMANA",
+    VISITA: "VISITA",
+    TRIMESTRE_ESTUDIANTE: "TRIMESTRE ESTUDIANTE",
+    TRIMESTRE_GENERAL: "TRIMESTRE GENERAL",
+    ANUAL_ESTUDIANTE: "ANUAL ESTUDIANTE",
+    ANUAL_GENERAL: "ANUAL GENERAL",
+    PROMOCION: "PROMOCION",
+    RENACER: "RENACER",
+  };
+
+  const keyword = keywordMap[data.tipoMembresia] || data.tipoMembresia;
+
+  const producto = await prisma.producto.findFirst({
+    where: {
+      nombre: { contains: keyword, mode: "insensitive" },
       activo: true,
     },
   });
+
+  if (!producto) {
+    throw new Error(
+      `No se encontró producto para membresía: ${data.tipoMembresia}`,
+    );
+  }
+
+  // Obtener corte activo
+  const corteActivo = await prisma.corte.findFirst({
+    where: { fechaCierre: null },
+  });
+
+  // Generar ticket único con prefijo REN
+  const timestamp = Date.now().toString().slice(-6);
+  const random = Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(2, "0");
+  const ticket = `REN${timestamp}${random}`;
+
+  // Transacción: actualizar socio + crear venta
+  const [updatedSocio] = await prisma.$transaction([
+    prisma.socio.update({
+      where: { id: data.socioId },
+      data: {
+        tipoMembresia: data.tipoMembresia,
+        descripcionMembresia: data.descripcionMembresia,
+        fechaInicio: fechas.fechaInicio,
+        fechaFin: fechas.fechaFin,
+        activo: true,
+        totalVisitas: { increment: 1 },
+        ultimaVisita: new Date(),
+      },
+    }),
+    prisma.inventario.create({
+      data: {
+        productoId: producto.id,
+        tipo: "VENTA",
+        ubicacion: "GYM",
+        cantidad: -1,
+        ticket,
+        socioId: data.socioId,
+        userId: data.userId,
+        precioUnitario: producto.precioVenta,
+        subtotal: producto.precioVenta,
+        descuento: 0,
+        cargo: 0,
+        total: producto.precioVenta,
+        formaPago: data.formaPago || "EFECTIVO",
+        corteId: corteActivo?.id,
+        observaciones: `Renovación: ${data.descripcionMembresia || data.tipoMembresia}`,
+      },
+    }),
+  ]);
 
   return serializeDecimal(updatedSocio);
 }
