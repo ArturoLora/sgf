@@ -81,7 +81,7 @@ export default function HistorialVentasManager({
 }: HistorialVentasManagerProps) {
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [totalVentas, setTotalVentas] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // ✅ Iniciar en true
   const [error, setError] = useState("");
   const [paginaActual, setPaginaActual] = useState(1);
   const [ticketSeleccionado, setTicketSeleccionado] = useState<string | null>(
@@ -101,11 +101,42 @@ export default function HistorialVentasManager({
     soloActivas: true,
   });
 
-  // Cargar últimas 10 ventas al montar
+  // ✅ Cargar datos UNA SOLA VEZ al montar
   useEffect(() => {
-    cargarVentas(filtros, 1);
-  }, []);
+    const cargarInicial = async () => {
+      setLoading(true);
+      setError("");
 
+      try {
+        const params = new URLSearchParams({
+          soloActivas: "true",
+          ordenarPor: "fecha",
+          orden: "desc",
+          pagina: "1",
+          porPagina: ITEMS_POR_PAGINA.toString(),
+        });
+
+        const res = await fetch(`/api/ventas/historial?${params}`);
+
+        if (!res.ok) {
+          throw new Error("Error al cargar ventas");
+        }
+
+        const data = await res.json();
+        setVentas(data.ventas);
+        setTotalVentas(data.total);
+        setPaginaActual(1);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarInicial();
+  }, []); // ✅ Solo se ejecuta UNA vez
+
+  // ✅ Función separada para cargar ventas con filtros
   const cargarVentas = async (
     nuevosFiltros: FiltrosVentas,
     pagina: number = 1,
@@ -162,7 +193,7 @@ export default function HistorialVentasManager({
     cargarVentas(nuevosFiltros, 1);
   };
 
-  // Paginación server-side - usar ventas directamente
+  // Paginación server-side
   const totalPaginas = Math.ceil(totalVentas / ITEMS_POR_PAGINA);
 
   // Agrupar por ticket

@@ -1,7 +1,7 @@
 // Exportar todos los servicios
-export * as UsuariosService from "./usuarios.service";
-export * as SociosService from "./socios.service";
-export * as ProductosService from "./productos.service";
-export * as InventarioService from "./inventario.service";
-export * as CortesService from "./cortes.service";
-export * as ReportesService from "./reportes.service";
+export * as UsersService from "./users.service";
+export * as MembersService from "./members.service";
+export * as ProductsService from "./products.service";
+export * as InventoryService from "./inventory.service";
+export * as ShiftsService from "./shifts.service";
+export * as ReportsService from "./reports.service";

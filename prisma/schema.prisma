@@ -1,5 +1,6 @@
- generator client {
+generator client {
   provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
 }
 
 datasource db {
@@ -14,39 +15,39 @@ enum Role {
   EMPLEADO
 }
 
-enum TipoMembresia {
-  VISITA
-  SEMANA
-  MES_ESTUDIANTE
-  MES_GENERAL
-  TRIMESTRE_ESTUDIANTE
-  TRIMESTRE_GENERAL
-  ANUAL_ESTUDIANTE
-  ANUAL_GENERAL
-  PROMOCION
-  RENACER
-  CONSULTA_NUTRICION
+enum MembershipType {
+  VISIT
+  WEEK
+  MONTH_STUDENT
+  MONTH_GENERAL
+  QUARTER_STUDENT
+  QUARTER_GENERAL
+  ANNUAL_STUDENT
+  ANNUAL_GENERAL
+  PROMOTION
+  REBIRTH
+  NUTRITION_CONSULTATION
 }
 
-enum TipoInventario {
-  VENTA
-  AJUSTE
-  ENTRADA_BODEGA
-  ENTRADA_GYM
-  TRASPASO_A_GYM
-  TRASPASO_A_BODEGA
+enum InventoryType {
+  SALE
+  ADJUSTMENT
+  WAREHOUSE_ENTRY
+  GYM_ENTRY
+  TRANSFER_TO_GYM
+  TRANSFER_TO_WAREHOUSE
 }
 
-enum Ubicacion {
-  BODEGA
+enum Location {
+  WAREHOUSE
   GYM
 }
 
-enum FormaPago {
-  EFECTIVO
-  TARJETA_DEBITO
-  TARJETA_CREDITO
-  TRANSFERENCIA
+enum PaymentMethod {
+  CASH
+  DEBIT_CARD
+  CREDIT_CARD
+  TRANSFER
 }
 
 // ==================== BETTER AUTH ====================
@@ -54,36 +55,38 @@ enum FormaPago {
 model User {
   id            String    @id
   name          String
-  email         String
+  email         String    @unique
   emailVerified Boolean   @default(false)
   image         String?
   role          Role      @default(EMPLEADO)
-  activo        Boolean   @default(true)
+  isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
   sessions      Session[]
   accounts      Account[]
-  cortes        Corte[]
-  inventarios   Inventario[]
+  shifts        Shift[]
+  inventoryMovements InventoryMovement[]
 
-  @@unique([email])
+  @@index([email])
+  @@index([role, isActive])
   @@map("user")
 }
 
 model Session {
   id        String   @id
   expiresAt DateTime
-  token     String
+  token     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([token])
   @@index([userId])
+  @@index([expiresAt])
   @@map("session")
 }
 
@@ -92,7 +95,6 @@ model Account {
   accountId             String
   providerId            String
   userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
   idToken               String?
@@ -102,6 +104,8 @@ model Account {
   password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("account")
@@ -116,138 +120,146 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+  @@index([expiresAt])
   @@map("verification")
 }
 
-// ==================== SOCIOS ====================
+// ==================== MEMBERS ====================
 
-model Socio {
-  id                   Int      @id @default(autoincrement())
-  numeroSocio          String   @unique
-  nombre               String?
-  telefono             String?
-  email                String?
-  fechaNacimiento      DateTime?
-  tipoMembresia        TipoMembresia?
-  descripcionMembresia String?
-  fechaInicio          DateTime?
-  fechaFin             DateTime?
-  totalVisitas         Int      @default(0)
-  ultimaVisita         DateTime?
-  activo               Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  inventarios Inventario[]
+model Member {
+  id                     Int             @id @default(autoincrement())
+  memberNumber           String          @unique
+  name                   String?
+  phone                  String?
+  email                  String?
+  birthDate              DateTime?
+  membershipType         MembershipType?
+  membershipDescription  String?
+  startDate              DateTime?
+  endDate                DateTime?
+  totalVisits            Int             @default(0)
+  lastVisit              DateTime?
+  isActive               Boolean         @default(true)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  
+  inventoryMovements InventoryMovement[]
+
+  @@index([memberNumber])
+  @@index([email])
+  @@index([isActive])
+  @@index([membershipType, isActive])
+  @@index([endDate, isActive])
+  @@map("member")
 }
 
+// ==================== PRODUCTS ====================
 
-
-// ==================== PRODUCTOS ====================
-
-model Producto {
+model Product {
   id               Int      @id @default(autoincrement())
-  nombre           String   @unique
-  precioVenta      Decimal  @default(0) @db.Decimal(10, 2)
-  existenciaBodega Int      @default(0)
-  existenciaGym    Int      @default(0)
-  existenciaMin    Int      @default(0)
-  activo           Boolean  @default(true)
+  name             String   @unique
+  salePrice        Decimal  @default(0) @db.Decimal(10, 2)
+  warehouseStock   Int      @default(0)
+  gymStock         Int      @default(0)
+  minStock         Int      @default(0)
+  isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  inventarios Inventario[]
+  inventoryMovements InventoryMovement[]
 
-  @@map("productos")
+  @@index([name])
+  @@index([isActive])
+  @@index([gymStock, minStock])
+  @@index([warehouseStock, minStock])
+  @@map("product")
 }
 
-// ==================== INVENTARIO ====================
+// ==================== INVENTORY ====================
 
-model Inventario {
+model InventoryMovement {
   id             Int             @id @default(autoincrement())
-  productoId     Int
-  tipo           TipoInventario
-  ubicacion      Ubicacion
-  /// Regla:
-  /// cantidad > 0 = entrada de stock
-  /// cantidad < 0 = salida de stock
-  cantidad       Int
+  productId      Int
+  type           InventoryType
+  location       Location
+  /// Positive = stock entry, Negative = stock exit
+  quantity       Int
   
   ticket         String?
-  socioId        Int?
+  memberId       Int?
   userId         String
-  precioUnitario Decimal?        @db.Decimal(10, 2)
+  unitPrice      Decimal?        @db.Decimal(10, 2)
   subtotal       Decimal?        @db.Decimal(10, 2)
-  descuento      Decimal?        @default(0) @db.Decimal(10, 2)
-  cargo          Decimal?        @default(0) @db.Decimal(10, 2)
+  discount       Decimal?        @default(0) @db.Decimal(10, 2)
+  surcharge      Decimal?        @default(0) @db.Decimal(10, 2)
   total          Decimal?        @db.Decimal(10, 2)
-  formaPago      FormaPago?
+  paymentMethod  PaymentMethod?
   
-  corteId           Int?
-  observaciones     String?
-  cancelada         Boolean  @default(false)
-  motivoCancelacion String?
-  fechaCancelacion  DateTime?
+  shiftId              Int?
+  notes                String?
+  isCancelled          Boolean  @default(false)
+  cancellationReason   String?
+  cancellationDate     DateTime?
   
-  /// Fecha real del movimiento (venta, ajuste, entrada)
-  fecha     DateTime @default(now())
+  /// Actual movement date
+  date          DateTime @default(now())
+  /// System creation date
+  createdAt     DateTime @default(now())
 
-  /// Fecha en que el registro fue creado en el sistema
-  createdAt DateTime @default(now())
+  product Product @relation(fields: [productId], references: [id])
+  member  Member?  @relation(fields: [memberId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  shift   Shift?   @relation(fields: [shiftId], references: [id])
 
-  producto Producto @relation(fields: [productoId], references: [id])
-  socio    Socio?   @relation(fields: [socioId], references: [id])
-  usuario  User?    @relation(fields: [userId], references: [id])
-  corte    Corte?   @relation(fields: [corteId], references: [id])
-
-  @@index([productoId])
-  @@index([socioId])
+  @@index([productId])
+  @@index([memberId])
   @@index([userId])
-  @@index([corteId])
+  @@index([shiftId])
   @@index([ticket])
-  @@index([tipo])
-  @@index([fecha])
-  @@index([productoId, fecha])
-  @@index([cancelada, fecha])
-  @@index([corteId, fecha])
-  @@map("inventario")
+  @@index([type])
+  @@index([date])
+  @@index([productId, date])
+  @@index([isCancelled, date])
+  @@index([shiftId, date])
+  @@index([type, isCancelled])
+  @@map("inventory_movement")
 }
 
-// ==================== CORTES ====================
+// ==================== SHIFTS ====================
 
-model Corte {
-  id                    Int      @id @default(autoincrement())
-  folio                 String   @unique
-  cajeroId              String
-  fechaApertura         DateTime
-  fechaCierre           DateTime?
-  fondoCaja             Decimal  @db.Decimal(10, 2)
-  cantidadTickets       Int      @default(0)
-  ventasMembresias      Decimal  @default(0) @db.Decimal(10, 2)
-  ventasProductosTasa0  Decimal  @default(0) @db.Decimal(10, 2)
-  ventasProductosTasa16 Decimal  @default(0) @db.Decimal(10, 2)
-  subtotal              Decimal  @default(0) @db.Decimal(10, 2)
-  iva                   Decimal  @default(0) @db.Decimal(10, 2)
-  totalVentas           Decimal  @default(0) @db.Decimal(10, 2)
-  efectivo              Decimal  @default(0) @db.Decimal(10, 2)
-  tarjetaDebito         Decimal  @default(0) @db.Decimal(10, 2)
-  tarjetaCredito        Decimal  @default(0) @db.Decimal(10, 2)
-  totalVoucher          Decimal  @default(0) @db.Decimal(10, 2)
-  totalRetiros          Decimal  @default(0) @db.Decimal(10, 2)
-  conceptoRetiros       String?
-  ventasCanceladas      Decimal  @default(0) @db.Decimal(10, 2)
-  totalCaja             Decimal  @default(0) @db.Decimal(10, 2)
-  diferencia            Decimal  @default(0) @db.Decimal(10, 2)
-  observaciones         String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+model Shift {
+  id                   Int      @id @default(autoincrement())
+  folio                String   @unique
+  cashierId            String
+  openingDate          DateTime
+  closingDate          DateTime?
+  initialCash          Decimal  @db.Decimal(10, 2)
+  ticketCount          Int      @default(0)
+  membershipSales      Decimal  @default(0) @db.Decimal(10, 2)
+  productSales0Tax     Decimal  @default(0) @db.Decimal(10, 2)
+  productSales16Tax    Decimal  @default(0) @db.Decimal(10, 2)
+  subtotal             Decimal  @default(0) @db.Decimal(10, 2)
+  tax                  Decimal  @default(0) @db.Decimal(10, 2)
+  totalSales           Decimal  @default(0) @db.Decimal(10, 2)
+  cashAmount           Decimal  @default(0) @db.Decimal(10, 2)
+  debitCardAmount      Decimal  @default(0) @db.Decimal(10, 2)
+  creditCardAmount     Decimal  @default(0) @db.Decimal(10, 2)
+  totalVoucher         Decimal  @default(0) @db.Decimal(10, 2)
+  totalWithdrawals     Decimal  @default(0) @db.Decimal(10, 2)
+  withdrawalsConcept   String?
+  cancelledSales       Decimal  @default(0) @db.Decimal(10, 2)
+  totalCash            Decimal  @default(0) @db.Decimal(10, 2)
+  difference           Decimal  @default(0) @db.Decimal(10, 2)
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  cajero      User         @relation(fields: [cajeroId], references: [id])
-  inventarios Inventario[]
+  cashier User @relation(fields: [cashierId], references: [id])
+  inventoryMovements InventoryMovement[]
 
-  @@index([cajeroId])
-  @@index([fechaApertura])
-  @@index([fechaCierre])
-  @@map("cortes")
+  @@index([cashierId])
+  @@index([openingDate])
+  @@index([closingDate])
+  @@index([folio])
+  @@map("shift")
 }
-
-

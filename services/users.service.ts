@@ -1,8 +1,8 @@
-import { PrismaClient, Role } from "@prisma/client";
+// services/users.service.ts
+import { prisma } from "@/lib/db";
+import { Role } from "@prisma/client";
 
-const prisma = new PrismaClient();
-
-// ==================== TIPOS ====================
+// ==================== TYPES ====================
 
 export interface CreateUserInput {
   name: string;
@@ -15,10 +15,10 @@ export interface UpdateUserInput {
   name?: string;
   email?: string;
   role?: Role;
-  activo?: boolean;
+  isActive?: boolean;
 }
 
-// ==================== VALIDACIONES ====================
+// ==================== VALIDATIONS ====================
 
 function validateAdminRole(userRole: Role) {
   if (userRole !== "ADMIN") {
@@ -26,8 +26,11 @@ function validateAdminRole(userRole: Role) {
   }
 }
 
-// ==================== SERVICIOS ====================
+// ==================== PUBLIC SERVICES ====================
 
+/**
+ * Lista todos los usuarios
+ */
 export async function getAllUsers() {
   return await prisma.user.findMany({
     select: {
@@ -35,7 +38,7 @@ export async function getAllUsers() {
       name: true,
       email: true,
       role: true,
-      activo: true,
+      isActive: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -43,6 +46,9 @@ export async function getAllUsers() {
   });
 }
 
+/**
+ * Obtiene un usuario por ID
+ */
 export async function getUserById(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -51,7 +57,7 @@ export async function getUserById(userId: string) {
       name: true,
       email: true,
       role: true,
-      activo: true,
+      isActive: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -64,10 +70,10 @@ export async function getUserById(userId: string) {
   return user;
 }
 
-export async function createUser(
-  data: CreateUserInput,
-  currentUserRole: Role
-) {
+/**
+ * Crea un nuevo usuario (solo ADMIN)
+ */
+export async function createUser(data: CreateUserInput, currentUserRole: Role) {
   validateAdminRole(currentUserRole);
 
   const existingUser = await prisma.user.findUnique({
@@ -91,17 +97,20 @@ export async function createUser(
       name: true,
       email: true,
       role: true,
-      activo: true,
+      isActive: true,
     },
   });
 
   return user;
 }
 
+/**
+ * Actualiza un usuario (solo ADMIN)
+ */
 export async function updateUser(
   userId: string,
   data: UpdateUserInput,
-  currentUserRole: Role
+  currentUserRole: Role,
 ) {
   validateAdminRole(currentUserRole);
 
@@ -131,7 +140,7 @@ export async function updateUser(
       name: true,
       email: true,
       role: true,
-      activo: true,
+      isActive: true,
       updatedAt: true,
     },
   });
@@ -139,6 +148,9 @@ export async function updateUser(
   return updatedUser;
 }
 
+/**
+ * Activa/desactiva un usuario (solo ADMIN)
+ */
 export async function toggleUserStatus(userId: string, currentUserRole: Role) {
   validateAdminRole(currentUserRole);
 
@@ -152,22 +164,25 @@ export async function toggleUserStatus(userId: string, currentUserRole: Role) {
 
   const updatedUser = await prisma.user.update({
     where: { id: userId },
-    data: { activo: !user.activo },
+    data: { isActive: !user.isActive },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
-      activo: true,
+      isActive: true,
     },
   });
 
   return updatedUser;
 }
 
+/**
+ * Lista solo usuarios activos
+ */
 export async function getActiveUsers() {
   return await prisma.user.findMany({
-    where: { activo: true },
+    where: { isActive: true },
     select: {
       id: true,
       name: true,
