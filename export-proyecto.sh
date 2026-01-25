@@ -17,41 +17,43 @@ add_section() {
     echo -e "\n\n### ${1} ###\n" >> "$output_file"
 }
 
-# Header mínimo
 echo "NACHO GYM - Export $(date +%Y%m%d_%H%M%S)" > "$output_file"
 
-# CONFIGURACIÓN
-add_section "CONFIGURACIÓN"
+# ================= CONFIG =================
+add_section "CONFIG"
 add_file_content "package.json"
 add_file_content "tsconfig.json"
 add_file_content "next.config.ts"
 add_file_content "components.json"
 
-# PRISMA
+# ================= PRISMA =================
 add_section "PRISMA"
 add_file_content "prisma/schema.prisma"
 add_file_content "prisma/seed.ts"
 
-# LIB
+# ================= LIB =================
 add_section "LIB"
 add_file_content "lib/auth.ts"
 add_file_content "lib/auth-client.ts"
-add_file_content "lib/utils.ts"
 add_file_content "lib/db.ts"
+add_file_content "lib/utils.ts"
 
-# PAGES
-add_section "PÁGINAS"
+# ================= ROOT / LOGIN =================
+add_section "ROOT"
 add_file_content "app/layout.tsx"
 add_file_content "app/globals.css"
 add_file_content "app/login/page.tsx"
+
+# ================= DASHBOARD =================
+add_section "DASHBOARD"
 add_file_content "app/(dashboard)/layout.tsx"
 add_file_content "app/(dashboard)/page.tsx"
 add_file_content "app/(dashboard)/dashboard-stats.tsx"
 add_file_content "app/(dashboard)/corte-alert.tsx"
 add_file_content "app/(dashboard)/alertas-dashboard.tsx"
 
-# COMPONENTS
-add_section "COMPONENTES"
+# ================= COMPONENTS =================
+add_section "COMPONENTS"
 add_file_content "components/layout/sidebar.tsx"
 add_file_content "components/layout/header.tsx"
 add_file_content "components/ui/button.tsx"
@@ -61,40 +63,61 @@ add_file_content "components/ui/label.tsx"
 add_file_content "components/ui/select.tsx"
 add_file_content "components/ui/badge.tsx"
 
-# API ROUTES
+# ================= API ROUTES =================
 add_section "API ROUTES"
+
+# Auth
 add_file_content "app/api/auth/[...all]/route.ts"
+
+# Shifts
 add_file_content "app/api/shifts/route.ts"
 add_file_content "app/api/shifts/active/route.ts"
 add_file_content "app/api/shifts/close/route.ts"
 add_file_content "app/api/shifts/[id]/route.ts"
+add_file_content "app/api/shifts/[id]/summary/route.ts"
+
+# Inventory
+add_file_content "app/api/inventory/sale/route.ts"
+add_file_content "app/api/inventory/cancel/route.ts"
+add_file_content "app/api/inventory/cancelled/route.ts"
 add_file_content "app/api/inventory/entry/route.ts"
 add_file_content "app/api/inventory/adjustment/route.ts"
 add_file_content "app/api/inventory/transfer/route.ts"
 add_file_content "app/api/inventory/movements/route.ts"
+add_file_content "app/api/inventory/kardex/[id]/route.ts"
+add_file_content "app/api/inventory/report/stock/route.ts"
+add_file_content "app/api/inventory/ticket/[ticket]/route.ts"
+
+# Products
 add_file_content "app/api/products/route.ts"
 add_file_content "app/api/products/[id]/route.ts"
-add_file_content "app/api/sales/route.ts"
-add_file_content "app/api/sales/history/route.ts"
+
+# Members
 add_file_content "app/api/members/route.ts"
 add_file_content "app/api/members/[id]/route.ts"
+add_file_content "app/api/members/[id]/validity/route.ts"
 add_file_content "app/api/members/renew/route.ts"
+add_file_content "app/api/members/expired/route.ts"
 
-# SERVICES
+# Sales
+add_file_content "app/api/sales/history/route.ts"
+add_file_content "app/api/sales/products/route.ts"
+add_file_content "app/api/sales/ticket/[ticket]/route.ts"
+
+# ================= SERVICES =================
 add_section "SERVICES"
 add_file_content "services/index.ts"
 add_file_content "services/shifts.service.ts"
 add_file_content "services/members.service.ts"
 add_file_content "services/products.service.ts"
 add_file_content "services/inventory.service.ts"
-add_file_content "services/inventory-movements.service.ts"
-add_file_content "services/sales.service.ts"
 add_file_content "services/reports.service.ts"
+add_file_content "services/users.service.ts"
 add_file_content "services/utils.ts"
 
-# TYPES
+# ================= TYPES =================
 add_section "TYPES"
 add_file_content "types/validator.ts"
 add_file_content "types/routes.d.ts"
 
-echo -e "\n✅ Export: ${output_file} ($(du -h "$output_file" | cut -f1))"
+echo -e "\n✅ Export generado: ${output_file} ($(du -h "$output_file" | cut -f1))"
