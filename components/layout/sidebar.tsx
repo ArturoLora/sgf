@@ -3,25 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  Users,
-  Package,
-  Archive,
-  Calculator,
-  History,
-} from "lucide-react";
-
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Ventas", href: "/ventas", icon: ShoppingCart },
-  { name: "Historial", href: "/ventas/historial", icon: History },
-  { name: "Socios", href: "/socios", icon: Users },
-  { name: "Productos", href: "/productos", icon: Package },
-  { name: "Inventario", href: "/inventario", icon: Archive },
-  { name: "Cortes", href: "/cortes", icon: Calculator },
-];
+import { dashboardRoutes } from "@/lib/navigation";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -32,11 +14,11 @@ export function Sidebar() {
         <h1 className="text-xl font-bold">Nacho Gym</h1>
       </div>
       <nav className="flex-1 space-y-1 p-4">
-        {navigation.map((item) => {
+        {dashboardRoutes.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
-              key={item.name}
+              key={item.href}
               href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
@@ -46,7 +28,7 @@ export function Sidebar() {
               )}
             >
               <item.icon className="h-5 w-5" />
-              {item.name}
+              {item.label}
             </Link>
           );
         })}

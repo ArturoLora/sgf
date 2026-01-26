@@ -1,3 +1,4 @@
+// app/(dashboard)/historial-ventas/historial-filtros.tsx
 "use client";
 
 import { useState } from "react";
@@ -14,189 +15,185 @@ import {
 } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
 
-interface FiltrosVentas {
-  busqueda: string;
-  fechaInicio: string;
-  fechaFin: string;
-  cajero: string;
-  producto: string;
-  socio: string;
-  formaPago: string;
-  tipoProducto: "todos" | "membresias" | "productos";
-  ordenarPor: "fecha" | "total" | "ticket";
-  orden: "asc" | "desc";
-  soloActivas: boolean;
+interface SalesFilters {
+  search: string;
+  startDate: string;
+  endDate: string;
+  cashier: string;
+  product: string;
+  member: string;
+  paymentMethod: string;
+  productType: "todos" | "membresias" | "productos";
+  orderBy: "date" | "total" | "ticket";
+  order: "asc" | "desc";
+  onlyActive: boolean;
 }
 
 interface HistorialFiltrosProps {
-  onFiltrar: (filtros: FiltrosVentas) => void;
-  cajeros: Array<{ id: string; name: string }>;
-  productos: Array<{ id: number; nombre: string }>;
-  socios: Array<{ id: number; numeroSocio: string; nombre: string | null }>;
+  onFilter: (filters: SalesFilters) => void;
+  cashiers: Array<{ id: string; name: string }>;
+  products: Array<{ id: number; name: string }>;
+  members: Array<{ id: number; memberNumber: string; name: string | null }>;
   loading: boolean;
 }
 
 export default function HistorialFiltros({
-  onFiltrar,
-  cajeros,
-  productos,
-  socios,
+  onFilter,
+  cashiers,
+  products,
+  members,
   loading,
 }: HistorialFiltrosProps) {
-  const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  const [filtros, setFiltros] = useState<FiltrosVentas>({
-    busqueda: "",
-    fechaInicio: "",
-    fechaFin: "",
-    cajero: "todos",
-    producto: "todos",
-    socio: "todos",
-    formaPago: "todos",
-    tipoProducto: "todos",
-    ordenarPor: "fecha",
-    orden: "desc",
-    soloActivas: true,
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<SalesFilters>({
+    search: "",
+    startDate: "",
+    endDate: "",
+    cashier: "todos",
+    product: "todos",
+    member: "todos",
+    paymentMethod: "todos",
+    productType: "todos",
+    orderBy: "date",
+    order: "desc",
+    onlyActive: true,
   });
 
-  const handleChange = (key: keyof FiltrosVentas, value: any) => {
-    const nuevosFiltros = { ...filtros, [key]: value };
-    setFiltros(nuevosFiltros);
+  const handleChange = (key: keyof SalesFilters, value: any) => {
+    const newFilters = { ...filters, [key]: value };
+    setFilters(newFilters);
   };
 
-  const aplicarFiltros = () => {
-    onFiltrar(filtros);
+  const applyFilters = () => {
+    onFilter(filters);
   };
 
-  const limpiarFiltros = () => {
-    const filtrosLimpios: FiltrosVentas = {
-      busqueda: "",
-      fechaInicio: "",
-      fechaFin: "",
-      cajero: "todos",
-      producto: "todos",
-      socio: "todos",
-      formaPago: "todos",
-      tipoProducto: "todos",
-      ordenarPor: "fecha",
-      orden: "desc",
-      soloActivas: true,
+  const clearFilters = () => {
+    const cleanFilters: SalesFilters = {
+      search: "",
+      startDate: "",
+      endDate: "",
+      cashier: "todos",
+      product: "todos",
+      member: "todos",
+      paymentMethod: "todos",
+      productType: "todos",
+      orderBy: "date",
+      order: "desc",
+      onlyActive: true,
     };
-    setFiltros(filtrosLimpios);
-    onFiltrar(filtrosLimpios);
+    setFilters(cleanFilters);
+    onFilter(cleanFilters);
   };
 
-  const hayFiltrosActivos =
-    filtros.busqueda ||
-    filtros.fechaInicio ||
-    filtros.fechaFin ||
-    filtros.cajero !== "todos" ||
-    filtros.producto !== "todos" ||
-    filtros.socio !== "todos" ||
-    filtros.formaPago !== "todos" ||
-    !filtros.soloActivas;
+  const hasActiveFilters =
+    filters.search ||
+    filters.startDate ||
+    filters.endDate ||
+    filters.cashier !== "todos" ||
+    filters.product !== "todos" ||
+    filters.member !== "todos" ||
+    filters.paymentMethod !== "todos" ||
+    !filters.onlyActive;
 
-  // Establecer fechas por defecto (último mes)
-  const establecerRangoDefault = (tipo: "hoy" | "semana" | "mes") => {
-    const hoy = new Date();
-    const fin = hoy.toISOString().split("T")[0];
-    let inicio = "";
+  const setDefaultRange = (type: "today" | "week" | "month") => {
+    const today = new Date();
+    const end = today.toISOString().split("T")[0];
+    let start = "";
 
-    switch (tipo) {
-      case "hoy":
-        inicio = fin;
+    switch (type) {
+      case "today":
+        start = end;
         break;
-      case "semana":
-        const semanaAtras = new Date(hoy);
-        semanaAtras.setDate(semanaAtras.getDate() - 7);
-        inicio = semanaAtras.toISOString().split("T")[0];
+      case "week":
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        start = weekAgo.toISOString().split("T")[0];
         break;
-      case "mes":
-        const mesAtras = new Date(hoy);
-        mesAtras.setMonth(mesAtras.getMonth() - 1);
-        inicio = mesAtras.toISOString().split("T")[0];
+      case "month":
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        start = monthAgo.toISOString().split("T")[0];
         break;
     }
 
-    const nuevosFiltros = {
-      ...filtros,
-      fechaInicio: inicio,
-      fechaFin: fin,
+    const newFilters = {
+      ...filters,
+      startDate: start,
+      endDate: end,
     };
-    setFiltros(nuevosFiltros);
-    onFiltrar(nuevosFiltros);
+    setFilters(newFilters);
+    onFilter(newFilters);
   };
 
   return (
     <Card>
       <CardContent className="p-4 space-y-4">
-        {/* Búsqueda Rápida */}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Buscar por ticket, producto, cliente, cajero..."
-              value={filtros.busqueda}
-              onChange={(e) => handleChange("busqueda", e.target.value)}
+              value={filters.search}
+              onChange={(e) => handleChange("search", e.target.value)}
               className="pl-9"
             />
           </div>
           <Button
             variant="outline"
-            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            onClick={() => setShowFilters(!showFilters)}
             className="gap-2"
           >
             <Filter className="h-4 w-4" />
             Filtros
           </Button>
           <Button
-            onClick={aplicarFiltros}
+            onClick={applyFilters}
             disabled={loading}
             className="gap-2 min-w-[100px]"
           >
             {loading ? "Buscando..." : "Buscar"}
           </Button>
-          {hayFiltrosActivos && (
-            <Button variant="ghost" onClick={limpiarFiltros} className="gap-2">
+          {hasActiveFilters && (
+            <Button variant="ghost" onClick={clearFilters} className="gap-2">
               <X className="h-4 w-4" />
               Limpiar
             </Button>
           )}
         </div>
 
-        {/* Rangos rápidos */}
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => establecerRangoDefault("hoy")}
+            onClick={() => setDefaultRange("today")}
           >
             Hoy
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => establecerRangoDefault("semana")}
+            onClick={() => setDefaultRange("week")}
           >
             Última semana
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => establecerRangoDefault("mes")}
+            onClick={() => setDefaultRange("month")}
           >
             Último mes
           </Button>
         </div>
 
-        {/* Filtros Avanzados */}
-        {mostrarFiltros && (
+        {showFilters && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 pt-4 border-t">
             <div className="space-y-2">
               <Label>Fecha Inicio</Label>
               <Input
                 type="date"
-                value={filtros.fechaInicio}
-                onChange={(e) => handleChange("fechaInicio", e.target.value)}
+                value={filters.startDate}
+                onChange={(e) => handleChange("startDate", e.target.value)}
               />
             </div>
 
@@ -204,25 +201,25 @@ export default function HistorialFiltros({
               <Label>Fecha Fin</Label>
               <Input
                 type="date"
-                value={filtros.fechaFin}
-                onChange={(e) => handleChange("fechaFin", e.target.value)}
+                value={filters.endDate}
+                onChange={(e) => handleChange("endDate", e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
               <Label>Cajero</Label>
               <Select
-                value={filtros.cajero}
-                onValueChange={(value) => handleChange("cajero", value)}
+                value={filters.cashier}
+                onValueChange={(value) => handleChange("cashier", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  {cajeros.map((cajero) => (
-                    <SelectItem key={cajero.id} value={cajero.id}>
-                      {cajero.name}
+                  {cashiers.map((cashier) => (
+                    <SelectItem key={cashier.id} value={cashier.id}>
+                      {cashier.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -232,20 +229,17 @@ export default function HistorialFiltros({
             <div className="space-y-2">
               <Label>Producto</Label>
               <Select
-                value={filtros.producto}
-                onValueChange={(value) => handleChange("producto", value)}
+                value={filters.product}
+                onValueChange={(value) => handleChange("product", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  {productos.map((producto) => (
-                    <SelectItem
-                      key={producto.id}
-                      value={producto.id.toString()}
-                    >
-                      {producto.nombre}
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={product.id.toString()}>
+                      {product.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -255,17 +249,17 @@ export default function HistorialFiltros({
             <div className="space-y-2">
               <Label>Cliente</Label>
               <Select
-                value={filtros.socio}
-                onValueChange={(value) => handleChange("socio", value)}
+                value={filters.member}
+                onValueChange={(value) => handleChange("member", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  {socios.map((socio) => (
-                    <SelectItem key={socio.id} value={socio.id.toString()}>
-                      {socio.nombre || socio.numeroSocio}
+                  {members.map((member) => (
+                    <SelectItem key={member.id} value={member.id.toString()}>
+                      {member.name || member.memberNumber}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -275,9 +269,9 @@ export default function HistorialFiltros({
             <div className="space-y-2">
               <Label>Tipo de Producto</Label>
               <Select
-                value={filtros.tipoProducto}
+                value={filters.productType}
                 onValueChange={(value: any) =>
-                  handleChange("tipoProducto", value)
+                  handleChange("productType", value)
                 }
               >
                 <SelectTrigger>
@@ -294,20 +288,18 @@ export default function HistorialFiltros({
             <div className="space-y-2">
               <Label>Forma de Pago</Label>
               <Select
-                value={filtros.formaPago}
-                onValueChange={(value) => handleChange("formaPago", value)}
+                value={filters.paymentMethod}
+                onValueChange={(value) => handleChange("paymentMethod", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todas</SelectItem>
-                  <SelectItem value="EFECTIVO">Efectivo</SelectItem>
-                  <SelectItem value="TARJETA_DEBITO">Tarjeta Débito</SelectItem>
-                  <SelectItem value="TARJETA_CREDITO">
-                    Tarjeta Crédito
-                  </SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                  <SelectItem value="CASH">Efectivo</SelectItem>
+                  <SelectItem value="DEBIT_CARD">Tarjeta Débito</SelectItem>
+                  <SelectItem value="CREDIT_CARD">Tarjeta Crédito</SelectItem>
+                  <SelectItem value="TRANSFER">Transferencia</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -315,16 +307,14 @@ export default function HistorialFiltros({
             <div className="space-y-2">
               <Label>Ordenar Por</Label>
               <Select
-                value={filtros.ordenarPor}
-                onValueChange={(value: any) =>
-                  handleChange("ordenarPor", value)
-                }
+                value={filters.orderBy}
+                onValueChange={(value: any) => handleChange("orderBy", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fecha">Fecha</SelectItem>
+                  <SelectItem value="date">Fecha</SelectItem>
                   <SelectItem value="total">Total</SelectItem>
                   <SelectItem value="ticket">Ticket</SelectItem>
                 </SelectContent>
@@ -334,8 +324,8 @@ export default function HistorialFiltros({
             <div className="space-y-2">
               <Label>Orden</Label>
               <Select
-                value={filtros.orden}
-                onValueChange={(value: any) => handleChange("orden", value)}
+                value={filters.order}
+                onValueChange={(value: any) => handleChange("order", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -351,10 +341,8 @@ export default function HistorialFiltros({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={filtros.soloActivas}
-                  onChange={(e) =>
-                    handleChange("soloActivas", e.target.checked)
-                  }
+                  checked={filters.onlyActive}
+                  onChange={(e) => handleChange("onlyActive", e.target.checked)}
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 <span className="text-sm">Solo ventas activas</span>

@@ -139,7 +139,7 @@ export async function getDailySalesReport(
 
       return acc;
     },
-    {} as Record
+    {} as Record<
       string,
       {
         date: string;
@@ -317,8 +317,7 @@ export async function getCurrentStockReport() {
       acc.warehouse += p.warehouseStock;
       acc.gym += p.gymStock;
       acc.total += p.warehouseStock + p.gymStock;
-      acc.totalValue +=
-        Number(p.salePrice) * (p.warehouseStock + p.gymStock);
+      acc.totalValue += Number(p.salePrice) * (p.warehouseStock + p.gymStock);
       return acc;
     },
     { warehouse: 0, gym: 0, total: 0, totalValue: 0 },

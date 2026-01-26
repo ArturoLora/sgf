@@ -222,6 +222,7 @@ model InventoryMovement {
   @@index([isCancelled, date])
   @@index([shiftId, date])
   @@index([type, isCancelled])
+  @@index([type, isCancelled, date(sort: Desc)])
   @@map("inventory_movement")
 }
 

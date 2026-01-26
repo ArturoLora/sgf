@@ -1,3 +1,4 @@
+// app/(dashboard)/historial-ventas/detalle-venta-modal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,22 +16,22 @@ export default function DetalleVentaModal({
   ticket,
   onClose,
 }: DetalleVentaModalProps) {
-  const [ventas, setVentas] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    cargarDetalle();
+    loadDetail();
   }, [ticket]);
 
-  const cargarDetalle = async () => {
+  const loadDetail = async () => {
     try {
-      const res = await fetch(`/api/ventas/ticket/${ticket}`);
+      const res = await fetch(`/api/sales/ticket/${ticket}`);
       if (res.ok) {
         const data = await res.json();
-        setVentas(data);
+        setSales(data);
       }
     } catch (err) {
-      console.error("Error al cargar detalle:", err);
+      console.error("Error loading detail:", err);
     } finally {
       setLoading(false);
     }
@@ -48,11 +49,11 @@ export default function DetalleVentaModal({
     );
   }
 
-  if (ventas.length === 0) return null;
+  if (sales.length === 0) return null;
 
-  const primeraVenta = ventas[0];
-  const totalVenta = ventas.reduce((sum, v) => sum + Number(v.total || 0), 0);
-  const esCancelada = primeraVenta.cancelada;
+  const firstSale = sales[0];
+  const totalSale = sales.reduce((sum, v) => sum + Number(v.total || 0), 0);
+  const isCancelled = firstSale.isCancelled;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -63,10 +64,10 @@ export default function DetalleVentaModal({
               <CardTitle className="text-2xl flex items-center gap-2">
                 <Receipt className="h-6 w-6" />
                 Ticket #{ticket}
-                {esCancelada && <Badge variant="destructive">CANCELADA</Badge>}
+                {isCancelled && <Badge variant="destructive">CANCELADA</Badge>}
               </CardTitle>
               <p className="text-sm text-gray-500 mt-1">
-                {new Date(primeraVenta.fecha).toLocaleString()}
+                {new Date(firstSale.date).toLocaleString()}
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -76,7 +77,6 @@ export default function DetalleVentaModal({
         </CardHeader>
 
         <CardContent className="space-y-6 p-6 overflow-y-auto">
-          {/* Información General */}
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardContent className="pt-6">
@@ -84,7 +84,7 @@ export default function DetalleVentaModal({
                   <User className="h-8 w-8 text-blue-600" />
                   <div>
                     <p className="text-sm text-gray-600">Cajero</p>
-                    <p className="font-semibold">{primeraVenta.usuario.name}</p>
+                    <p className="font-semibold">{firstSale.user.name}</p>
                   </div>
                 </div>
               </CardContent>
@@ -97,7 +97,7 @@ export default function DetalleVentaModal({
                   <div>
                     <p className="text-sm text-gray-600">Forma de Pago</p>
                     <p className="font-semibold">
-                      {primeraVenta.formaPago.replace("_", " ")}
+                      {firstSale.paymentMethod.replace("_", " ")}
                     </p>
                   </div>
                 </div>
@@ -105,22 +105,20 @@ export default function DetalleVentaModal({
             </Card>
           </div>
 
-          {/* Cliente */}
-          {primeraVenta.socio && (
+          {firstSale.member && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Cliente</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-medium">{primeraVenta.socio.nombre}</p>
+                <p className="font-medium">{firstSale.member.name}</p>
                 <p className="text-sm text-gray-600">
-                  {primeraVenta.socio.numeroSocio}
+                  {firstSale.member.memberNumber}
                 </p>
               </CardContent>
             </Card>
           )}
 
-          {/* Productos */}
           <Card>
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
@@ -130,23 +128,23 @@ export default function DetalleVentaModal({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {ventas.map((venta, idx) => (
+                {sales.map((sale, idx) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between p-3 rounded-lg border"
                   >
                     <div className="flex-1">
-                      <p className="font-medium">{venta.producto.nombre}</p>
+                      <p className="font-medium">{sale.product.name}</p>
                       <p className="text-sm text-gray-600">
-                        ${Number(venta.precioUnitario || 0).toFixed(2)} c/u
+                        ${Number(sale.unitPrice || 0).toFixed(2)} c/u
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
                       <Badge variant="outline">
-                        x{Math.abs(venta.cantidad)}
+                        x{Math.abs(sale.quantity)}
                       </Badge>
                       <span className="font-bold w-24 text-right">
-                        ${Number(venta.total).toFixed(2)}
+                        ${Number(sale.total).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -155,38 +153,33 @@ export default function DetalleVentaModal({
             </CardContent>
           </Card>
 
-          {/* Total */}
-          <Card className={esCancelada ? "border-red-200 bg-red-50" : ""}>
+          <Card className={isCancelled ? "border-red-200 bg-red-50" : ""}>
             <CardContent className="pt-6">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold">Total</span>
                 <span
                   className={`text-3xl font-bold ${
-                    esCancelada ? "text-red-600" : ""
+                    isCancelled ? "text-red-600" : ""
                   }`}
                 >
-                  ${totalVenta.toFixed(2)}
+                  ${totalSale.toFixed(2)}
                 </span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Observaciones */}
-          {primeraVenta.observaciones && (
+          {firstSale.notes && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Observaciones</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-700">
-                  {primeraVenta.observaciones}
-                </p>
+                <p className="text-sm text-gray-700">{firstSale.notes}</p>
               </CardContent>
             </Card>
           )}
 
-          {/* Info Cancelación */}
-          {esCancelada && (
+          {isCancelled && (
             <Card className="border-red-200 bg-red-50">
               <CardHeader>
                 <CardTitle className="text-sm text-red-600">
@@ -195,11 +188,11 @@ export default function DetalleVentaModal({
               </CardHeader>
               <CardContent>
                 <p className="text-sm">
-                  <strong>Motivo:</strong> {primeraVenta.motivoCancelacion}
+                  <strong>Motivo:</strong> {firstSale.cancellationReason}
                 </p>
                 <p className="text-sm text-gray-600">
                   Cancelada el:{" "}
-                  {new Date(primeraVenta.fechaCancelacion).toLocaleString()}
+                  {new Date(firstSale.cancellationDate).toLocaleString()}
                 </p>
               </CardContent>
             </Card>

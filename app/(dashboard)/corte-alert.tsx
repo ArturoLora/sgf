@@ -1,6 +1,4 @@
 // app/(dashboard)/corte-alert.tsx
-"use client";
-
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle } from "lucide-react";
@@ -8,9 +6,9 @@ import { AlertCircle, CheckCircle } from "lucide-react";
 interface CorteAlertProps {
   corteActivo: {
     folio: string;
-    cajero: { name: string };
-    fechaApertura: string;
-    cantidadTickets: number;
+    cashier: { name: string };
+    openingDate: string;
+    ticketCount: number;
   } | null;
 }
 
@@ -26,13 +24,13 @@ export default function CorteAlert({ corteActivo }: CorteAlertProps) {
                 Corte Activo: {corteActivo.folio}
               </p>
               <p className="text-sm text-green-700">
-                Cajero: {corteActivo.cajero.name} | Apertura:{" "}
-                {new Date(corteActivo.fechaApertura).toLocaleTimeString()}
+                Cajero: {corteActivo.cashier.name} | Apertura:{" "}
+                {new Date(corteActivo.openingDate).toLocaleTimeString()}
               </p>
             </div>
           </div>
           <Badge variant="outline" className="bg-white">
-            Tickets: {corteActivo.cantidadTickets}
+            Tickets: {corteActivo.ticketCount}
           </Badge>
         </CardContent>
       </Card>

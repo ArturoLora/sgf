@@ -1,22 +1,20 @@
 // app/(dashboard)/alertas-dashboard.tsx
-"use client";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle } from "lucide-react";
 
 interface Socio {
   id: number;
-  nombre: string;
-  numeroSocio: string;
+  name: string;
+  memberNumber: string;
 }
 
 interface Producto {
   id: number;
-  nombre: string;
-  existenciaGym: number;
-  existenciaBodega: number;
-  existenciaMin: number;
+  name: string;
+  gymStock: number;
+  warehouseStock: number;
+  minStock: number;
 }
 
 interface AlertasProps {
@@ -46,8 +44,10 @@ export default function AlertasDashboard({
                   className="flex items-center justify-between rounded-lg border p-3"
                 >
                   <div>
-                    <p className="font-medium">{socio.nombre}</p>
-                    <p className="text-sm text-gray-500">{socio.numeroSocio}</p>
+                    <p className="font-medium">{socio.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {socio.memberNumber}
+                    </p>
                   </div>
                   <Badge variant="destructive">Vencido</Badge>
                 </div>
@@ -78,14 +78,14 @@ export default function AlertasDashboard({
                   className="flex items-center justify-between rounded-lg border p-3"
                 >
                   <div>
-                    <p className="font-medium">{producto.nombre}</p>
+                    <p className="font-medium">{producto.name}</p>
                     <p className="text-sm text-gray-500">
-                      Gym: {producto.existenciaGym} | Bodega:{" "}
-                      {producto.existenciaBodega}
+                      Gym: {producto.gymStock} | Bodega:{" "}
+                      {producto.warehouseStock}
                     </p>
                   </div>
                   <Badge variant="outline" className="bg-yellow-50">
-                    Min: {producto.existenciaMin}
+                    Min: {producto.minStock}
                   </Badge>
                 </div>
               ))}
