@@ -68,7 +68,6 @@ model User {
   shifts        Shift[]
   inventoryMovements InventoryMovement[]
 
-  @@index([email])
   @@index([role, isActive])
   @@map("user")
 }
@@ -145,9 +144,6 @@ model Member {
   
   inventoryMovements InventoryMovement[]
 
-  @@index([memberNumber])
-  @@index([email])
-  @@index([isActive])
   @@index([membershipType, isActive])
   @@index([endDate, isActive])
   @@map("member")
@@ -168,8 +164,6 @@ model Product {
 
   inventoryMovements InventoryMovement[]
 
-  @@index([name])
-  @@index([isActive])
   @@index([gymStock, minStock])
   @@index([warehouseStock, minStock])
   @@map("product")
@@ -182,7 +176,6 @@ model InventoryMovement {
   productId      Int
   type           InventoryType
   location       Location
-  /// Positive = stock entry, Negative = stock exit
   quantity       Int
   
   ticket         String?
@@ -201,9 +194,7 @@ model InventoryMovement {
   cancellationReason   String?
   cancellationDate     DateTime?
   
-  /// Actual movement date
   date          DateTime @default(now())
-  /// System creation date
   createdAt     DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id])
@@ -211,18 +202,10 @@ model InventoryMovement {
   user    User     @relation(fields: [userId], references: [id])
   shift   Shift?   @relation(fields: [shiftId], references: [id])
 
-  @@index([productId])
-  @@index([memberId])
-  @@index([userId])
-  @@index([shiftId])
-  @@index([ticket])
-  @@index([type])
-  @@index([date])
-  @@index([productId, date])
-  @@index([isCancelled, date])
-  @@index([shiftId, date])
-  @@index([type, isCancelled])
-  @@index([type, isCancelled, date(sort: Desc)])
+  @@index([type, date(sort: Desc)])
+  @@index([type, ticket])
+  @@index([type, userId, date])
+  @@index([type, productId, date])
   @@map("inventory_movement")
 }
 
@@ -261,6 +244,5 @@ model Shift {
   @@index([cashierId])
   @@index([openingDate])
   @@index([closingDate])
-  @@index([folio])
   @@map("shift")
 }

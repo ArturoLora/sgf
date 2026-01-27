@@ -42,7 +42,29 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(serializeDecimal(sales));
+    // Agrupar en estructura de ticket
+    const firstSale = sales[0];
+
+    const ticketData = {
+      ticket,
+      date: firstSale.date,
+      cashier: firstSale.user.name,
+      paymentMethod: firstSale.paymentMethod,
+      member: firstSale.member,
+      isCancelled: firstSale.isCancelled,
+      cancellationReason: firstSale.cancellationReason,
+      cancellationDate: firstSale.cancellationDate,
+      notes: firstSale.notes,
+      total: sales.reduce((sum, s) => sum + Number(s.total || 0), 0),
+      items: sales.map((s) => ({
+        id: s.id,
+        product: s.product,
+        quantity: s.quantity,
+        total: s.total,
+      })),
+    };
+
+    return NextResponse.json(serializeDecimal(ticketData));
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

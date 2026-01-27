@@ -1,13 +1,9 @@
 // app/(dashboard)/dashboard.container.tsx
-import {
-  ShiftsService,
-  InventoryService,
-  MembersService,
-  ReportsService,
-} from "@/services";
+import { ShiftsService, MembersService, ReportsService } from "@/services";
 import CorteAlert from "./corte-alert";
 import DashboardStats from "./dashboard-stats";
 import AlertasDashboard from "./alertas-dashboard";
+import { prisma } from "@/lib/db";
 
 async function getStatsDelDia() {
   const today = new Date();
@@ -15,11 +11,20 @@ async function getStatsDelDia() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const movimientos = await InventoryService.getMovementsByDate(
-    today,
-    tomorrow,
-  );
-  const ventas = movimientos.filter((m) => m.type === "SALE" && !m.isCancelled);
+  const ventas = await prisma.inventoryMovement.findMany({
+    where: {
+      type: "SALE",
+      isCancelled: false,
+      date: {
+        gte: today,
+        lt: tomorrow,
+      },
+    },
+    select: {
+      total: true,
+    },
+  });
+
   const total = ventas.reduce((sum, v) => sum + Number(v.total || 0), 0);
 
   return { ventas: ventas.length, total };

@@ -31,6 +31,7 @@ async function main() {
     },
   ];
 
+  // Crear usuarios vía BetterAuth (idempotente)
   for (const userData of users) {
     try {
       await auth.api.signUpEmail({
@@ -40,6 +41,7 @@ async function main() {
           password: userData.password,
         },
       });
+
       console.log(`✅ ${userData.name} creado`);
     } catch (e: any) {
       if (e.message?.includes("already exists")) {
@@ -50,29 +52,41 @@ async function main() {
     }
   }
 
-  // Actualizar roles
-  for (const userData of users) {
-    await prisma.user.update({
-      where: { email: userData.email },
-      data: { role: userData.role, isActive: true },
-    });
-  }
-  console.log("✅ Roles actualizados");
+  // Asignar roles usando Prisma
+  await prisma.user.update({
+    where: { email: "nacho@nachogym.com" },
+    data: { role: "ADMIN", isActive: true },
+  });
 
-  // Obtener IDs de usuarios
+  await prisma.user.update({
+    where: { email: "carlos@nachogym.com" },
+    data: { role: "EMPLEADO", isActive: true },
+  });
+
+  await prisma.user.update({
+    where: { email: "andrew@nachogym.com" },
+    data: { role: "EMPLEADO", isActive: true },
+  });
+
+  // Obtener usuarios para relaciones posteriores
   const adminNacho = await prisma.user.findUnique({
     where: { email: "nacho@nachogym.com" },
   });
+
   const employeeCarlos = await prisma.user.findUnique({
     where: { email: "carlos@nachogym.com" },
   });
+
   const employeeAndrew = await prisma.user.findUnique({
     where: { email: "andrew@nachogym.com" },
   });
 
+  // Safety check
   if (!adminNacho || !employeeCarlos || !employeeAndrew) {
-    throw new Error("No se pudieron crear los usuarios");
+    throw new Error("❌ Usuarios no encontrados después del seed");
   }
+
+  console.log("✅ Usuarios verificados/actualizados");
 
   // ==================== PRODUCTOS ====================
   console.log("\n📦 Creando productos...");

@@ -97,7 +97,6 @@ add_file_content "app/(dashboard)/ventas/ventas-form.tsx"
 add_file_content "app/(dashboard)/historial-ventas/page.tsx"
 add_file_content "app/(dashboard)/historial-ventas/historial-ventas-manager.tsx"
 add_file_content "app/(dashboard)/historial-ventas/historial-filtros.tsx"
-add_file_content "app/(dashboard)/historial-ventas/detalle-venta-modal.tsx"
 
 
 # ================= COMPONENTS =================

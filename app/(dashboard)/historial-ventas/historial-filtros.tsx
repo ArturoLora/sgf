@@ -24,8 +24,13 @@ interface SalesFilters {
   member: string;
   paymentMethod: string;
   productType: "todos" | "membresias" | "productos";
-  orderBy: "date" | "total" | "ticket";
-  order: "asc" | "desc";
+  orderBy:
+    | "date_desc"
+    | "date_asc"
+    | "total_desc"
+    | "total_asc"
+    | "ticket_desc"
+    | "ticket_asc";
   onlyActive: boolean;
 }
 
@@ -54,8 +59,7 @@ export default function HistorialFiltros({
     member: "todos",
     paymentMethod: "todos",
     productType: "todos",
-    orderBy: "date",
-    order: "desc",
+    orderBy: "date_desc",
     onlyActive: true,
   });
 
@@ -68,6 +72,12 @@ export default function HistorialFiltros({
     onFilter(filters);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      applyFilters();
+    }
+  };
+
   const clearFilters = () => {
     const cleanFilters: SalesFilters = {
       search: "",
@@ -78,8 +88,7 @@ export default function HistorialFiltros({
       member: "todos",
       paymentMethod: "todos",
       productType: "todos",
-      orderBy: "date",
-      order: "desc",
+      orderBy: "date_desc",
       onlyActive: true,
     };
     setFilters(cleanFilters);
@@ -136,6 +145,7 @@ export default function HistorialFiltros({
               placeholder="Buscar por ticket, producto, cliente, cajero..."
               value={filters.search}
               onChange={(e) => handleChange("search", e.target.value)}
+              onKeyDown={handleKeyDown}
               className="pl-9"
             />
           </div>
@@ -187,7 +197,7 @@ export default function HistorialFiltros({
         </div>
 
         {showFilters && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 pt-4 border-t">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pt-4 border-t">
             <div className="space-y-2">
               <Label>Fecha Inicio</Label>
               <Input
@@ -314,25 +324,18 @@ export default function HistorialFiltros({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="date">Fecha</SelectItem>
-                  <SelectItem value="total">Total</SelectItem>
-                  <SelectItem value="ticket">Ticket</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Orden</Label>
-              <Select
-                value={filters.order}
-                onValueChange={(value: any) => handleChange("order", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desc">Más reciente</SelectItem>
-                  <SelectItem value="asc">Más antiguo</SelectItem>
+                  <SelectItem value="date_desc">
+                    Fecha (más reciente)
+                  </SelectItem>
+                  <SelectItem value="date_asc">Fecha (más antiguo)</SelectItem>
+                  <SelectItem value="total_desc">
+                    Total (mayor a menor)
+                  </SelectItem>
+                  <SelectItem value="total_asc">
+                    Total (menor a mayor)
+                  </SelectItem>
+                  <SelectItem value="ticket_desc">Ticket (Z-A)</SelectItem>
+                  <SelectItem value="ticket_asc">Ticket (A-Z)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
