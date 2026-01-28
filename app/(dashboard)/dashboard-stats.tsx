@@ -16,7 +16,8 @@ export default function DashboardStats({
   stockBajo,
 }: StatsProps) {
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    // Responsive grid: 1 col mobile, 2 cols sm, 4 cols lg
+    <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">Ventas del Día</CardTitle>

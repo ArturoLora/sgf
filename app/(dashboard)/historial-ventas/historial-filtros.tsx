@@ -1,4 +1,3 @@
-// app/(dashboard)/historial-ventas/historial-filtros.tsx
 "use client";
 
 import { useState } from "react";
@@ -13,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, X, Filter } from "lucide-react";
+import { Search, X, Filter, Calendar } from "lucide-react";
 
 interface SalesFilters {
   search: string;
@@ -95,16 +94,6 @@ export default function HistorialFiltros({
     onFilter(cleanFilters);
   };
 
-  const hasActiveFilters =
-    filters.search ||
-    filters.startDate ||
-    filters.endDate ||
-    filters.cashier !== "todos" ||
-    filters.product !== "todos" ||
-    filters.member !== "todos" ||
-    filters.paymentMethod !== "todos" ||
-    !filters.onlyActive;
-
   const setDefaultRange = (type: "today" | "week" | "month") => {
     const today = new Date();
     const end = today.toISOString().split("T")[0];
@@ -135,71 +124,105 @@ export default function HistorialFiltros({
     onFilter(newFilters);
   };
 
+  const hasActiveFilters =
+    filters.search ||
+    filters.startDate ||
+    filters.endDate ||
+    filters.cashier !== "todos" ||
+    filters.product !== "todos" ||
+    filters.member !== "todos" ||
+    filters.paymentMethod !== "todos" ||
+    !filters.onlyActive;
+
   return (
     <Card>
-      <CardContent className="p-4 space-y-4">
-        <div className="flex gap-2">
+      <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {/* Search & Actions - responsive layout */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Buscar por ticket, producto, cliente, cajero..."
+              placeholder="Buscar ventas..."
               value={filters.search}
               onChange={(e) => handleChange("search", e.target.value)}
               onKeyDown={handleKeyDown}
               className="pl-9"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filtros
-          </Button>
-          <Button
-            onClick={applyFilters}
-            disabled={loading}
-            className="gap-2 min-w-[100px]"
-          >
-            {loading ? "Buscando..." : "Buscar"}
-          </Button>
-          {hasActiveFilters && (
-            <Button variant="ghost" onClick={clearFilters} className="gap-2">
-              <X className="h-4 w-4" />
-              Limpiar
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="gap-2 flex-1 sm:flex-initial"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtros</span>
             </Button>
-          )}
+            <Button
+              onClick={applyFilters}
+              disabled={loading}
+              className="gap-2 flex-1 sm:flex-initial sm:min-w-[100px]"
+            >
+              {loading ? "Buscando..." : "Buscar"}
+            </Button>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="gap-2 hidden sm:flex"
+              >
+                <X className="h-4 w-4" />
+                Limpiar
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="flex gap-2">
+        {/* Quick date filters - stack on mobile */}
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setDefaultRange("today")}
+            className="flex-1 sm:flex-initial"
           >
-            Hoy
+            <Calendar className="h-3 w-3 sm:mr-1" />
+            <span className="text-xs sm:text-sm">Hoy</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setDefaultRange("week")}
+            className="flex-1 sm:flex-initial"
           >
-            Última semana
+            <span className="text-xs sm:text-sm">7 días</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setDefaultRange("month")}
+            className="flex-1 sm:flex-initial"
           >
-            Último mes
+            <span className="text-xs sm:text-sm">30 días</span>
           </Button>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="flex sm:hidden gap-1"
+            >
+              <X className="h-3 w-3" />
+              <span className="text-xs">Limpiar</span>
+            </Button>
+          )}
         </div>
 
+        {/* Advanced Filters - responsive grid */}
         {showFilters && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pt-4 border-t">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pt-3 sm:pt-4 border-t">
             <div className="space-y-2">
-              <Label>Fecha Inicio</Label>
+              <Label className="text-sm">Fecha Inicio</Label>
               <Input
                 type="date"
                 value={filters.startDate}
@@ -208,7 +231,7 @@ export default function HistorialFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Fecha Fin</Label>
+              <Label className="text-sm">Fecha Fin</Label>
               <Input
                 type="date"
                 value={filters.endDate}
@@ -217,7 +240,7 @@ export default function HistorialFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Cajero</Label>
+              <Label className="text-sm">Cajero</Label>
               <Select
                 value={filters.cashier}
                 onValueChange={(value) => handleChange("cashier", value)}
@@ -237,7 +260,7 @@ export default function HistorialFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Producto</Label>
+              <Label className="text-sm">Producto</Label>
               <Select
                 value={filters.product}
                 onValueChange={(value) => handleChange("product", value)}
@@ -257,7 +280,7 @@ export default function HistorialFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Cliente</Label>
+              <Label className="text-sm">Cliente</Label>
               <Select
                 value={filters.member}
                 onValueChange={(value) => handleChange("member", value)}
@@ -277,7 +300,7 @@ export default function HistorialFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Tipo de Producto</Label>
+              <Label className="text-sm">Tipo de Producto</Label>
               <Select
                 value={filters.productType}
                 onValueChange={(value: any) =>
@@ -296,7 +319,7 @@ export default function HistorialFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Forma de Pago</Label>
+              <Label className="text-sm">Forma de Pago</Label>
               <Select
                 value={filters.paymentMethod}
                 onValueChange={(value) => handleChange("paymentMethod", value)}
@@ -315,7 +338,7 @@ export default function HistorialFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Ordenar Por</Label>
+              <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filters.orderBy}
                 onValueChange={(value: any) => handleChange("orderBy", value)}

@@ -47,6 +47,7 @@ add_file_content "app/login/page.tsx"
 # ================= DASHBOARD =================
 add_section "DASHBOARD"
 add_file_content "app/(dashboard)/layout.tsx"
+add_file_content "app/(dashboard)/layout-client.tsx"
 add_file_content "app/(dashboard)/page.tsx"
 add_file_content "app/(dashboard)/dashboard-stats.tsx"
 add_file_content "app/(dashboard)/corte-alert.tsx"
@@ -97,6 +98,8 @@ add_file_content "app/(dashboard)/ventas/ventas-form.tsx"
 add_file_content "app/(dashboard)/historial-ventas/page.tsx"
 add_file_content "app/(dashboard)/historial-ventas/historial-ventas-manager.tsx"
 add_file_content "app/(dashboard)/historial-ventas/historial-filtros.tsx"
+add_file_content "app/(dashboard)/historial-ventas/historial-lista.tsx"
+add_file_content "app/(dashboard)/historial-ventas/historial-stats.tsx"
 
 
 # ================= COMPONENTS =================
@@ -109,6 +112,7 @@ add_file_content "components/ui/input.tsx"
 add_file_content "components/ui/label.tsx"
 add_file_content "components/ui/select.tsx"
 add_file_content "components/ui/badge.tsx"
+add_file_content "components/ui/sheet.tsx"
 
 # ================= API ROUTES =================
 add_section "API ROUTES"

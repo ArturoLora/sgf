@@ -1,12 +1,12 @@
-// app/(dashboard)/historial-ventas/historial-ventas-manager.tsx
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, X, Receipt, Calendar } from "lucide-react";
+import { X } from "lucide-react";
 import HistorialFiltros from "./historial-filtros";
+import HistorialLista from "./historial-lista";
+import HistorialStats from "./historial-stats";
 
 interface Cashier {
   id: string;
@@ -77,7 +77,6 @@ export default function HistorialVentasManager({
 
   useEffect(() => {
     loadSales(filters, 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSales = async (newFilters: SalesFilters, page: number = 1) => {
@@ -102,7 +101,6 @@ export default function HistorialVentasManager({
       if (newFilters.productType !== "todos")
         params.append("productType", newFilters.productType);
 
-      // Parse orderBy to separate field and direction
       const [orderByField, order] = newFilters.orderBy.split("_");
       params.append("orderBy", orderByField);
       params.append("order", order);
@@ -132,80 +130,31 @@ export default function HistorialVentasManager({
     loadSales(newFilters, 1);
   };
 
-  const totalPages = Math.ceil(totalSales / ITEMS_PER_PAGE);
-
-  const stats = useMemo(() => {
-    const totalValue = tickets.reduce((s, t) => s + Number(t.total), 0);
-    const cancelled = tickets.filter((t) => t.isCancelled).length;
-    const totalItems = tickets.reduce((s, t) => s + t.items.length, 0);
-
-    return {
-      totalValue,
-      uniqueTickets: tickets.length,
-      cancelled,
-      totalItems,
-    };
-  }, [tickets]);
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("es-MX", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const handlePageChange = (page: number) => {
+    loadSales(filters, page);
   };
 
+  const totalPages = Math.ceil(totalSales / ITEMS_PER_PAGE);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Historial de Ventas</h1>
-        <p className="text-gray-500">Consulta y análisis de ventas</p>
+        <h1 className="text-2xl sm:text-3xl font-bold">Historial de Ventas</h1>
+        <p className="text-sm sm:text-base text-gray-500">
+          Consulta y análisis de ventas
+        </p>
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex justify-between">
-          <span>{error}</span>
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex justify-between items-start gap-2">
+          <span className="flex-1">{error}</span>
           <Button variant="ghost" size="sm" onClick={() => setError("")}>
             <X className="h-4 w-4" />
           </Button>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
-              ${stats.totalValue.toFixed(2)}
-            </div>
-            <p className="text-xs text-gray-500">Total en ventas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.uniqueTickets}</div>
-            <p className="text-xs text-gray-500">Tickets</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.totalItems}</div>
-            <p className="text-xs text-gray-500">Items</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">
-              {stats.cancelled}
-            </div>
-            <p className="text-xs text-gray-500">Canceladas</p>
-          </CardContent>
-        </Card>
-      </div>
+      <HistorialStats tickets={tickets} />
 
       <HistorialFiltros
         onFilter={handleFilter}
@@ -217,122 +166,21 @@ export default function HistorialVentasManager({
 
       <Card>
         <CardHeader>
-          <CardTitle>Resultados ({totalSales})</CardTitle>
+          <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+            <span>Resultados</span>
+            <span className="text-xs sm:text-sm font-normal text-gray-500">
+              {totalSales} ventas
+            </span>
+          </CardTitle>
         </CardHeader>
-
         <CardContent>
-          {loading ? (
-            <p className="text-center text-gray-500 py-8">Cargando...</p>
-          ) : tickets.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">Sin resultados</p>
-          ) : (
-            <>
-              <div className="space-y-4">
-                {tickets.map((ticket) => (
-                  <div
-                    key={ticket.ticket}
-                    className={`border rounded-lg p-4 ${
-                      ticket.isCancelled ? "bg-red-50 border-red-200" : ""
-                    }`}
-                  >
-                    <div className="flex justify-between">
-                      <div className="flex-1">
-                        <div className="flex gap-2 items-center mb-2">
-                          <Receipt className="h-4 w-4" />
-                          <strong>#{ticket.ticket}</strong>
-                          <Badge variant="secondary">
-                            {ticket.items.length} items
-                          </Badge>
-                          {ticket.isCancelled && (
-                            <Badge variant="destructive">Cancelada</Badge>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                          <Calendar className="h-3 w-3" />
-                          <span>{formatDate(ticket.date)}</span>
-                        </div>
-
-                        <p className="text-sm text-gray-600">
-                          Cajero:{" "}
-                          <span className="font-medium">{ticket.cashier}</span>
-                        </p>
-
-                        {ticket.paymentMethod && (
-                          <p className="text-sm text-gray-600">
-                            Pago:{" "}
-                            <span className="font-medium">
-                              {ticket.paymentMethod.replace(/_/g, " ")}
-                            </span>
-                          </p>
-                        )}
-
-                        {ticket.member && (
-                          <p className="text-sm text-gray-600">
-                            Cliente:{" "}
-                            <span className="font-medium">
-                              {ticket.member.name}
-                            </span>{" "}
-                            ({ticket.member.memberNumber})
-                          </p>
-                        )}
-
-                        <div className="mt-3 space-y-1 bg-gray-50 rounded p-2">
-                          {ticket.items.map((i: any) => (
-                            <div
-                              key={i.id}
-                              className="flex justify-between text-sm"
-                            >
-                              <span className="text-gray-700">
-                                {Math.abs(i.quantity)}x {i.product.name}
-                              </span>
-                              <span className="font-medium">
-                                ${Number(i.total).toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="text-right ml-4">
-                        <p className="font-bold text-2xl">
-                          ${Number(ticket.total).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex justify-between items-center mt-6">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={currentPage === 1 || loading}
-                    onClick={() => loadSales(filters, currentPage - 1)}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Anterior
-                  </Button>
-
-                  <span className="text-sm">
-                    Página {currentPage} de {totalPages}
-                  </span>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={currentPage === totalPages || loading}
-                    onClick={() => loadSales(filters, currentPage + 1)}
-                  >
-                    Siguiente
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
+          <HistorialLista
+            tickets={tickets}
+            loading={loading}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
         </CardContent>
       </Card>
     </div>
