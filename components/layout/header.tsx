@@ -23,39 +23,38 @@ export function Header({ user, onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white px-4 sm:px-6">
-      <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-        {/* Hamburger button - only visible on mobile */}
+    <header className="flex h-14 sm:h-16 items-center justify-between border-b bg-white px-3 sm:px-6">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <Button
           variant="ghost"
           size="sm"
           onClick={onMenuClick}
-          className="lg:hidden h-10 w-10 p-0 shrink-0"
-          aria-label="Open menu"
+          className="lg:hidden h-9 w-9 p-0 shrink-0"
+          aria-label="Menú"
         >
-          <Menu className="h-6 w-6" />
+          <Menu className="h-5 w-5" />
         </Button>
 
-        {/* User info - responsive text sizing */}
-        <h2 className="text-sm sm:text-lg font-semibold truncate">
-          Bienvenido, {user.name}
-        </h2>
-        {user.role && (
-          <span className="hidden sm:inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
-            {user.role}
-          </span>
-        )}
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+            {user.name}
+          </h2>
+          {user.role && (
+            <span className="hidden sm:inline-flex mt-0.5 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+              {user.role}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Logout button - icon only on mobile, with text on desktop */}
       <Button
         variant="ghost"
         size="sm"
         onClick={handleLogout}
-        className="gap-2 shrink-0"
+        className="gap-2 shrink-0 h-9"
       >
         <LogOut className="h-4 w-4" />
-        <span className="hidden sm:inline">Cerrar Sesión</span>
+        <span className="hidden sm:inline">Salir</span>
       </Button>
     </header>
   );

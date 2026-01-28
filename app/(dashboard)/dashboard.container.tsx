@@ -1,4 +1,3 @@
-// app/(dashboard)/dashboard.container.tsx
 import { ShiftsService, MembersService, ReportsService } from "@/services";
 import CorteAlert from "./corte-alert";
 import DashboardStats from "./dashboard-stats";
@@ -39,10 +38,12 @@ export default async function DashboardContainer() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-gray-500">Resumen general del gimnasio</p>
+    <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-0.5">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          Dashboard
+        </h1>
+        <p className="text-sm text-gray-500">Resumen de operaciones</p>
       </div>
 
       <CorteAlert corteActivo={corteActivo} />

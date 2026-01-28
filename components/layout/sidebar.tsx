@@ -12,12 +12,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
-// Mobile navigation content
 function MobileNavContent() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1 space-y-1 pt-4">
+    <nav className="flex-1 space-y-1 pt-6">
       {dashboardRoutes.map((item) => {
         const isActive = pathname === item.href;
         return (
@@ -25,14 +24,14 @@ function MobileNavContent() {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-4 rounded-xl px-4 py-4 text-base font-medium transition-all active:scale-95",
               isActive
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                ? "bg-gray-900 text-white shadow-sm"
+                : "text-gray-700 hover:bg-gray-100",
             )}
           >
-            <item.icon className="h-5 w-5" />
-            {item.label}
+            <item.icon className="h-6 w-6 shrink-0" />
+            <span>{item.label}</span>
           </Link>
         );
       })}
@@ -40,16 +39,15 @@ function MobileNavContent() {
   );
 }
 
-// Desktop sidebar
 function DesktopSidebar() {
   const pathname = usePathname();
 
   return (
     <div className="hidden lg:flex w-64 flex-col border-r bg-white">
       <div className="flex h-16 items-center border-b px-6">
-        <h1 className="text-xl font-bold">Nacho Gym</h1>
+        <h1 className="text-xl font-bold text-gray-900">Nacho Gym</h1>
       </div>
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-0.5 p-3">
         {dashboardRoutes.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -57,13 +55,13 @@ function DesktopSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-gray-100 text-gray-900"
+                  ? "bg-gray-900 text-white"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
               )}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="h-5 w-5 shrink-0" />
               {item.label}
             </Link>
           );
@@ -73,7 +71,6 @@ function DesktopSidebar() {
   );
 }
 
-// Main Sidebar component
 export function Sidebar({
   mobileOpen,
   setMobileOpen,
@@ -83,16 +80,14 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
 
-  // Close on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname, setMobileOpen]);
 
   return (
     <>
-      {/* Mobile Sheet */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="border-b p-6">
             <SheetTitle className="text-xl font-bold">Nacho Gym</SheetTitle>
           </SheetHeader>
@@ -102,7 +97,6 @@ export function Sidebar({
         </SheetContent>
       </Sheet>
 
-      {/* Desktop Sidebar */}
       <DesktopSidebar />
     </>
   );

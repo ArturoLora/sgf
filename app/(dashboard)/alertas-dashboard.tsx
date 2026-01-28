@@ -1,4 +1,3 @@
-// app/(dashboard)/alertas-dashboard.tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle } from "lucide-react";
@@ -26,38 +25,46 @@ export default function AlertasDashboard({
   sociosVencidos,
   stockBajo,
 }: AlertasProps) {
+  if (sociosVencidos.length === 0 && stockBajo.length === 0) {
+    return null;
+  }
+
   return (
-    // Responsive grid: 1 col mobile, 2 cols lg
-    <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+    <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
       {sociosVencidos.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <AlertCircle className="h-5 w-5 text-orange-500" />
-              Socios con Membresía Vencida
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" />
+              Membresías Vencidas
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="space-y-2">
               {sociosVencidos.slice(0, 5).map((socio) => (
                 <div
                   key={socio.id}
-                  className="flex items-center justify-between rounded-lg border p-3 gap-2"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 p-2.5 gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{socio.name}</p>
-                    <p className="text-xs sm:text-sm text-gray-500">
+                    <p className="font-medium text-sm text-gray-900 truncate">
+                      {socio.name}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
                       {socio.memberNumber}
                     </p>
                   </div>
-                  <Badge variant="destructive" className="shrink-0 text-xs">
+                  <Badge
+                    variant="destructive"
+                    className="shrink-0 text-xs px-2 py-0.5"
+                  >
                     Vencido
                   </Badge>
                 </div>
               ))}
               {sociosVencidos.length > 5 && (
-                <p className="text-xs sm:text-sm text-gray-500">
-                  + {sociosVencidos.length - 5} más
+                <p className="text-xs text-gray-500 pl-2.5 pt-1">
+                  +{sociosVencidos.length - 5} más
                 </p>
               )}
             </div>
@@ -67,39 +74,39 @@ export default function AlertasDashboard({
 
       {stockBajo.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <AlertCircle className="h-5 w-5 text-orange-500" />
-              Productos con Stock Bajo
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" />
+              Stock Bajo
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="space-y-2">
               {stockBajo.slice(0, 5).map((producto) => (
                 <div
                   key={producto.id}
-                  className="flex items-center justify-between rounded-lg border p-3 gap-2"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 p-2.5 gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">
+                    <p className="font-medium text-sm text-gray-900 truncate">
                       {producto.name}
                     </p>
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      Gym: {producto.gymStock} | Bodega:{" "}
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Gym: {producto.gymStock} · Bodega:{" "}
                       {producto.warehouseStock}
                     </p>
                   </div>
                   <Badge
                     variant="outline"
-                    className="bg-yellow-50 shrink-0 text-xs"
+                    className="bg-yellow-50 text-yellow-700 border-yellow-200 shrink-0 text-xs px-2 py-0.5"
                   >
-                    Min: {producto.minStock}
+                    Min {producto.minStock}
                   </Badge>
                 </div>
               ))}
               {stockBajo.length > 5 && (
-                <p className="text-xs sm:text-sm text-gray-500">
-                  + {stockBajo.length - 5} más
+                <p className="text-xs text-gray-500 pl-2.5 pt-1">
+                  +{stockBajo.length - 5} más
                 </p>
               )}
             </div>

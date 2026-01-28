@@ -1,6 +1,5 @@
-// app/(dashboard)/dashboard-stats.tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
+import { DollarSign, ShoppingCart, Users, TrendingDown } from "lucide-react";
 
 interface StatsProps {
   ventas: number;
@@ -16,51 +15,66 @@ export default function DashboardStats({
   stockBajo,
 }: StatsProps) {
   return (
-    // Responsive grid: 1 col mobile, 2 cols sm, 4 cols lg
-    <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Ventas del Día</CardTitle>
-          <ShoppingCart className="h-4 w-4 text-gray-500" />
+        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">
+            Ventas Hoy
+          </CardTitle>
+          <ShoppingCart className="h-4 w-4 text-gray-400" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{ventas}</div>
-          <p className="text-xs text-gray-500">tickets registrados</p>
+        <CardContent className="pb-3">
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {ventas}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">tickets</p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Total del Día</CardTitle>
-          <DollarSign className="h-4 w-4 text-gray-500" />
+        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">
+            Total Hoy
+          </CardTitle>
+          <DollarSign className="h-4 w-4 text-gray-400" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">${total.toFixed(2)}</div>
-          <p className="text-xs text-gray-500">en ventas</p>
+        <CardContent className="pb-3">
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+            ${total.toFixed(0)}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">MXN</p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Socios Vencidos</CardTitle>
-          <Users className="h-4 w-4 text-gray-500" />
+        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">
+            Vencidos
+          </CardTitle>
+          <Users className="h-4 w-4 text-orange-400" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{sociosVencidos}</div>
-          <p className="text-xs text-gray-500">
+        <CardContent className="pb-3">
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {sociosVencidos}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
             {sociosVencidos === 1 ? "socio" : "socios"}
           </p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
-          <TrendingUp className="h-4 w-4 text-gray-500" />
+        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">
+            Stock Bajo
+          </CardTitle>
+          <TrendingDown className="h-4 w-4 text-yellow-500" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stockBajo}</div>
-          <p className="text-xs text-gray-500">
+        <CardContent className="pb-3">
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {stockBajo}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
             {stockBajo === 1 ? "producto" : "productos"}
           </p>
         </CardContent>

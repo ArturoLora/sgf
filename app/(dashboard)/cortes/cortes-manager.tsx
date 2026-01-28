@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus, DollarSign, Clock, CheckCircle } from "lucide-react";
 import CortesFiltros from "./cortes-filtros";
 import CortesLista from "./cortes-lista";
-import AbrirCorteModal from "./abrir-corte-modal";
-import CerrarCorteModal from "./cerrar-corte-modal";
-import DetalleCorteModal from "./detalle-corte-modal";
+import AbrirCorteModal from "./modals/abrir-corte-modal";
+import CerrarCorteModal from "./modals/cerrar-corte-modal";
+import DetalleCorteModal from "./modals/detalle-corte-modal";
 
 interface Cajero {
   id: string;
