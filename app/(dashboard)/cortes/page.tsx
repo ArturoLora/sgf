@@ -1,20 +1,11 @@
-// app/(dashboard)/cortes/page.tsx
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { CortesService } from "@/services";
+import { requireAuth } from "@/lib/require-role";
 import { prisma } from "@/lib/db";
 import CortesManager from "./cortes-manager";
 
-async function getCortes() {
-  const corteActivo = await CortesService.getCorteActivo();
-  const cortes = await CortesService.getAllCortes();
-  return { corteActivo, cortes };
-}
-
+// Server Component - Maneja auth y data fetching inicial
 async function getCajeros() {
   const users = await prisma.user.findMany({
-    where: { activo: true },
+    where: { isActive: true },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
@@ -22,18 +13,17 @@ async function getCajeros() {
 }
 
 export default async function CortesPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
+  // Verificar autenticación
+  const session = await requireAuth();
 
-  const { corteActivo, cortes } = await getCortes();
+  // Cargar lista de cajeros para filtros
   const cajeros = await getCajeros();
 
   return (
     <CortesManager
-      userId={session.user.id}
-      initialCorteActivo={corteActivo}
-      initialCortes={cortes}
       cajeros={cajeros}
+      currentUserId={session.user.id}
+      currentUserRole={session.user.role}
     />
   );
 }
