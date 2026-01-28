@@ -1,19 +1,21 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { SociosService } from "@/services";
+import { requireAuth } from "@/lib/require-role";
 import SociosManager from "./socios-manager";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+// Server component - data fetching inicial
+async function getMembers() {
+  const members = await prisma.member.findMany({
+    orderBy: [{ isActive: "desc" }, { memberNumber: "asc" }],
+  });
+
+  return serializeDecimal(members);
+}
 
 export default async function SociosPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
+  await requireAuth();
 
-  const [socios, sociosVencidos] = await Promise.all([
-    SociosService.getAllSocios(),
-    SociosService.getSociosVencidos(),
-  ]);
+  const members = await getMembers();
 
-  return (
-    <SociosManager initialSocios={socios} sociosVencidos={sociosVencidos} />
-  );
+  return <SociosManager initialMembers={members} />;
 }
