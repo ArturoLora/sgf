@@ -1,0 +1,3045 @@
+INVENTARIO CONTEXT
+
+=== prisma/schema.prisma ===
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  EMPLEADO
+}
+
+enum MembershipType {
+  VISIT
+  WEEK
+  MONTH_STUDENT
+  MONTH_GENERAL
+  QUARTER_STUDENT
+  QUARTER_GENERAL
+  ANNUAL_STUDENT
+  ANNUAL_GENERAL
+  PROMOTION
+  REBIRTH
+  NUTRITION_CONSULTATION
+}
+
+enum InventoryType {
+  SALE
+  ADJUSTMENT
+  WAREHOUSE_ENTRY
+  GYM_ENTRY
+  TRANSFER_TO_GYM
+  TRANSFER_TO_WAREHOUSE
+}
+
+enum Location {
+  WAREHOUSE
+  GYM
+}
+
+enum PaymentMethod {
+  CASH
+  DEBIT_CARD
+  CREDIT_CARD
+  TRANSFER
+}
+
+// ==================== BETTER AUTH ====================
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          Role      @default(EMPLEADO)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  sessions      Session[]
+  accounts      Account[]
+  shifts        Shift[]
+  inventoryMovements InventoryMovement[]
+
+  @@index([role, isActive])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verification")
+}
+
+// ==================== MEMBERS ====================
+
+model Member {
+  id                     Int             @id @default(autoincrement())
+  memberNumber           String          @unique
+  name                   String?
+  phone                  String?
+  email                  String?
+  birthDate              DateTime?
+  membershipType         MembershipType?
+  membershipDescription  String?
+  startDate              DateTime?
+  endDate                DateTime?
+  totalVisits            Int             @default(0)
+  lastVisit              DateTime?
+  isActive               Boolean         @default(true)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  
+  inventoryMovements InventoryMovement[]
+
+  @@index([membershipType, isActive])
+  @@index([endDate, isActive])
+  @@map("member")
+}
+
+// ==================== PRODUCTS ====================
+
+model Product {
+  id               Int      @id @default(autoincrement())
+  name             String   @unique
+  salePrice        Decimal  @default(0) @db.Decimal(10, 2)
+  warehouseStock   Int      @default(0)
+  gymStock         Int      @default(0)
+  minStock         Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  inventoryMovements InventoryMovement[]
+
+  @@index([gymStock, minStock])
+  @@index([warehouseStock, minStock])
+  @@map("product")
+}
+
+// ==================== INVENTORY ====================
+
+model InventoryMovement {
+  id             Int             @id @default(autoincrement())
+  productId      Int
+  type           InventoryType
+  location       Location
+  quantity       Int
+  
+  ticket         String?
+  memberId       Int?
+  userId         String
+  unitPrice      Decimal?        @db.Decimal(10, 2)
+  subtotal       Decimal?        @db.Decimal(10, 2)
+  discount       Decimal?        @default(0) @db.Decimal(10, 2)
+  surcharge      Decimal?        @default(0) @db.Decimal(10, 2)
+  total          Decimal?        @db.Decimal(10, 2)
+  paymentMethod  PaymentMethod?
+  
+  shiftId              Int?
+  notes                String?
+  isCancelled          Boolean  @default(false)
+  cancellationReason   String?
+  cancellationDate     DateTime?
+  
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  member  Member?  @relation(fields: [memberId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  shift   Shift?   @relation(fields: [shiftId], references: [id])
+
+  @@index([type, date(sort: Desc)])
+  @@index([type, ticket])
+  @@index([type, userId, date])
+  @@index([type, productId, date])
+  @@map("inventory_movement")
+}
+
+// ==================== SHIFTS ====================
+
+model Shift {
+  id                   Int      @id @default(autoincrement())
+  folio                String   @unique
+  cashierId            String
+  openingDate          DateTime
+  closingDate          DateTime?
+  initialCash          Decimal  @db.Decimal(10, 2)
+  ticketCount          Int      @default(0)
+  membershipSales      Decimal  @default(0) @db.Decimal(10, 2)
+  productSales0Tax     Decimal  @default(0) @db.Decimal(10, 2)
+  productSales16Tax    Decimal  @default(0) @db.Decimal(10, 2)
+  subtotal             Decimal  @default(0) @db.Decimal(10, 2)
+  tax                  Decimal  @default(0) @db.Decimal(10, 2)
+  totalSales           Decimal  @default(0) @db.Decimal(10, 2)
+  cashAmount           Decimal  @default(0) @db.Decimal(10, 2)
+  debitCardAmount      Decimal  @default(0) @db.Decimal(10, 2)
+  creditCardAmount     Decimal  @default(0) @db.Decimal(10, 2)
+  totalVoucher         Decimal  @default(0) @db.Decimal(10, 2)
+  totalWithdrawals     Decimal  @default(0) @db.Decimal(10, 2)
+  withdrawalsConcept   String?
+  cancelledSales       Decimal  @default(0) @db.Decimal(10, 2)
+  totalCash            Decimal  @default(0) @db.Decimal(10, 2)
+  difference           Decimal  @default(0) @db.Decimal(10, 2)
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  cashier User @relation(fields: [cashierId], references: [id])
+  inventoryMovements InventoryMovement[]
+
+  @@index([cashierId])
+  @@index([openingDate])
+  @@index([closingDate])
+  @@map("shift")
+}
+=== app/(dashboard)/layout.tsx ===
+
+import { requireAuth } from "@/lib/require-role";
+import { DashboardLayoutClient } from "./layout-client";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await requireAuth();
+
+  return (
+    <DashboardLayoutClient user={session.user}>
+      {children}
+    </DashboardLayoutClient>
+  );
+}
+
+=== app/(dashboard)/layout-client.tsx ===
+
+"use client";
+
+import { Sidebar } from "@/components/layout/sidebar";
+import { Header } from "@/components/layout/header";
+import { useState } from "react";
+
+interface DashboardLayoutClientProps {
+  user: {
+    name: string;
+    email: string;
+    role?: string;
+  };
+  children: React.ReactNode;
+}
+
+export function DashboardLayoutClient({
+  user,
+  children,
+}: DashboardLayoutClientProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header user={user} onMenuClick={() => setMobileMenuOpen(true)} />
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+=== app/(dashboard)/page.tsx ===
+
+// app/(dashboard)/page.tsx
+import { requireAuth } from "@/lib/require-role";
+import DashboardContainer from "./dashboard.container";
+
+export default async function DashboardPage() {
+  await requireAuth();
+
+  return <DashboardContainer />;
+}
+
+=== app/(dashboard)/dashboard-stats.tsx ===
+
+// app/(dashboard)/dashboard-stats.tsx
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
+
+interface StatsProps {
+  ventas: number;
+  total: number;
+  sociosVencidos: number;
+  stockBajo: number;
+}
+
+export default function DashboardStats({
+  ventas,
+  total,
+  sociosVencidos,
+  stockBajo,
+}: StatsProps) {
+  return (
+    // Responsive grid: 1 col mobile, 2 cols sm, 4 cols lg
+    <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Ventas del Día</CardTitle>
+          <ShoppingCart className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{ventas}</div>
+          <p className="text-xs text-gray-500">tickets registrados</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Total del Día</CardTitle>
+          <DollarSign className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">${total.toFixed(2)}</div>
+          <p className="text-xs text-gray-500">en ventas</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Socios Vencidos</CardTitle>
+          <Users className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{sociosVencidos}</div>
+          <p className="text-xs text-gray-500">
+            {sociosVencidos === 1 ? "socio" : "socios"}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+          <TrendingUp className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stockBajo}</div>
+          <p className="text-xs text-gray-500">
+            {stockBajo === 1 ? "producto" : "productos"}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== app/(dashboard)/historial-ventas/page.tsx ===
+
+// app/(dashboard)/historial-ventas/page.tsx
+import { requireAdmin } from "@/lib/require-role";
+import HistorialVentasManager from "./historial-ventas-manager";
+import { prisma } from "@/lib/db";
+
+async function getCashiers() {
+  const users = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  return users;
+}
+
+async function getProducts() {
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  return products;
+}
+
+async function getMembers() {
+  const members = await prisma.member.findMany({
+    where: { isActive: true },
+    select: { id: true, memberNumber: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  return members;
+}
+
+export default async function HistorialVentasPage() {
+  await requireAdmin();
+
+  const [cashiers, products, members] = await Promise.all([
+    getCashiers(),
+    getProducts(),
+    getMembers(),
+  ]);
+
+  return (
+    <HistorialVentasManager
+      cashiers={cashiers}
+      products={products}
+      members={members}
+    />
+  );
+}
+
+=== app/(dashboard)/historial-ventas/historial-ventas-manager.tsx ===
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+import HistorialFiltros from "./historial-filtros";
+import HistorialLista from "./historial-lista";
+import HistorialStats from "./historial-stats";
+
+interface Cashier {
+  id: string;
+  name: string;
+}
+
+interface Product {
+  id: number;
+  name: string;
+}
+
+interface Member {
+  id: number;
+  memberNumber: string;
+  name: string | null;
+}
+
+interface HistorialVentasManagerProps {
+  cashiers: Cashier[];
+  products: Product[];
+  members: Member[];
+}
+
+interface SalesFilters {
+  search: string;
+  startDate: string;
+  endDate: string;
+  cashier: string;
+  product: string;
+  member: string;
+  paymentMethod: string;
+  productType: "todos" | "membresias" | "productos";
+  orderBy:
+    | "date_desc"
+    | "date_asc"
+    | "total_desc"
+    | "total_asc"
+    | "ticket_desc"
+    | "ticket_asc";
+  onlyActive: boolean;
+}
+
+const ITEMS_PER_PAGE = 10;
+
+export default function HistorialVentasManager({
+  cashiers,
+  products,
+  members,
+}: HistorialVentasManagerProps) {
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [totalSales, setTotalSales] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [filters, setFilters] = useState<SalesFilters>({
+    search: "",
+    startDate: "",
+    endDate: "",
+    cashier: "todos",
+    product: "todos",
+    member: "todos",
+    paymentMethod: "todos",
+    productType: "todos",
+    orderBy: "date_desc",
+    onlyActive: true,
+  });
+
+  useEffect(() => {
+    loadSales(filters, 1);
+  }, []);
+
+  const loadSales = async (newFilters: SalesFilters, page: number = 1) => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const params = new URLSearchParams();
+
+      if (newFilters.search) params.append("search", newFilters.search);
+      if (newFilters.startDate)
+        params.append("startDate", newFilters.startDate);
+      if (newFilters.endDate) params.append("endDate", newFilters.endDate);
+      if (newFilters.cashier !== "todos")
+        params.append("cashier", newFilters.cashier);
+      if (newFilters.product !== "todos")
+        params.append("product", newFilters.product);
+      if (newFilters.member !== "todos")
+        params.append("member", newFilters.member);
+      if (newFilters.paymentMethod !== "todos")
+        params.append("paymentMethod", newFilters.paymentMethod);
+      if (newFilters.productType !== "todos")
+        params.append("productType", newFilters.productType);
+
+      const [orderByField, order] = newFilters.orderBy.split("_");
+      params.append("orderBy", orderByField);
+      params.append("order", order);
+
+      params.append("onlyActive", newFilters.onlyActive.toString());
+      params.append("page", page.toString());
+      params.append("perPage", ITEMS_PER_PAGE.toString());
+
+      const res = await fetch(`/api/sales/history?${params}`);
+
+      if (!res.ok) throw new Error("Error al cargar ventas");
+
+      const data = await res.json();
+
+      setTickets(data.tickets);
+      setTotalSales(data.total);
+      setCurrentPage(page);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilter = (newFilters: SalesFilters) => {
+    setFilters(newFilters);
+    loadSales(newFilters, 1);
+  };
+
+  const handlePageChange = (page: number) => {
+    loadSales(filters, page);
+  };
+
+  const totalPages = Math.ceil(totalSales / ITEMS_PER_PAGE);
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Historial de Ventas</h1>
+        <p className="text-sm sm:text-base text-gray-500">
+          Consulta y análisis de ventas
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex justify-between items-start gap-2">
+          <span className="flex-1">{error}</span>
+          <Button variant="ghost" size="sm" onClick={() => setError("")}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      <HistorialStats tickets={tickets} />
+
+      <HistorialFiltros
+        onFilter={handleFilter}
+        cashiers={cashiers}
+        products={products}
+        members={members}
+        loading={loading}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between text-base sm:text-lg">
+            <span>Resultados</span>
+            <span className="text-xs sm:text-sm font-normal text-gray-500">
+              {totalSales} ventas
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <HistorialLista
+            tickets={tickets}
+            loading={loading}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== app/(dashboard)/historial-ventas/historial-filtros.tsx ===
+
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, X, Filter, Calendar } from "lucide-react";
+
+interface SalesFilters {
+  search: string;
+  startDate: string;
+  endDate: string;
+  cashier: string;
+  product: string;
+  member: string;
+  paymentMethod: string;
+  productType: "todos" | "membresias" | "productos";
+  orderBy:
+    | "date_desc"
+    | "date_asc"
+    | "total_desc"
+    | "total_asc"
+    | "ticket_desc"
+    | "ticket_asc";
+  onlyActive: boolean;
+}
+
+interface HistorialFiltrosProps {
+  onFilter: (filters: SalesFilters) => void;
+  cashiers: Array<{ id: string; name: string }>;
+  products: Array<{ id: number; name: string }>;
+  members: Array<{ id: number; memberNumber: string; name: string | null }>;
+  loading: boolean;
+}
+
+export default function HistorialFiltros({
+  onFilter,
+  cashiers,
+  products,
+  members,
+  loading,
+}: HistorialFiltrosProps) {
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<SalesFilters>({
+    search: "",
+    startDate: "",
+    endDate: "",
+    cashier: "todos",
+    product: "todos",
+    member: "todos",
+    paymentMethod: "todos",
+    productType: "todos",
+    orderBy: "date_desc",
+    onlyActive: true,
+  });
+
+  const handleChange = (key: keyof SalesFilters, value: any) => {
+    const newFilters = { ...filters, [key]: value };
+    setFilters(newFilters);
+  };
+
+  const applyFilters = () => {
+    onFilter(filters);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      applyFilters();
+    }
+  };
+
+  const clearFilters = () => {
+    const cleanFilters: SalesFilters = {
+      search: "",
+      startDate: "",
+      endDate: "",
+      cashier: "todos",
+      product: "todos",
+      member: "todos",
+      paymentMethod: "todos",
+      productType: "todos",
+      orderBy: "date_desc",
+      onlyActive: true,
+    };
+    setFilters(cleanFilters);
+    onFilter(cleanFilters);
+  };
+
+  const setDefaultRange = (type: "today" | "week" | "month") => {
+    const today = new Date();
+    const end = today.toISOString().split("T")[0];
+    let start = "";
+
+    switch (type) {
+      case "today":
+        start = end;
+        break;
+      case "week":
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        start = weekAgo.toISOString().split("T")[0];
+        break;
+      case "month":
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        start = monthAgo.toISOString().split("T")[0];
+        break;
+    }
+
+    const newFilters = {
+      ...filters,
+      startDate: start,
+      endDate: end,
+    };
+    setFilters(newFilters);
+    onFilter(newFilters);
+  };
+
+  const hasActiveFilters =
+    filters.search ||
+    filters.startDate ||
+    filters.endDate ||
+    filters.cashier !== "todos" ||
+    filters.product !== "todos" ||
+    filters.member !== "todos" ||
+    filters.paymentMethod !== "todos" ||
+    !filters.onlyActive;
+
+  return (
+    <Card>
+      <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {/* Search & Actions - responsive layout */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Buscar ventas..."
+              value={filters.search}
+              onChange={(e) => handleChange("search", e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="gap-2 flex-1 sm:flex-initial"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtros</span>
+            </Button>
+            <Button
+              onClick={applyFilters}
+              disabled={loading}
+              className="gap-2 flex-1 sm:flex-initial sm:min-w-[100px]"
+            >
+              {loading ? "Buscando..." : "Buscar"}
+            </Button>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="gap-2 hidden sm:flex"
+              >
+                <X className="h-4 w-4" />
+                Limpiar
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick date filters - stack on mobile */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDefaultRange("today")}
+            className="flex-1 sm:flex-initial"
+          >
+            <Calendar className="h-3 w-3 sm:mr-1" />
+            <span className="text-xs sm:text-sm">Hoy</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDefaultRange("week")}
+            className="flex-1 sm:flex-initial"
+          >
+            <span className="text-xs sm:text-sm">7 días</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDefaultRange("month")}
+            className="flex-1 sm:flex-initial"
+          >
+            <span className="text-xs sm:text-sm">30 días</span>
+          </Button>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="flex sm:hidden gap-1"
+            >
+              <X className="h-3 w-3" />
+              <span className="text-xs">Limpiar</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Advanced Filters - responsive grid */}
+        {showFilters && (
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pt-3 sm:pt-4 border-t">
+            <div className="space-y-2">
+              <Label className="text-sm">Fecha Inicio</Label>
+              <Input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => handleChange("startDate", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Fecha Fin</Label>
+              <Input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => handleChange("endDate", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Cajero</Label>
+              <Select
+                value={filters.cashier}
+                onValueChange={(value) => handleChange("cashier", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {cashiers.map((cashier) => (
+                    <SelectItem key={cashier.id} value={cashier.id}>
+                      {cashier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Producto</Label>
+              <Select
+                value={filters.product}
+                onValueChange={(value) => handleChange("product", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={product.id.toString()}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Cliente</Label>
+              <Select
+                value={filters.member}
+                onValueChange={(value) => handleChange("member", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {members.map((member) => (
+                    <SelectItem key={member.id} value={member.id.toString()}>
+                      {member.name || member.memberNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Tipo de Producto</Label>
+              <Select
+                value={filters.productType}
+                onValueChange={(value: any) =>
+                  handleChange("productType", value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="membresias">Membresías</SelectItem>
+                  <SelectItem value="productos">Productos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Forma de Pago</Label>
+              <Select
+                value={filters.paymentMethod}
+                onValueChange={(value) => handleChange("paymentMethod", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  <SelectItem value="CASH">Efectivo</SelectItem>
+                  <SelectItem value="DEBIT_CARD">Tarjeta Débito</SelectItem>
+                  <SelectItem value="CREDIT_CARD">Tarjeta Crédito</SelectItem>
+                  <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Ordenar Por</Label>
+              <Select
+                value={filters.orderBy}
+                onValueChange={(value: any) => handleChange("orderBy", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">
+                    Fecha (más reciente)
+                  </SelectItem>
+                  <SelectItem value="date_asc">Fecha (más antiguo)</SelectItem>
+                  <SelectItem value="total_desc">
+                    Total (mayor a menor)
+                  </SelectItem>
+                  <SelectItem value="total_asc">
+                    Total (menor a mayor)
+                  </SelectItem>
+                  <SelectItem value="ticket_desc">Ticket (Z-A)</SelectItem>
+                  <SelectItem value="ticket_asc">Ticket (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.onlyActive}
+                  onChange={(e) => handleChange("onlyActive", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <span className="text-sm">Solo ventas activas</span>
+              </label>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+=== app/(dashboard)/historial-ventas/historial-lista.tsx ===
+
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Receipt, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+
+interface HistorialListaProps {
+  tickets: any[];
+  loading: boolean;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+export default function HistorialLista({
+  tickets,
+  loading,
+  currentPage,
+  totalPages,
+  onPageChange,
+}: HistorialListaProps) {
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleString("es-MX", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (loading) {
+    return <p className="text-center text-gray-500 py-8">Cargando...</p>;
+  }
+
+  if (tickets.length === 0) {
+    return <p className="text-center text-gray-500 py-8">Sin resultados</p>;
+  }
+
+  return (
+    <>
+      <div className="space-y-3 sm:space-y-4">
+        {tickets.map((ticket) => (
+          <div
+            key={ticket.ticket}
+            className={`border rounded-lg p-3 sm:p-4 ${
+              ticket.isCancelled ? "bg-red-50 border-red-200" : ""
+            }`}
+          >
+            {/* Header - responsive layout */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Receipt className="h-4 w-4 shrink-0" />
+                  <strong className="text-sm sm:text-base truncate">
+                    #{ticket.ticket}
+                  </strong>
+                  <Badge variant="secondary" className="shrink-0">
+                    {ticket.items.length} items
+                  </Badge>
+                  {ticket.isCancelled && (
+                    <Badge variant="destructive" className="shrink-0">
+                      Cancelada
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-1">
+                  <Calendar className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{formatDate(ticket.date)}</span>
+                </div>
+
+                <div className="space-y-0.5 text-xs sm:text-sm text-gray-600">
+                  <p className="truncate">
+                    Cajero:{" "}
+                    <span className="font-medium">{ticket.cashier}</span>
+                  </p>
+
+                  {ticket.paymentMethod && (
+                    <p className="truncate">
+                      Pago:{" "}
+                      <span className="font-medium">
+                        {ticket.paymentMethod.replace(/_/g, " ")}
+                      </span>
+                    </p>
+                  )}
+
+                  {ticket.member && (
+                    <p className="truncate">
+                      Cliente:{" "}
+                      <span className="font-medium">
+                        {ticket.member.name || ticket.member.memberNumber}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Total - aligned right on desktop, full width on mobile */}
+              <div className="text-left sm:text-right shrink-0">
+                <p className="text-xl sm:text-2xl font-bold">
+                  ${Number(ticket.total).toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {/* Items - responsive list */}
+            <div className="space-y-1 bg-gray-50 rounded p-2 sm:p-3 border-t">
+              {ticket.items.map((item: any) => (
+                <div
+                  key={item.id}
+                  className="flex justify-between items-start gap-2 text-xs sm:text-sm"
+                >
+                  <span className="text-gray-700 flex-1 min-w-0">
+                    <span className="font-medium">
+                      {Math.abs(item.quantity)}x
+                    </span>{" "}
+                    <span className="truncate inline-block max-w-full">
+                      {item.product.name}
+                    </span>
+                  </span>
+                  <span className="font-medium shrink-0">
+                    ${Number(item.total).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination - responsive */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
+          <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+            Página {currentPage} de {totalPages}
+          </p>
+          <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={currentPage === 1 || loading}
+              onClick={() => onPageChange(currentPage - 1)}
+              className="flex-1 sm:flex-initial"
+            >
+              <ChevronLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Anterior</span>
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={currentPage === totalPages || loading}
+              onClick={() => onPageChange(currentPage + 1)}
+              className="flex-1 sm:flex-initial"
+            >
+              <span className="hidden sm:inline">Siguiente</span>
+              <ChevronRight className="h-4 w-4 sm:ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+=== app/(dashboard)/historial-ventas/historial-stats.tsx ===
+
+"use client";
+
+import { useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+
+interface HistorialStatsProps {
+  tickets: any[];
+}
+
+export default function HistorialStats({ tickets }: HistorialStatsProps) {
+  const stats = useMemo(() => {
+    const totalValue = tickets.reduce((s, t) => s + Number(t.total), 0);
+    const cancelled = tickets.filter((t) => t.isCancelled).length;
+    const totalItems = tickets.reduce((s, t) => s + t.items.length, 0);
+
+    return {
+      totalValue,
+      uniqueTickets: tickets.length,
+      cancelled,
+      totalItems,
+    };
+  }, [tickets]);
+
+  return (
+    <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold">
+            ${stats.totalValue.toFixed(2)}
+          </div>
+          <p className="text-xs text-gray-500">Total en ventas</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold">
+            {stats.uniqueTickets}
+          </div>
+          <p className="text-xs text-gray-500">Tickets</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold">
+            {stats.totalItems}
+          </div>
+          <p className="text-xs text-gray-500">Items</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold text-red-600">
+            {stats.cancelled}
+          </div>
+          <p className="text-xs text-gray-500">Canceladas</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== app/(dashboard)/inventario/inventario-filtros.tsx ===
+
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, X, Filter } from "lucide-react";
+
+interface FiltrosInventario {
+  busqueda: string;
+  ubicacion: "todos" | "gym" | "bodega";
+  estado: "todos" | "stock_ok" | "bajo_stock" | "sin_stock";
+  ordenarPor: "nombre" | "stockGym" | "stockBodega" | "stockTotal" | "valor";
+  orden: "asc" | "desc";
+}
+
+interface InventarioFiltrosProps {
+  onFiltrar: (filtros: FiltrosInventario) => void;
+}
+
+export default function InventarioFiltros({
+  onFiltrar,
+}: InventarioFiltrosProps) {
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [filtros, setFiltros] = useState<FiltrosInventario>({
+    busqueda: "",
+    ubicacion: "todos",
+    estado: "todos",
+    ordenarPor: "nombre",
+    orden: "asc",
+  });
+
+  const handleChange = (key: keyof FiltrosInventario, value: any) => {
+    const nuevosFiltros = { ...filtros, [key]: value };
+    setFiltros(nuevosFiltros);
+    onFiltrar(nuevosFiltros);
+  };
+
+  const limpiarFiltros = () => {
+    const filtrosLimpios: FiltrosInventario = {
+      busqueda: "",
+      ubicacion: "todos",
+      estado: "todos",
+      ordenarPor: "nombre",
+      orden: "asc",
+    };
+    setFiltros(filtrosLimpios);
+    onFiltrar(filtrosLimpios);
+  };
+
+  const hayFiltrosActivos =
+    filtros.busqueda ||
+    filtros.ubicacion !== "todos" ||
+    filtros.estado !== "todos";
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-4">
+        {/* Búsqueda Rápida */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Buscar producto..."
+              value={filtros.busqueda}
+              onChange={(e) => handleChange("busqueda", e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className="gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            Filtros
+          </Button>
+          {hayFiltrosActivos && (
+            <Button variant="ghost" onClick={limpiarFiltros} className="gap-2">
+              <X className="h-4 w-4" />
+              Limpiar
+            </Button>
+          )}
+        </div>
+
+        {/* Filtros Avanzados */}
+        {mostrarFiltros && (
+          <div className="grid gap-4 md:grid-cols-4 pt-4 border-t">
+            <div className="space-y-2">
+              <Label>Ubicación</Label>
+              <Select
+                value={filtros.ubicacion}
+                onValueChange={(value: any) => handleChange("ubicacion", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  <SelectItem value="gym">Gym</SelectItem>
+                  <SelectItem value="bodega">Bodega</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Select
+                value={filtros.estado}
+                onValueChange={(value: any) => handleChange("estado", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="stock_ok">Stock OK</SelectItem>
+                  <SelectItem value="bajo_stock">Stock Bajo</SelectItem>
+                  <SelectItem value="sin_stock">Sin Stock</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Ordenar Por</Label>
+              <Select
+                value={filtros.ordenarPor}
+                onValueChange={(value: any) =>
+                  handleChange("ordenarPor", value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nombre">Nombre</SelectItem>
+                  <SelectItem value="stockGym">Stock Gym</SelectItem>
+                  <SelectItem value="stockBodega">Stock Bodega</SelectItem>
+                  <SelectItem value="stockTotal">Stock Total</SelectItem>
+                  <SelectItem value="valor">Valor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Orden</Label>
+              <Select
+                value={filtros.orden}
+                onValueChange={(value: any) => handleChange("orden", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascendente</SelectItem>
+                  <SelectItem value="desc">Descendente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+=== app/(dashboard)/inventario/inventario-manager.tsx ===
+
+"use client";
+
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Package,
+  AlertCircle,
+  TrendingUp,
+  DollarSign,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import InventarioFiltros from "./inventario-filtros";
+import InventarioTabla from "./inventario-tabla";
+import KardexProducto from "./kardex-producto";
+
+interface Producto {
+  id: number;
+  nombre: string;
+  precioVenta: number;
+  existenciaBodega: number;
+  existenciaGym: number;
+  existenciaMin: number;
+  activo: boolean;
+}
+
+interface FiltrosInventario {
+  busqueda: string;
+  ubicacion: "todos" | "gym" | "bodega";
+  estado: "todos" | "stock_ok" | "bajo_stock" | "sin_stock";
+  ordenarPor: "nombre" | "stockGym" | "stockBodega" | "stockTotal" | "valor";
+  orden: "asc" | "desc";
+}
+
+const ITEMS_POR_PAGINA = 15;
+
+interface InventarioManagerProps {
+  initialProductos: Producto[];
+}
+
+export default function InventarioManager({
+  initialProductos,
+}: InventarioManagerProps) {
+  const [filtros, setFiltros] = useState<FiltrosInventario>({
+    busqueda: "",
+    ubicacion: "todos",
+    estado: "todos",
+    ordenarPor: "nombre",
+    orden: "asc",
+  });
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [vistaKardex, setVistaKardex] = useState<number | null>(null);
+
+  // Filtrar solo productos físicos (excluir membresías)
+  const productosInventario = useMemo(() => {
+    const keywordsMembresias = [
+      "EFECTIVO",
+      "VISITA",
+      "MENSUALIDAD",
+      "SEMANA",
+      "TRIMESTRE",
+      "ANUAL",
+      "PROMOCION",
+      "RENACER",
+    ];
+
+    return initialProductos.filter((p) => {
+      return !keywordsMembresias.some((keyword) =>
+        p.nombre.toUpperCase().includes(keyword),
+      );
+    });
+  }, [initialProductos]);
+
+  const productosFiltrados = useMemo(() => {
+    let resultado = [...productosInventario];
+
+    // Búsqueda
+    if (filtros.busqueda) {
+      const busqueda = filtros.busqueda.toLowerCase();
+      resultado = resultado.filter((p) =>
+        p.nombre.toLowerCase().includes(busqueda),
+      );
+    }
+
+    // Filtro por ubicación y estado
+    resultado = resultado.filter((p) => {
+      // Estado
+      const stockTotal = p.existenciaBodega + p.existenciaGym;
+      let cumpleEstado = true;
+
+      switch (filtros.estado) {
+        case "bajo_stock":
+          cumpleEstado =
+            p.existenciaGym < p.existenciaMin ||
+            p.existenciaBodega < p.existenciaMin;
+          break;
+        case "sin_stock":
+          cumpleEstado = stockTotal === 0;
+          break;
+        case "stock_ok":
+          cumpleEstado =
+            p.existenciaGym >= p.existenciaMin &&
+            p.existenciaBodega >= p.existenciaMin &&
+            stockTotal > 0;
+          break;
+      }
+
+      return cumpleEstado;
+    });
+
+    // Ordenamiento
+    resultado.sort((a, b) => {
+      let valorA: any, valorB: any;
+
+      switch (filtros.ordenarPor) {
+        case "stockGym":
+          valorA = a.existenciaGym;
+          valorB = b.existenciaGym;
+          break;
+        case "stockBodega":
+          valorA = a.existenciaBodega;
+          valorB = b.existenciaBodega;
+          break;
+        case "stockTotal":
+          valorA = a.existenciaBodega + a.existenciaGym;
+          valorB = b.existenciaBodega + b.existenciaGym;
+          break;
+        case "valor":
+          valorA =
+            Number(a.precioVenta) * (a.existenciaBodega + a.existenciaGym);
+          valorB =
+            Number(b.precioVenta) * (b.existenciaBodega + b.existenciaGym);
+          break;
+        default:
+          valorA = a.nombre;
+          valorB = b.nombre;
+      }
+
+      if (valorA < valorB) return filtros.orden === "asc" ? -1 : 1;
+      if (valorA > valorB) return filtros.orden === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return resultado;
+  }, [productosInventario, filtros]);
+
+  // Paginación
+  const totalPaginas = Math.ceil(productosFiltrados.length / ITEMS_POR_PAGINA);
+  const inicio = (paginaActual - 1) * ITEMS_POR_PAGINA;
+  const productosPaginados = productosFiltrados.slice(
+    inicio,
+    inicio + ITEMS_POR_PAGINA,
+  );
+
+  const handleFiltrar = (nuevosFiltros: FiltrosInventario) => {
+    setFiltros(nuevosFiltros);
+    setPaginaActual(1);
+  };
+
+  // Estadísticas
+  const stats = useMemo(() => {
+    const totalProductos = productosInventario.length;
+    const stockBajo = productosInventario.filter(
+      (p) =>
+        p.existenciaGym < p.existenciaMin ||
+        p.existenciaBodega < p.existenciaMin,
+    ).length;
+    const sinStock = productosInventario.filter(
+      (p) => p.existenciaBodega + p.existenciaGym === 0,
+    ).length;
+
+    const valorTotal = productosInventario.reduce((sum, p) => {
+      return (
+        sum + Number(p.precioVenta) * (p.existenciaBodega + p.existenciaGym)
+      );
+    }, 0);
+
+    const stockTotalGym = productosInventario.reduce(
+      (sum, p) => sum + p.existenciaGym,
+      0,
+    );
+    const stockTotalBodega = productosInventario.reduce(
+      (sum, p) => sum + p.existenciaBodega,
+      0,
+    );
+
+    return {
+      totalProductos,
+      stockBajo,
+      sinStock,
+      valorTotal,
+      stockTotalGym,
+      stockTotalBodega,
+    };
+  }, [productosInventario]);
+
+  if (vistaKardex) {
+    return (
+      <KardexProducto
+        productoId={vistaKardex}
+        onClose={() => setVistaKardex(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Inventario</h1>
+          <p className="text-gray-500">Control de existencias y movimientos</p>
+        </div>
+      </div>
+
+      {/* Estadísticas */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <Package className="h-8 w-8 text-blue-600" />
+              <div>
+                <p className="text-sm text-gray-600">Total Productos</p>
+                <p className="text-2xl font-bold">{stats.totalProductos}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-8 w-8 text-orange-600" />
+              <div>
+                <p className="text-sm text-gray-600">Stock Bajo</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {stats.stockBajo}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="h-8 w-8 text-green-600" />
+              <div>
+                <p className="text-sm text-gray-600">Stock Total</p>
+                <p className="text-2xl font-bold">
+                  {stats.stockTotalGym + stats.stockTotalBodega}
+                </p>
+                <p className="text-xs text-gray-500">
+                  G:{stats.stockTotalGym} B:{stats.stockTotalBodega}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <DollarSign className="h-8 w-8 text-purple-600" />
+              <div>
+                <p className="text-sm text-gray-600">Valor Total</p>
+                <p className="text-2xl font-bold">
+                  ${stats.valorTotal.toFixed(0)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filtros */}
+      <InventarioFiltros onFiltrar={handleFiltrar} />
+
+      {/* Tabla */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Existencias</span>
+            <span className="text-sm font-normal text-gray-500">
+              {productosFiltrados.length} productos
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {productosFiltrados.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">
+                No hay productos que coincidan con los filtros
+              </p>
+            </div>
+          ) : (
+            <>
+              <InventarioTabla
+                productos={productosPaginados}
+                onVerKardex={setVistaKardex}
+              />
+
+              {/* Paginación */}
+              {totalPaginas > 1 && (
+                <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                  <p className="text-sm text-gray-600">
+                    Mostrando {inicio + 1}-
+                    {Math.min(
+                      inicio + ITEMS_POR_PAGINA,
+                      productosFiltrados.length,
+                    )}{" "}
+                    de {productosFiltrados.length}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                      disabled={paginaActual === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from(
+                        { length: Math.min(5, totalPaginas) },
+                        (_, i) => {
+                          let pageNum;
+                          if (totalPaginas <= 5) {
+                            pageNum = i + 1;
+                          } else if (paginaActual <= 3) {
+                            pageNum = i + 1;
+                          } else if (paginaActual >= totalPaginas - 2) {
+                            pageNum = totalPaginas - 4 + i;
+                          } else {
+                            pageNum = paginaActual - 2 + i;
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={
+                                paginaActual === pageNum ? "default" : "outline"
+                              }
+                              size="sm"
+                              onClick={() => setPaginaActual(pageNum)}
+                              className="w-9"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        },
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPaginaActual((p) => Math.min(totalPaginas, p + 1))
+                      }
+                      disabled={paginaActual === totalPaginas}
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== app/(dashboard)/inventario/inventario-tabla.tsx ===
+
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { BarChart3 } from "lucide-react";
+
+interface Producto {
+  id: number;
+  nombre: string;
+  precioVenta: number;
+  existenciaBodega: number;
+  existenciaGym: number;
+  existenciaMin: number;
+  activo: boolean;
+}
+
+interface InventarioTablaProps {
+  productos: Producto[];
+  onVerKardex: (productoId: number) => void;
+}
+
+export default function InventarioTabla({
+  productos,
+  onVerKardex,
+}: InventarioTablaProps) {
+  const getEstadoStock = (actual: number, minimo: number) => {
+    if (actual === 0) return { color: "destructive", texto: "Sin stock" };
+    if (actual < minimo)
+      return {
+        color: "outline",
+        texto: "Bajo",
+        className: "bg-orange-50 text-orange-700 border-orange-200",
+      };
+    return {
+      color: "default",
+      texto: "OK",
+      className: "bg-green-50 text-green-700 border-green-200",
+    };
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b bg-gray-50">
+            <th className="text-left p-3 font-semibold text-sm">Producto</th>
+            <th className="text-center p-3 font-semibold text-sm">Stock Gym</th>
+            <th className="text-center p-3 font-semibold text-sm">
+              Stock Bodega
+            </th>
+            <th className="text-center p-3 font-semibold text-sm">Total</th>
+            <th className="text-right p-3 font-semibold text-sm">Precio</th>
+            <th className="text-right p-3 font-semibold text-sm">Valor</th>
+            <th className="text-center p-3 font-semibold text-sm">Mín</th>
+            <th className="text-center p-3 font-semibold text-sm">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {productos.map((producto) => {
+            const estadoGym = getEstadoStock(
+              producto.existenciaGym,
+              producto.existenciaMin,
+            );
+            const estadoBodega = getEstadoStock(
+              producto.existenciaBodega,
+              producto.existenciaMin,
+            );
+            const stockTotal =
+              producto.existenciaBodega + producto.existenciaGym;
+            const valorTotal = Number(producto.precioVenta) * stockTotal;
+
+            return (
+              <tr key={producto.id} className="border-b hover:bg-gray-50">
+                <td className="p-3">
+                  <p className="font-medium">{producto.nombre}</p>
+                </td>
+                <td className="p-3 text-center">
+                  <div className="flex flex-col items-center gap-1">
+                    <span
+                      className={`font-semibold ${producto.existenciaGym === 0 ? "text-red-600" : producto.existenciaGym < producto.existenciaMin ? "text-orange-600" : ""}`}
+                    >
+                      {producto.existenciaGym}
+                    </span>
+                    <Badge
+                      variant={estadoGym.color as any}
+                      className={estadoGym.className}
+                    >
+                      {estadoGym.texto}
+                    </Badge>
+                  </div>
+                </td>
+                <td className="p-3 text-center">
+                  <div className="flex flex-col items-center gap-1">
+                    <span
+                      className={`font-semibold ${producto.existenciaBodega === 0 ? "text-red-600" : producto.existenciaBodega < producto.existenciaMin ? "text-orange-600" : ""}`}
+                    >
+                      {producto.existenciaBodega}
+                    </span>
+                    <Badge
+                      variant={estadoBodega.color as any}
+                      className={estadoBodega.className}
+                    >
+                      {estadoBodega.texto}
+                    </Badge>
+                  </div>
+                </td>
+                <td className="p-3 text-center">
+                  <span className="font-bold text-lg">{stockTotal}</span>
+                </td>
+                <td className="p-3 text-right">
+                  <span className="font-medium">
+                    ${Number(producto.precioVenta).toFixed(2)}
+                  </span>
+                </td>
+                <td className="p-3 text-right">
+                  <span className="font-bold text-purple-600">
+                    ${valorTotal.toFixed(2)}
+                  </span>
+                </td>
+                <td className="p-3 text-center">
+                  <span className="text-gray-500 text-sm">
+                    {producto.existenciaMin}
+                  </span>
+                </td>
+                <td className="p-3 text-center">
+                  <Button
+                    onClick={() => onVerKardex(producto.id)}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Kardex
+                  </Button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+=== app/(dashboard)/inventario/kardex-producto.tsx ===
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { X, ArrowLeft, TrendingUp, TrendingDown, Package } from "lucide-react";
+
+interface KardexProductoProps {
+  productoId: number;
+  onClose: () => void;
+}
+
+export default function KardexProducto({
+  productoId,
+  onClose,
+}: KardexProductoProps) {
+  const [producto, setProducto] = useState<any>(null);
+  const [movimientos, setMovimientos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    cargarDatos();
+  }, [productoId]);
+
+  const cargarDatos = async () => {
+    try {
+      const [productoRes, movimientosRes] = await Promise.all([
+        fetch(`/api/productos/${productoId}`),
+        fetch(`/api/inventario/kardex/${productoId}`),
+      ]);
+
+      if (productoRes.ok) setProducto(await productoRes.json());
+      if (movimientosRes.ok) setMovimientos(await movimientosRes.json());
+    } catch (err) {
+      console.error("Error al cargar kardex:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Cargando...</h1>
+          <Button variant="outline" onClick={onClose} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Volver
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!producto) return null;
+
+  const getTipoColor = (tipo: string) => {
+    switch (tipo) {
+      case "VENTA":
+        return "destructive";
+      case "ENTRADA_BODEGA":
+      case "ENTRADA_GYM":
+        return "default";
+      case "TRASPASO_A_GYM":
+      case "TRASPASO_A_BODEGA":
+        return "outline";
+      case "AJUSTE":
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Kardex - {producto.nombre}</h1>
+          <p className="text-gray-500">Historial completo de movimientos</p>
+        </div>
+        <Button variant="outline" onClick={onClose} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Volver a Inventario
+        </Button>
+      </div>
+
+      {/* Resumen Actual */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <Package className="h-8 w-8 text-blue-600" />
+              <div>
+                <p className="text-sm text-gray-600">Stock Gym</p>
+                <p className="text-2xl font-bold">{producto.existenciaGym}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <Package className="h-8 w-8 text-purple-600" />
+              <div>
+                <p className="text-sm text-gray-600">Stock Bodega</p>
+                <p className="text-2xl font-bold">
+                  {producto.existenciaBodega}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="h-8 w-8 text-green-600" />
+              <div>
+                <p className="text-sm text-gray-600">Stock Total</p>
+                <p className="text-2xl font-bold">
+                  {producto.existenciaBodega + producto.existenciaGym}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div>
+              <p className="text-sm text-gray-600">Precio Venta</p>
+              <p className="text-2xl font-bold">
+                ${Number(producto.precioVenta).toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Mínimo: {producto.existenciaMin}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Historial de Movimientos */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Historial de Movimientos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {movimientos.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No hay movimientos registrados</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {movimientos.map((mov) => (
+                <div
+                  key={mov.id}
+                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-gray-50"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Badge variant={getTipoColor(mov.tipo) as any}>
+                        {mov.tipo.replace("_", " ")}
+                      </Badge>
+                      <span className="text-sm text-gray-600">
+                        {mov.ubicacion}
+                      </span>
+                      {mov.ticket && (
+                        <Badge variant="outline">Ticket: {mov.ticket}</Badge>
+                      )}
+                    </div>
+
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p>
+                        <span className="font-medium">Usuario:</span>{" "}
+                        {mov.usuario.name}
+                      </p>
+                      <p>
+                        <span className="font-medium">Fecha:</span>{" "}
+                        {new Date(mov.fecha).toLocaleString()}
+                      </p>
+                      {mov.observaciones && (
+                        <p className="text-gray-500 italic">
+                          {mov.observaciones}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="flex items-center gap-2">
+                      {mov.cantidad > 0 ? (
+                        <TrendingUp className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <TrendingDown className="h-5 w-5 text-red-600" />
+                      )}
+                      <span
+                        className={`text-2xl font-bold ${
+                          mov.cantidad > 0 ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {mov.cantidad > 0 ? "+" : ""}
+                        {mov.cantidad}
+                      </span>
+                    </div>
+                    {mov.total && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        ${Number(mov.total).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== app/(dashboard)/inventario/page.tsx ===
+
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { ProductosService } from "@/services";
+import InventarioManager from "./inventario-manager";
+
+export default async function InventarioPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/login");
+
+  const productos = await ProductosService.getAllProductos();
+
+  return <InventarioManager initialProductos={productos} />;
+}
+
+=== app/api/inventory/sale/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+// POST /api/inventory/sale
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const sale = await InventoryService.createSale({
+      ...body,
+      userId: session.user.id,
+    });
+
+    return NextResponse.json(sale, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+=== app/api/inventory/cancel/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+// POST /api/inventory/cancel
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const cancelledSale = await InventoryService.cancelSale({
+      ...body,
+      userId: session.user.id,
+    });
+
+    return NextResponse.json(cancelledSale);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+=== app/api/inventory/adjustment/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const adjustment = await InventoryService.createAdjustment({
+      ...body,
+      userId: session.user.id, // ✅ Agregar esto
+    });
+    return NextResponse.json(adjustment, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+=== app/api/inventory/entry/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const entry = await InventoryService.createEntry({
+      ...body,
+      userId: session.user.id,
+    });
+    return NextResponse.json(entry, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+=== app/api/inventory/transfer/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const transfer = await InventoryService.createTransfer({
+      ...body,
+      userId: session.user.id, // ✅ Agregar esto
+    });
+    return NextResponse.json(transfer, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+=== app/api/inventory/cancelled/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+
+// GET /api/inventory/cancelled
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    let cancelledSales;
+
+    if (startDate && endDate) {
+      cancelledSales = await InventoryService.getCancelledSales(
+        new Date(startDate),
+        new Date(endDate)
+      );
+    } else {
+      cancelledSales = await InventoryService.getCancelledSales();
+    }
+
+    return NextResponse.json(cancelledSales);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+=== app/api/inventory/movements/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+
+// GET /api/inventory/movements?startDate=...&endDate=...
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    if (!startDate || !endDate) {
+      return NextResponse.json(
+        { error: "Se requieren startDate y endDate" },
+        { status: 400 }
+      );
+    }
+
+    const movements = await InventoryService.getMovementsByDate(
+      new Date(startDate),
+      new Date(endDate)
+    );
+
+    return NextResponse.json(movements);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+=== app/api/inventory/ticket/[ticket]/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+
+// GET /api/inventory/ticket/[ticket]
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { ticket: string } }
+) {
+  try {
+    const ticket = params.ticket;
+    const sales = await InventoryService.getSalesByTicket(ticket);
+    return NextResponse.json(sales);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+=== app/api/inventory/report/stock/route.ts ===
+
+import { NextResponse } from "next/server";
+import { ReportsService } from "@/services";
+
+// GET /api/inventory/report/stock
+export async function GET() {
+  try {
+    const report = await ReportsService.getCurrentStockReport();
+    return NextResponse.json(report);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+=== app/api/inventory/kardex/[id]/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const productId = parseInt(id);
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { productId },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+        member: {
+          select: {
+            memberNumber: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+      take: 100,
+    });
+
+    return NextResponse.json(serializeDecimal(movements));
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+=== services/inventory.service.ts ===
+
+// services/inventory.service.ts
+import { prisma } from "@/lib/db";
+import { InventoryType, Location, PaymentMethod } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+import { calculateMembershipDates } from "./members.service";
+import { serializeDecimal } from "./utils";
+
+// ==================== TYPES ====================
+
+export interface CreateSaleInput {
+  productId: number;
+  quantity: number;
+  memberId?: number;
+  userId: string;
+  unitPrice?: number;
+  discount?: number;
+  surcharge?: number;
+  paymentMethod: PaymentMethod;
+  ticket: string;
+  shiftId?: number;
+  notes?: string;
+}
+
+export interface CreateEntryInput {
+  productId: number;
+  quantity: number;
+  location: Location;
+  userId: string;
+  notes?: string;
+}
+
+export interface CreateTransferInput {
+  productId: number;
+  quantity: number;
+  destination: Location;
+  userId: string;
+  notes?: string;
+}
+
+export interface CreateAdjustmentInput {
+  productId: number;
+  quantity: number;
+  location: Location;
+  userId: string;
+  notes: string;
+}
+
+export interface CancelSaleInput {
+  inventoryId: number;
+  userId: string;
+  cancellationReason: string;
+}
+
+// ==================== VALIDATIONS ====================
+
+/**
+ * Valida que existe stock suficiente para una operación
+ * Retorna el producto si pasa la validación
+ */
+async function validateStock(
+  productId: number,
+  quantity: number,
+  location: Location,
+) {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  // Verificar si es producto de membresía (no requiere stock)
+  const isMembership =
+    product.name.includes("EFECTIVO") ||
+    product.name.includes("VISITA") ||
+    product.name.includes("MENSUALIDAD") ||
+    product.name.includes("SEMANA") ||
+    product.name.includes("TRIMESTRE") ||
+    product.name.includes("ANUAL");
+
+  if (!isMembership) {
+    const currentStock =
+      location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+
+    if (currentStock < quantity) {
+      throw new Error(
+        `Stock insuficiente en ${location}. Disponible: ${currentStock}, Solicitado: ${quantity}`,
+      );
+    }
+  }
+
+  return product;
+}
+
+// ==================== SALE SERVICES ====================
+
+/**
+ * Crea una venta de producto
+ * - Descuenta del stock de GYM
+ * - Actualiza visitas del socio si aplica
+ * - Renueva membresía si es producto de membresía
+ */
+export async function createSale(data: CreateSaleInput) {
+  const product = await validateStock(data.productId, data.quantity, "GYM");
+
+  const unitPrice = data.unitPrice || product.salePrice;
+  const subtotal = Number(unitPrice) * data.quantity;
+  const discount = data.discount || 0;
+  const surcharge = data.surcharge || 0;
+  const total = subtotal - Number(discount) + Number(surcharge);
+
+  const isMembership =
+    product.name.includes("EFECTIVO") ||
+    product.name.includes("VISITA") ||
+    product.name.includes("MENSUALIDAD") ||
+    product.name.includes("SEMANA") ||
+    product.name.includes("TRIMESTRE") ||
+    product.name.includes("ANUAL");
+
+  const operations: any[] = [
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type: "SALE",
+        location: "GYM",
+        quantity: -data.quantity,
+        ticket: data.ticket,
+        memberId: data.memberId,
+        userId: data.userId,
+        unitPrice,
+        subtotal,
+        discount,
+        surcharge,
+        total,
+        paymentMethod: data.paymentMethod,
+        shiftId: data.shiftId,
+        notes: data.notes,
+      },
+      include: {
+        product: true,
+        member: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+  ];
+
+  // Solo descontar stock si NO es membresía
+  if (!isMembership) {
+    operations.push(
+      prisma.product.update({
+        where: { id: data.productId },
+        data: {
+          gymStock: product.gymStock - data.quantity,
+        },
+      }),
+    );
+  }
+
+  const [inventoryMovement] = await prisma.$transaction(operations);
+
+  // Actualizar socio si aplica
+  if (data.memberId && isMembership) {
+    const member = await prisma.member.findUnique({
+      where: { id: data.memberId },
+    });
+
+    if (member && member.membershipType) {
+      const dates = calculateMembershipDates(member.membershipType);
+
+      await prisma.member.update({
+        where: { id: data.memberId },
+        data: {
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          totalVisits: { increment: 1 },
+          lastVisit: new Date(),
+        },
+      });
+    }
+  } else if (data.memberId) {
+    await prisma.member.update({
+      where: { id: data.memberId },
+      data: {
+        totalVisits: { increment: 1 },
+        lastVisit: new Date(),
+      },
+    });
+  }
+
+  return serializeDecimal(inventoryMovement);
+}
+
+/**
+ * Cancela una venta
+ * - Marca como cancelada
+ * - Devuelve stock a GYM
+ * - No afecta membresías ya renovadas
+ */
+export async function cancelSale(data: CancelSaleInput) {
+  const sale = await prisma.inventoryMovement.findUnique({
+    where: { id: data.inventoryId },
+    include: { product: true },
+  });
+
+  if (!sale) {
+    throw new Error("Venta no encontrada");
+  }
+
+  if (sale.type !== "SALE") {
+    throw new Error("Solo se pueden cancelar ventas");
+  }
+
+  if (sale.isCancelled) {
+    throw new Error("La venta ya fue cancelada");
+  }
+
+  const quantityToReturn = Math.abs(sale.quantity);
+
+  const [cancelledInventory] = await prisma.$transaction([
+    prisma.inventoryMovement.update({
+      where: { id: data.inventoryId },
+      data: {
+        isCancelled: true,
+        cancellationReason: data.cancellationReason,
+        cancellationDate: new Date(),
+      },
+      include: {
+        product: true,
+        member: true,
+      },
+    }),
+    prisma.product.update({
+      where: { id: sale.productId },
+      data: {
+        gymStock: sale.product.gymStock + quantityToReturn,
+      },
+    }),
+  ]);
+
+  return serializeDecimal(cancelledInventory);
+}
+
+// ==================== ENTRY SERVICES ====================
+
+/**
+ * Crea una entrada de producto a bodega o gym
+ * Incrementa el stock correspondiente
+ */
+export async function createEntry(data: CreateEntryInput) {
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  const type: InventoryType =
+    data.location === "WAREHOUSE" ? "WAREHOUSE_ENTRY" : "GYM_ENTRY";
+
+  const [inventoryMovement] = await prisma.$transaction([
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type,
+        location: data.location,
+        quantity: data.quantity,
+        userId: data.userId,
+        notes: data.notes,
+      },
+      include: {
+        product: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.product.update({
+      where: { id: data.productId },
+      data: {
+        [data.location === "WAREHOUSE" ? "warehouseStock" : "gymStock"]: {
+          increment: data.quantity,
+        },
+      },
+    }),
+  ]);
+
+  return serializeDecimal(inventoryMovement);
+}
+
+// ==================== TRANSFER SERVICES ====================
+
+/**
+ * Crea un traspaso entre bodega y gym
+ * - Valida stock en origen
+ * - Descuenta de origen, suma a destino
+ */
+export async function createTransfer(data: CreateTransferInput) {
+  const origin: Location = data.destination === "GYM" ? "WAREHOUSE" : "GYM";
+
+  const product = await validateStock(data.productId, data.quantity, origin);
+
+  const type: InventoryType =
+    data.destination === "GYM" ? "TRANSFER_TO_GYM" : "TRANSFER_TO_WAREHOUSE";
+
+  const [inventoryMovement] = await prisma.$transaction([
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type,
+        location: data.destination,
+        quantity: data.quantity,
+        userId: data.userId,
+        notes:
+          data.notes ||
+          `Traspaso de ${data.quantity} unidades de ${origin} a ${data.destination}`,
+      },
+      include: {
+        product: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.product.update({
+      where: { id: data.productId },
+      data: {
+        warehouseStock:
+          origin === "WAREHOUSE"
+            ? product.warehouseStock - data.quantity
+            : product.warehouseStock + data.quantity,
+        gymStock:
+          origin === "GYM"
+            ? product.gymStock - data.quantity
+            : product.gymStock + data.quantity,
+      },
+    }),
+  ]);
+
+  return serializeDecimal(inventoryMovement);
+}
+
+// ==================== ADJUSTMENT SERVICES ====================
+
+/**
+ * Crea un ajuste de inventario
+ * - Puede ser positivo (incrementa) o negativo (decrementa)
+ * - Requiere observaciones obligatorias
+ * - Valida que no resulte en stock negativo
+ */
+export async function createAdjustment(data: CreateAdjustmentInput) {
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  const currentStock =
+    data.location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+  const newStock = currentStock + data.quantity;
+
+  if (newStock < 0) {
+    throw new Error(
+      `El ajuste resultaría en existencia negativa. Existencia actual: ${currentStock}`,
+    );
+  }
+
+  const [inventoryMovement] = await prisma.$transaction([
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type: "ADJUSTMENT",
+        location: data.location,
+        quantity: data.quantity,
+        userId: data.userId,
+        notes: data.notes,
+      },
+      include: {
+        product: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.product.update({
+      where: { id: data.productId },
+      data: {
+        [data.location === "WAREHOUSE" ? "warehouseStock" : "gymStock"]:
+          newStock,
+      },
+    }),
+  ]);
+
+  return serializeDecimal(inventoryMovement);
+}
+
+// ==================== QUERY SERVICES ====================
+
+/**
+ * Obtiene movimientos de un producto específico
+ */
+export async function getMovementsByProduct(productId: number, limit?: number) {
+  const movements = await prisma.inventoryMovement.findMany({
+    where: { productId },
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+    take: limit,
+  });
+
+  return serializeDecimal(movements);
+}
+
+/**
+ * Obtiene movimientos dentro de un rango de fechas
+ */
+export async function getMovementsByDate(startDate: Date, endDate: Date) {
+  const movements = await prisma.inventoryMovement.findMany({
+    where: {
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+          salePrice: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  return serializeDecimal(movements);
+}
+
+/**
+ * Obtiene todas las ventas de un ticket específico
+ */
+export async function getSalesByTicket(ticket: string) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      ticket,
+      type: "SALE",
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+          salePrice: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  return serializeDecimal(sales);
+}
+
+/**
+ * Obtiene ventas de un corte específico
+ */
+export async function getSalesByShift(shiftId: number) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      shiftId,
+      type: "SALE",
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+          salePrice: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  return serializeDecimal(sales);
+}
+
+/**
+ * Obtiene ventas canceladas en un período
+ */
+export async function getCancelledSales(startDate?: Date, endDate?: Date) {
+  const where: any = {
+    type: "SALE",
+    isCancelled: true,
+  };
+
+  if (startDate && endDate) {
+    where.cancellationDate = {
+      gte: startDate,
+      lte: endDate,
+    };
+  }
+
+  const sales = await prisma.inventoryMovement.findMany({
+    where,
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { cancellationDate: "desc" },
+  });
+
+  return serializeDecimal(sales);
+}

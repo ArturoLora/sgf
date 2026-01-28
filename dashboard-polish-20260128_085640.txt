@@ -1,0 +1,551 @@
+DASHBOARD POLISH CONTEXT
+
+=== app/(dashboard)/layout.tsx ===
+
+import { requireAuth } from "@/lib/require-role";
+import { DashboardLayoutClient } from "./layout-client";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await requireAuth();
+
+  return (
+    <DashboardLayoutClient user={session.user}>
+      {children}
+    </DashboardLayoutClient>
+  );
+}
+
+=== app/(dashboard)/layout-client.tsx ===
+
+"use client";
+
+import { Sidebar } from "@/components/layout/sidebar";
+import { Header } from "@/components/layout/header";
+import { useState } from "react";
+
+interface DashboardLayoutClientProps {
+  user: {
+    name: string;
+    email: string;
+    role?: string;
+  };
+  children: React.ReactNode;
+}
+
+export function DashboardLayoutClient({
+  user,
+  children,
+}: DashboardLayoutClientProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header user={user} onMenuClick={() => setMobileMenuOpen(true)} />
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+=== components/layout/sidebar.tsx ===
+
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { dashboardRoutes } from "@/lib/navigation";
+import { useEffect } from "react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+
+// Mobile navigation content
+function MobileNavContent() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="flex-1 space-y-1 pt-4">
+      {dashboardRoutes.map((item) => {
+        const isActive = pathname === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              isActive
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+            )}
+          >
+            <item.icon className="h-5 w-5" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+// Desktop sidebar
+function DesktopSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <div className="hidden lg:flex w-64 flex-col border-r bg-white">
+      <div className="flex h-16 items-center border-b px-6">
+        <h1 className="text-xl font-bold">Nacho Gym</h1>
+      </div>
+      <nav className="flex-1 space-y-1 p-4">
+        {dashboardRoutes.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+              )}
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+// Main Sidebar component
+export function Sidebar({
+  mobileOpen,
+  setMobileOpen,
+}: {
+  mobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
+}) {
+  const pathname = usePathname();
+
+  // Close on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
+
+  return (
+    <>
+      {/* Mobile Sheet */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-64 p-0">
+          <SheetHeader className="border-b p-6">
+            <SheetTitle className="text-xl font-bold">Nacho Gym</SheetTitle>
+          </SheetHeader>
+          <div className="px-4">
+            <MobileNavContent />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop Sidebar */}
+      <DesktopSidebar />
+    </>
+  );
+}
+
+=== components/layout/header.tsx ===
+
+"use client";
+
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { LogOut, Menu } from "lucide-react";
+
+interface HeaderProps {
+  user: {
+    name: string;
+    email: string;
+    role?: string;
+  };
+  onMenuClick: () => void;
+}
+
+export function Header({ user, onMenuClick }: HeaderProps) {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await authClient.signOut();
+    router.push("/login");
+  };
+
+  return (
+    <header className="flex h-16 items-center justify-between border-b bg-white px-4 sm:px-6">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+        {/* Hamburger button - only visible on mobile */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onMenuClick}
+          className="lg:hidden h-10 w-10 p-0 shrink-0"
+          aria-label="Open menu"
+        >
+          <Menu className="h-6 w-6" />
+        </Button>
+
+        {/* User info - responsive text sizing */}
+        <h2 className="text-sm sm:text-lg font-semibold truncate">
+          Bienvenido, {user.name}
+        </h2>
+        {user.role && (
+          <span className="hidden sm:inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+            {user.role}
+          </span>
+        )}
+      </div>
+
+      {/* Logout button - icon only on mobile, with text on desktop */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleLogout}
+        className="gap-2 shrink-0"
+      >
+        <LogOut className="h-4 w-4" />
+        <span className="hidden sm:inline">Cerrar Sesión</span>
+      </Button>
+    </header>
+  );
+}
+
+=== app/(dashboard)/page.tsx ===
+
+// app/(dashboard)/page.tsx
+import { requireAuth } from "@/lib/require-role";
+import DashboardContainer from "./dashboard.container";
+
+export default async function DashboardPage() {
+  await requireAuth();
+
+  return <DashboardContainer />;
+}
+
+=== app/(dashboard)/dashboard-stats.tsx ===
+
+// app/(dashboard)/dashboard-stats.tsx
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
+
+interface StatsProps {
+  ventas: number;
+  total: number;
+  sociosVencidos: number;
+  stockBajo: number;
+}
+
+export default function DashboardStats({
+  ventas,
+  total,
+  sociosVencidos,
+  stockBajo,
+}: StatsProps) {
+  return (
+    // Responsive grid: 1 col mobile, 2 cols sm, 4 cols lg
+    <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Ventas del Día</CardTitle>
+          <ShoppingCart className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{ventas}</div>
+          <p className="text-xs text-gray-500">tickets registrados</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Total del Día</CardTitle>
+          <DollarSign className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">${total.toFixed(2)}</div>
+          <p className="text-xs text-gray-500">en ventas</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Socios Vencidos</CardTitle>
+          <Users className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{sociosVencidos}</div>
+          <p className="text-xs text-gray-500">
+            {sociosVencidos === 1 ? "socio" : "socios"}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+          <TrendingUp className="h-4 w-4 text-gray-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stockBajo}</div>
+          <p className="text-xs text-gray-500">
+            {stockBajo === 1 ? "producto" : "productos"}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== app/(dashboard)/alertas-dashboard.tsx ===
+
+// app/(dashboard)/alertas-dashboard.tsx
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle } from "lucide-react";
+
+interface Socio {
+  id: number;
+  name: string;
+  memberNumber: string;
+}
+
+interface Producto {
+  id: number;
+  name: string;
+  gymStock: number;
+  warehouseStock: number;
+  minStock: number;
+}
+
+interface AlertasProps {
+  sociosVencidos: Socio[];
+  stockBajo: Producto[];
+}
+
+export default function AlertasDashboard({
+  sociosVencidos,
+  stockBajo,
+}: AlertasProps) {
+  return (
+    // Responsive grid: 1 col mobile, 2 cols lg
+    <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+      {sociosVencidos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              Socios con Membresía Vencida
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sociosVencidos.slice(0, 5).map((socio) => (
+                <div
+                  key={socio.id}
+                  className="flex items-center justify-between rounded-lg border p-3 gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">{socio.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      {socio.memberNumber}
+                    </p>
+                  </div>
+                  <Badge variant="destructive" className="shrink-0 text-xs">
+                    Vencido
+                  </Badge>
+                </div>
+              ))}
+              {sociosVencidos.length > 5 && (
+                <p className="text-xs sm:text-sm text-gray-500">
+                  + {sociosVencidos.length - 5} más
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {stockBajo.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              Productos con Stock Bajo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {stockBajo.slice(0, 5).map((producto) => (
+                <div
+                  key={producto.id}
+                  className="flex items-center justify-between rounded-lg border p-3 gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">
+                      {producto.name}
+                    </p>
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      Gym: {producto.gymStock} | Bodega:{" "}
+                      {producto.warehouseStock}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="bg-yellow-50 shrink-0 text-xs"
+                  >
+                    Min: {producto.minStock}
+                  </Badge>
+                </div>
+              ))}
+              {stockBajo.length > 5 && (
+                <p className="text-xs sm:text-sm text-gray-500">
+                  + {stockBajo.length - 5} más
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+=== app/(dashboard)/corte-alert.tsx ===
+
+// app/(dashboard)/corte-alert.tsx
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle, CheckCircle } from "lucide-react";
+
+interface CorteAlertProps {
+  corteActivo: {
+    folio: string;
+    cashier: { name: string };
+    openingDate: string;
+    ticketCount: number;
+  } | null;
+}
+
+export default function CorteAlert({ corteActivo }: CorteAlertProps) {
+  if (corteActivo) {
+    return (
+      <Card className="border-green-200 bg-green-50">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 sm:p-6">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <CheckCircle className="h-6 w-6 text-green-600 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-green-900 text-sm sm:text-base">
+                Corte Activo: {corteActivo.folio}
+              </p>
+              <p className="text-xs sm:text-sm text-green-700 truncate">
+                Cajero: {corteActivo.cashier.name} | Apertura:{" "}
+                {new Date(corteActivo.openingDate).toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className="bg-white shrink-0">
+            Tickets: {corteActivo.ticketCount}
+          </Badge>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-yellow-200 bg-yellow-50">
+      <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 sm:p-6">
+        <AlertCircle className="h-6 w-6 text-yellow-600 shrink-0" />
+        <p className="font-semibold text-yellow-900 text-sm sm:text-base">
+          No hay corte activo. Debe abrir uno para registrar ventas.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+=== app/(dashboard)/dashboard.container.tsx ===
+
+// app/(dashboard)/dashboard.container.tsx
+import { ShiftsService, MembersService, ReportsService } from "@/services";
+import CorteAlert from "./corte-alert";
+import DashboardStats from "./dashboard-stats";
+import AlertasDashboard from "./alertas-dashboard";
+import { prisma } from "@/lib/db";
+
+async function getStatsDelDia() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const ventas = await prisma.inventoryMovement.findMany({
+    where: {
+      type: "SALE",
+      isCancelled: false,
+      date: {
+        gte: today,
+        lt: tomorrow,
+      },
+    },
+    select: {
+      total: true,
+    },
+  });
+
+  const total = ventas.reduce((sum, v) => sum + Number(v.total || 0), 0);
+
+  return { ventas: ventas.length, total };
+}
+
+export default async function DashboardContainer() {
+  const [corteActivo, stats, sociosVencidos, reporte] = await Promise.all([
+    ShiftsService.getActiveShift(),
+    getStatsDelDia(),
+    MembersService.getExpiredMembers(),
+    ReportsService.getCurrentStockReport(),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-gray-500">Resumen general del gimnasio</p>
+      </div>
+
+      <CorteAlert corteActivo={corteActivo} />
+
+      <DashboardStats
+        ventas={stats.ventas}
+        total={stats.total}
+        sociosVencidos={sociosVencidos.length}
+        stockBajo={reporte.lowStock.length}
+      />
+
+      <AlertasDashboard
+        sociosVencidos={sociosVencidos}
+        stockBajo={reporte.lowStock}
+      />
+    </div>
+  );
+}

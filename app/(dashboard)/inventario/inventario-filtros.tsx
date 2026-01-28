@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
 
-interface FiltrosInventario {
+export interface FiltrosInventario {
   busqueda: string;
   ubicacion: "todos" | "gym" | "bodega";
   estado: "todos" | "stock_ok" | "bajo_stock" | "sin_stock";
@@ -23,37 +23,28 @@ interface FiltrosInventario {
 }
 
 interface InventarioFiltrosProps {
-  onFiltrar: (filtros: FiltrosInventario) => void;
+  filtros: FiltrosInventario;
+  onCambiarFiltros: (filtros: FiltrosInventario) => void;
 }
 
 export default function InventarioFiltros({
-  onFiltrar,
+  filtros,
+  onCambiarFiltros,
 }: InventarioFiltrosProps) {
-  const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  const [filtros, setFiltros] = useState<FiltrosInventario>({
-    busqueda: "",
-    ubicacion: "todos",
-    estado: "todos",
-    ordenarPor: "nombre",
-    orden: "asc",
-  });
+  const [mostrarAvanzados, setMostrarAvanzados] = useState(false);
 
   const handleChange = (key: keyof FiltrosInventario, value: any) => {
-    const nuevosFiltros = { ...filtros, [key]: value };
-    setFiltros(nuevosFiltros);
-    onFiltrar(nuevosFiltros);
+    onCambiarFiltros({ ...filtros, [key]: value });
   };
 
   const limpiarFiltros = () => {
-    const filtrosLimpios: FiltrosInventario = {
+    onCambiarFiltros({
       busqueda: "",
       ubicacion: "todos",
       estado: "todos",
       ordenarPor: "nombre",
       orden: "asc",
-    };
-    setFiltros(filtrosLimpios);
-    onFiltrar(filtrosLimpios);
+    });
   };
 
   const hayFiltrosActivos =
@@ -63,9 +54,9 @@ export default function InventarioFiltros({
 
   return (
     <Card>
-      <CardContent className="p-4 space-y-4">
-        {/* Búsqueda Rápida */}
-        <div className="flex gap-2">
+      <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {/* Búsqueda y botones principales */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -75,27 +66,33 @@ export default function InventarioFiltros({
               className="pl-9"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setMostrarFiltros(!mostrarFiltros)}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filtros
-          </Button>
-          {hayFiltrosActivos && (
-            <Button variant="ghost" onClick={limpiarFiltros} className="gap-2">
-              <X className="h-4 w-4" />
-              Limpiar
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setMostrarAvanzados(!mostrarAvanzados)}
+              className="gap-2 flex-1 sm:flex-initial"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtros</span>
             </Button>
-          )}
+            {hayFiltrosActivos && (
+              <Button
+                variant="ghost"
+                onClick={limpiarFiltros}
+                className="gap-2 flex-1 sm:flex-initial"
+              >
+                <X className="h-4 w-4" />
+                <span className="hidden sm:inline">Limpiar</span>
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Filtros Avanzados */}
-        {mostrarFiltros && (
-          <div className="grid gap-4 md:grid-cols-4 pt-4 border-t">
+        {/* Filtros avanzados */}
+        {mostrarAvanzados && (
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 pt-3 sm:pt-4 border-t">
             <div className="space-y-2">
-              <Label>Ubicación</Label>
+              <Label className="text-sm">Ubicación</Label>
               <Select
                 value={filtros.ubicacion}
                 onValueChange={(value: any) => handleChange("ubicacion", value)}
@@ -112,7 +109,7 @@ export default function InventarioFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Estado</Label>
+              <Label className="text-sm">Estado</Label>
               <Select
                 value={filtros.estado}
                 onValueChange={(value: any) => handleChange("estado", value)}
@@ -130,7 +127,7 @@ export default function InventarioFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Ordenar Por</Label>
+              <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filtros.ordenarPor}
                 onValueChange={(value: any) =>
@@ -151,7 +148,7 @@ export default function InventarioFiltros({
             </div>
 
             <div className="space-y-2">
-              <Label>Orden</Label>
+              <Label className="text-sm">Orden</Label>
               <Select
                 value={filtros.orden}
                 onValueChange={(value: any) => handleChange("orden", value)}

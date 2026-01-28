@@ -1,14 +1,28 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { ProductosService } from "@/services";
+// app/(dashboard)/inventario/page.tsx
+import { requireAuth } from "@/lib/require-role";
+import { ProductsService } from "@/services";
 import InventarioManager from "./inventario-manager";
 
 export default async function InventarioPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
+  await requireAuth();
 
-  const productos = await ProductosService.getAllProductos();
+  const allProducts = await ProductsService.getAllProducts();
 
-  return <InventarioManager initialProductos={productos} />;
+  // Excluir membresías del inventario físico
+  const keywords = [
+    "EFECTIVO",
+    "VISITA",
+    "MENSUALIDAD",
+    "SEMANA",
+    "TRIMESTRE",
+    "ANUAL",
+    "PROMOCION",
+    "RENACER",
+  ];
+
+  const physicalProducts = allProducts.filter((p) => {
+    return !keywords.some((keyword) => p.name.toUpperCase().includes(keyword));
+  });
+
+  return <InventarioManager productos={physicalProducts} />;
 }
