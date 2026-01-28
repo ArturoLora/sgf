@@ -1,14 +1,24 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { ProductosService } from "@/services";
+import { requireAuth } from "@/lib/require-role";
+import { ProductsService } from "@/services";
 import ProductosManager from "./productos-manager";
+import ProductosStats from "./productos-stats";
 
 export default async function ProductosPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
+  await requireAuth();
 
-  const productos = await ProductosService.getAllProductos();
+  const products = await ProductsService.getAllProducts();
 
-  return <ProductosManager initialProductos={productos} />;
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Productos</h1>
+        <p className="text-sm sm:text-base text-gray-500">
+          Gestión de inventario y control de stock
+        </p>
+      </div>
+
+      <ProductosStats products={products} />
+      <ProductosManager initialProducts={products} />
+    </div>
+  );
 }

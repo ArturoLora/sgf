@@ -5,177 +5,162 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Plus,
-  X,
-  Edit,
-  Eye,
-  Package,
-  ChevronLeft,
-  ChevronRight,
-  AlertCircle,
-  ArrowLeftRight,
-} from "lucide-react";
+import { Plus, X, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import ProductosFiltros from "./productos-filtros";
-import CrearProductoModal from "./crear-producto-modal";
-import EditarProductoModal from "./editar-producto-modal";
-import DetalleProductoModal from "./detalle-producto-modal";
-import TraspasoModal from "./traspaso-modal";
-import AjusteModal from "./ajuste-modal";
-import EntradaModal from "./entrada-modal";
+import ProductosTabla from "./productos-tabla";
+import CrearProductoModal from "./modals/crear-producto-modal";
+import EditarProductoModal from "./modals/editar-producto-modal";
+import DetalleProductoModal from "./modals/detalle-producto-modal";
+import TraspasoModal from "./modals/traspaso-modal";
+import AjusteModal from "./modals/ajuste-modal";
+import EntradaModal from "./modals/entrada-modal";
 
-interface Producto {
+interface Product {
   id: number;
-  nombre: string;
-  precioVenta: number;
-  existenciaBodega: number;
-  existenciaGym: number;
-  existenciaMin: number;
-  activo: boolean;
+  name: string;
+  salePrice: number;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
 }
 
-interface FiltrosProductos {
-  busqueda: string;
-  estado: "todos" | "activos" | "inactivos" | "bajoStock";
-  ordenarPor: "nombre" | "precioVenta" | "existenciaGym" | "existenciaBodega";
-  orden: "asc" | "desc";
+interface ProductFilters {
+  search: string;
+  status: "todos" | "activos" | "inactivos" | "bajoStock";
+  orderBy: "name" | "salePrice" | "gymStock" | "warehouseStock";
+  order: "asc" | "desc";
 }
 
-const ITEMS_POR_PAGINA = 10;
+const ITEMS_PER_PAGE = 10;
 
 interface ProductosManagerProps {
-  initialProductos: Producto[];
+  initialProducts: Product[];
 }
 
 export default function ProductosManager({
-  initialProductos,
+  initialProducts,
 }: ProductosManagerProps) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [showCrearModal, setShowCrearModal] = useState(false);
-  const [productoEditando, setProductoEditando] = useState<number | null>(null);
-  const [productoDetalle, setProductoDetalle] = useState<number | null>(null);
-  const [productoTraspaso, setProductoTraspaso] = useState<number | null>(null);
-  const [productoAjuste, setProductoAjuste] = useState<number | null>(null);
-  const [productoEntrada, setProductoEntrada] = useState<number | null>(null);
-  const [paginaActual, setPaginaActual] = useState(1);
 
-  const [filtros, setFiltros] = useState<FiltrosProductos>({
-    busqueda: "",
-    estado: "todos",
-    ordenarPor: "nombre",
-    orden: "asc",
+  // Modals state
+  const [showCrearModal, setShowCrearModal] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [detailProductId, setDetailProductId] = useState<number | null>(null);
+  const [transferProductId, setTransferProductId] = useState<number | null>(
+    null,
+  );
+  const [adjustmentProductId, setAdjustmentProductId] = useState<number | null>(
+    null,
+  );
+  const [entryProductId, setEntryProductId] = useState<number | null>(null);
+
+  // Pagination & filters
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState<ProductFilters>({
+    search: "",
+    status: "todos",
+    orderBy: "name",
+    order: "asc",
   });
 
-  const productosFiltrados = useMemo(() => {
-    let resultado = [...initialProductos];
+  // Filter & sort products
+  const filteredProducts = useMemo(() => {
+    let result = [...initialProducts];
 
-    if (filtros.busqueda) {
-      const busqueda = filtros.busqueda.toLowerCase();
-      resultado = resultado.filter((p) =>
-        p.nombre.toLowerCase().includes(busqueda),
-      );
+    // Search
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(search));
     }
 
-    switch (filtros.estado) {
+    // Status
+    switch (filters.status) {
       case "activos":
-        resultado = resultado.filter((p) => p.activo);
+        result = result.filter((p) => p.isActive);
         break;
       case "inactivos":
-        resultado = resultado.filter((p) => !p.activo);
+        result = result.filter((p) => !p.isActive);
         break;
       case "bajoStock":
-        resultado = resultado.filter(
-          (p) =>
-            p.existenciaGym < p.existenciaMin ||
-            p.existenciaBodega < p.existenciaMin,
+        result = result.filter(
+          (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
         );
         break;
     }
 
-    resultado.sort((a, b) => {
-      let valorA: any, valorB: any;
+    // Sort
+    result.sort((a, b) => {
+      let valueA: any, valueB: any;
 
-      switch (filtros.ordenarPor) {
-        case "nombre":
-          valorA = a.nombre;
-          valorB = b.nombre;
+      switch (filters.orderBy) {
+        case "name":
+          valueA = a.name;
+          valueB = b.name;
           break;
-        case "precioVenta":
-          valorA = Number(a.precioVenta);
-          valorB = Number(b.precioVenta);
+        case "salePrice":
+          valueA = Number(a.salePrice);
+          valueB = Number(b.salePrice);
           break;
-        case "existenciaGym":
-          valorA = a.existenciaGym;
-          valorB = b.existenciaGym;
+        case "gymStock":
+          valueA = a.gymStock;
+          valueB = b.gymStock;
           break;
-        case "existenciaBodega":
-          valorA = a.existenciaBodega;
-          valorB = b.existenciaBodega;
+        case "warehouseStock":
+          valueA = a.warehouseStock;
+          valueB = b.warehouseStock;
           break;
         default:
-          valorA = a.nombre;
-          valorB = b.nombre;
+          valueA = a.name;
+          valueB = b.name;
       }
 
-      if (valorA < valorB) return filtros.orden === "asc" ? -1 : 1;
-      if (valorA > valorB) return filtros.orden === "asc" ? 1 : -1;
+      if (valueA < valueB) return filters.order === "asc" ? -1 : 1;
+      if (valueA > valueB) return filters.order === "asc" ? 1 : -1;
       return 0;
     });
 
-    return resultado;
-  }, [initialProductos, filtros]);
+    return result;
+  }, [initialProducts, filters]);
 
-  const totalPaginas = Math.ceil(productosFiltrados.length / ITEMS_POR_PAGINA);
-  const inicio = (paginaActual - 1) * ITEMS_POR_PAGINA;
-  const productosPaginados = productosFiltrados.slice(
-    inicio,
-    inicio + ITEMS_POR_PAGINA,
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedProducts = filteredProducts.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE,
   );
 
-  const handleFiltrar = (nuevosFiltros: FiltrosProductos) => {
-    setFiltros(nuevosFiltros);
-    setPaginaActual(1);
+  const handleFilter = (newFilters: ProductFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
   };
 
-  const handleSuccess = (mensaje: string) => {
-    setSuccess(mensaje);
+  const handleSuccess = (message: string) => {
+    setSuccess(message);
     router.refresh();
     setTimeout(() => setSuccess(""), 3000);
   };
 
-  const productosBajoStock = initialProductos.filter(
+  const lowStockProducts = initialProducts.filter(
     (p) =>
-      p.activo &&
-      (p.existenciaGym < p.existenciaMin ||
-        p.existenciaBodega < p.existenciaMin),
+      p.isActive && (p.gymStock < p.minStock || p.warehouseStock < p.minStock),
   );
 
-  const esMembresia = (producto: Producto) => {
+  const isMembership = (product: Product) => {
     return (
-      producto.nombre.includes("EFECTIVO") ||
-      producto.nombre === "VISITA" ||
-      producto.nombre.includes("MENSUALIDAD") ||
-      producto.nombre.includes("SEMANA")
+      product.name.includes("EFECTIVO") ||
+      product.name === "VISITA" ||
+      product.name.includes("MENSUALIDAD") ||
+      product.name.includes("SEMANA")
     );
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Productos</h1>
-          <p className="text-gray-500">
-            Gestión de inventario y control de stock
-          </p>
-        </div>
-        <Button onClick={() => setShowCrearModal(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nuevo Producto
-        </Button>
-      </div>
-
+    <div className="space-y-4 sm:space-y-6">
+      {/* Messages */}
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex items-center justify-between">
           <span>{error}</span>
@@ -191,30 +176,31 @@ export default function ProductosManager({
         </div>
       )}
 
-      {productosBajoStock.length > 0 && (
+      {/* Low stock alert */}
+      {lowStockProducts.length > 0 && (
         <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-orange-600" />
-              {productosBajoStock.length} producto
-              {productosBajoStock.length === 1 ? "" : "s"} con stock bajo
+              {lowStockProducts.length} producto
+              {lowStockProducts.length === 1 ? "" : "s"} con stock bajo
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {productosBajoStock.slice(0, 5).map((producto) => (
+              {lowStockProducts.slice(0, 5).map((product) => (
                 <Badge
-                  key={producto.id}
+                  key={product.id}
                   variant="outline"
                   className="bg-white cursor-pointer hover:bg-orange-100"
-                  onClick={() => setProductoDetalle(producto.id)}
+                  onClick={() => setDetailProductId(product.id)}
                 >
-                  {producto.nombre}
+                  {product.name}
                 </Badge>
               ))}
-              {productosBajoStock.length > 5 && (
+              {lowStockProducts.length > 5 && (
                 <Badge variant="outline" className="bg-white">
-                  +{productosBajoStock.length - 5} más
+                  +{lowStockProducts.length - 5} más
                 </Badge>
               )}
             </div>
@@ -222,61 +208,30 @@ export default function ProductosManager({
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{initialProductos.length}</div>
-            <p className="text-xs text-gray-500">Total de productos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
-              {initialProductos.filter((p) => p.activo).length}
-            </div>
-            <p className="text-xs text-gray-500">Activos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">
-              {productosBajoStock.length}
-            </div>
-            <p className="text-xs text-gray-500">Stock bajo</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
-              $
-              {initialProductos
-                .reduce(
-                  (sum, p) =>
-                    sum +
-                    Number(p.precioVenta) *
-                      (p.existenciaBodega + p.existenciaGym),
-                  0,
-                )
-                .toFixed(2)}
-            </div>
-            <p className="text-xs text-gray-500">Valor total inventario</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Filters */}
+      <ProductosFiltros onFilter={handleFilter} />
 
-      <ProductosFiltros onFiltrar={handleFiltrar} />
-
+      {/* Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Productos</span>
-            <span className="text-sm font-normal text-gray-500">
-              {productosFiltrados.length} resultados
-            </span>
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <CardTitle className="text-base sm:text-lg">
+              Productos
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                ({filteredProducts.length} resultados)
+              </span>
+            </CardTitle>
+            <Button
+              onClick={() => setShowCrearModal(true)}
+              className="gap-2 w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo Producto
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {productosFiltrados.length === 0 ? (
+          {filteredProducts.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">
                 No hay productos que coincidan con los filtros
@@ -284,167 +239,60 @@ export default function ProductosManager({
             </div>
           ) : (
             <>
-              <div className="space-y-3">
-                {productosPaginados.map((producto) => {
-                  const bajoStockGym =
-                    producto.existenciaGym < producto.existenciaMin;
-                  const bajoStockBodega =
-                    producto.existenciaBodega < producto.existenciaMin;
-                  const isMembership = esMembresia(producto);
+              <ProductosTabla
+                products={paginatedProducts}
+                onDetail={setDetailProductId}
+                onEdit={setEditingProductId}
+                onTransfer={setTransferProductId}
+                onEntry={setEntryProductId}
+                isMembership={isMembership}
+              />
 
-                  return (
-                    <div
-                      key={producto.id}
-                      className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <p className="font-semibold">{producto.nombre}</p>
-                          {!producto.activo && (
-                            <Badge variant="destructive">Inactivo</Badge>
-                          )}
-                          {isMembership && (
-                            <Badge
-                              variant="outline"
-                              className="bg-blue-50 text-blue-700 border-blue-200"
-                            >
-                              Membresía
-                            </Badge>
-                          )}
-                          {(bajoStockGym || bajoStockBodega) &&
-                            !isMembership && (
-                              <Badge variant="destructive">Stock Bajo</Badge>
-                            )}
-                        </div>
-
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <p className="font-medium text-lg">
-                            ${Number(producto.precioVenta).toFixed(2)}
-                          </p>
-                          {!isMembership && (
-                            <div className="flex items-center gap-4">
-                              <div>
-                                <span className="font-medium">Gym:</span>{" "}
-                                <span
-                                  className={
-                                    bajoStockGym
-                                      ? "text-red-600 font-semibold"
-                                      : ""
-                                  }
-                                >
-                                  {producto.existenciaGym}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium">Bodega:</span>{" "}
-                                <span
-                                  className={
-                                    bajoStockBodega
-                                      ? "text-red-600 font-semibold"
-                                      : ""
-                                  }
-                                >
-                                  {producto.existenciaBodega}
-                                </span>
-                              </div>
-                              <div className="text-gray-400">
-                                Min: {producto.existenciaMin}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {!isMembership && (
-                          <>
-                            <Button
-                              onClick={() => setProductoTraspaso(producto.id)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-2"
-                            >
-                              <ArrowLeftRight className="h-4 w-4" />
-                              Traspaso
-                            </Button>
-                            <Button
-                              onClick={() => setProductoEntrada(producto.id)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-2"
-                            >
-                              <Package className="h-4 w-4" />
-                              Entrada
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          onClick={() => setProductoDetalle(producto.id)}
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Ver
-                        </Button>
-                        <Button
-                          onClick={() => setProductoEditando(producto.id)}
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                        >
-                          <Edit className="h-4 w-4" />
-                          Editar
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {totalPaginas > 1 && (
-                <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                  <p className="text-sm text-gray-600">
-                    Mostrando {inicio + 1}-
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
+                  <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+                    Mostrando {startIndex + 1}-
                     {Math.min(
-                      inicio + ITEMS_POR_PAGINA,
-                      productosFiltrados.length,
+                      startIndex + ITEMS_PER_PAGE,
+                      filteredProducts.length,
                     )}{" "}
-                    de {productosFiltrados.length}
+                    de {filteredProducts.length}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
-                      disabled={paginaActual === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="flex-1 sm:flex-initial"
                     >
-                      <ChevronLeft className="h-4 w-4" />
-                      Anterior
+                      <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Anterior</span>
                     </Button>
                     <div className="flex items-center gap-1">
                       {Array.from(
-                        { length: Math.min(5, totalPaginas) },
+                        { length: Math.min(5, totalPages) },
                         (_, i) => {
                           let pageNum;
-                          if (totalPaginas <= 5) {
+                          if (totalPages <= 5) {
                             pageNum = i + 1;
-                          } else if (paginaActual <= 3) {
+                          } else if (currentPage <= 3) {
                             pageNum = i + 1;
-                          } else if (paginaActual >= totalPaginas - 2) {
-                            pageNum = totalPaginas - 4 + i;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
                           } else {
-                            pageNum = paginaActual - 2 + i;
+                            pageNum = currentPage - 2 + i;
                           }
 
                           return (
                             <Button
                               key={pageNum}
                               variant={
-                                paginaActual === pageNum ? "default" : "outline"
+                                currentPage === pageNum ? "default" : "outline"
                               }
                               size="sm"
-                              onClick={() => setPaginaActual(pageNum)}
+                              onClick={() => setCurrentPage(pageNum)}
                               className="w-9"
                             >
                               {pageNum}
@@ -457,12 +305,13 @@ export default function ProductosManager({
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setPaginaActual((p) => Math.min(totalPaginas, p + 1))
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
                       }
-                      disabled={paginaActual === totalPaginas}
+                      disabled={currentPage === totalPages}
+                      className="flex-1 sm:flex-initial"
                     >
-                      Siguiente
-                      <ChevronRight className="h-4 w-4" />
+                      <span className="hidden sm:inline">Siguiente</span>
+                      <ChevronRight className="h-4 w-4 sm:ml-1" />
                     </Button>
                   </div>
                 </div>
@@ -472,6 +321,7 @@ export default function ProductosManager({
         </CardContent>
       </Card>
 
+      {/* Modals */}
       {showCrearModal && (
         <CrearProductoModal
           onClose={() => setShowCrearModal(false)}
@@ -483,71 +333,71 @@ export default function ProductosManager({
         />
       )}
 
-      {productoEditando && (
+      {editingProductId && (
         <EditarProductoModal
-          productoId={productoEditando}
-          onClose={() => setProductoEditando(null)}
+          productId={editingProductId}
+          onClose={() => setEditingProductId(null)}
           onSuccess={(msg) => {
-            setProductoEditando(null);
+            setEditingProductId(null);
             handleSuccess(msg);
           }}
           onError={setError}
         />
       )}
 
-      {productoDetalle && (
+      {detailProductId && (
         <DetalleProductoModal
-          productoId={productoDetalle}
-          onClose={() => setProductoDetalle(null)}
-          onEditar={(id) => {
-            setProductoDetalle(null);
-            setProductoEditando(id);
+          productId={detailProductId}
+          onClose={() => setDetailProductId(null)}
+          onEdit={(id) => {
+            setDetailProductId(null);
+            setEditingProductId(id);
           }}
-          onTraspaso={(id) => {
-            setProductoDetalle(null);
-            setProductoTraspaso(id);
+          onTransfer={(id) => {
+            setDetailProductId(null);
+            setTransferProductId(id);
           }}
-          onAjuste={(id) => {
-            setProductoDetalle(null);
-            setProductoAjuste(id);
+          onAdjustment={(id) => {
+            setDetailProductId(null);
+            setAdjustmentProductId(id);
           }}
-          onEntrada={(id) => {
-            setProductoDetalle(null);
-            setProductoEntrada(id);
+          onEntry={(id) => {
+            setDetailProductId(null);
+            setEntryProductId(id);
           }}
         />
       )}
 
-      {productoTraspaso && (
+      {transferProductId && (
         <TraspasoModal
-          productoId={productoTraspaso}
-          onClose={() => setProductoTraspaso(null)}
+          productId={transferProductId}
+          onClose={() => setTransferProductId(null)}
           onSuccess={(msg) => {
-            setProductoTraspaso(null);
+            setTransferProductId(null);
             handleSuccess(msg);
           }}
           onError={setError}
         />
       )}
 
-      {productoAjuste && (
+      {adjustmentProductId && (
         <AjusteModal
-          productoId={productoAjuste}
-          onClose={() => setProductoAjuste(null)}
+          productId={adjustmentProductId}
+          onClose={() => setAdjustmentProductId(null)}
           onSuccess={(msg) => {
-            setProductoAjuste(null);
+            setAdjustmentProductId(null);
             handleSuccess(msg);
           }}
           onError={setError}
         />
       )}
 
-      {productoEntrada && (
+      {entryProductId && (
         <EntradaModal
-          productoId={productoEntrada}
-          onClose={() => setProductoEntrada(null)}
+          productId={entryProductId}
+          onClose={() => setEntryProductId(null)}
           onSuccess={(msg) => {
-            setProductoEntrada(null);
+            setEntryProductId(null);
             handleSuccess(msg);
           }}
           onError={setError}
