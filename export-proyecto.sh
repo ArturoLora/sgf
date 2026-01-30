@@ -1,50 +1,48 @@
 #!/bin/bash
-# Export PASO 2 — API + Services + Types(models)
 
-output_file="./paso2-api-contracts-$(date +%Y%m%d_%H%M%S).txt"
+output_file="./sgf-step4-export-$(date +%Y%m%d_%H%M%S).txt"
 
-add_file() {
-    if [ -f "$1" ]; then
-        echo -e "\n=== $1 ===\n" >> "$output_file"
-        cat "$1" >> "$output_file"
-        echo -e "\n" >> "$output_file"
-    fi
+add() {
+  if [ -f "$1" ]; then
+    echo -e "\n=== $1 ===\n" >> "$output_file"
+    cat "$1" >> "$output_file"
+  fi
 }
 
-add_section() {
-    echo -e "\n\n### $1 ###\n" >> "$output_file"
+section() {
+  echo -e "\n\n### $1 ###\n" >> "$output_file"
 }
 
-echo "PASO 2 - API CONTRACTS EXPORT $(date)" > "$output_file"
+echo "SGF EXPORT STEP 4" > "$output_file"
 
-# ================= CONFIG =================
-add_section "CONFIG"
-add_file "package.json"
-add_file "tsconfig.json"
+# CONFIG
+section "CONFIG"
+add package.json
+add tsconfig.json
 
-# ================= PRISMA =================
-add_section "PRISMA"
-add_file "prisma/schema.prisma"
+# PRISMA
+section "PRISMA"
+add prisma/schema.prisma
 
-# ================= TYPES MODELS =================
-add_section "TYPES MODELS"
+# DB
+section "DB"
+add lib/db.ts
 
-for f in types/models/*.ts; do
-  add_file "$f"
-done
+# TYPES
+section "TYPES MODELS"
+for f in types/models/*.ts; do add "$f"; done
 
-# ================= API ROUTES =================
-add_section "API ROUTES"
+section "TYPES API"
+for f in types/api/*.ts; do add "$f"; done
 
-find app/api -name "route.ts" | sort | while read f; do
-  add_file "$f"
-done
+# SERVICES
+section "SERVICES"
+for f in services/*.ts; do add "$f"; done
 
-# ================= SERVICES =================
-add_section "SERVICES"
+# API ROUTES
+section "API ROUTES"
+while IFS= read -r f; do
+  add "$f"
+done < <(find app/api -name route.ts)
 
-find services -name "*.ts" | sort | while read f; do
-  add_file "$f"
-done
-
-echo -e "\n✅ Export PASO 2 generado: ${output_file} ($(du -h "$output_file" | cut -f1))"
+echo "DONE -> $output_file"
