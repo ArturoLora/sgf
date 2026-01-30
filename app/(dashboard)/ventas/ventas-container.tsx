@@ -1,13 +1,15 @@
-// app/(dashboard)/ventas/ventas-container.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import VentasForm from "./ventas-form";
 import ProductoItem from "./producto-item";
 import ResumenVenta from "./resumen-venta";
 import FinalizarVentaModal from "./finalizar-venta-modal";
+import { useShiftCheck } from "./use-shift-check";
 
 interface Producto {
   id: number;
@@ -30,6 +32,7 @@ interface VentasContainerProps {
 export default function VentasContainer({
   initialProductos,
 }: VentasContainerProps) {
+  const { hasActiveShift, loading } = useShiftCheck();
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [clienteId, setClienteId] = useState<number | null>(null);
   const [descuento, setDescuento] = useState(0);
@@ -37,6 +40,13 @@ export default function VentasContainer({
   const [modalAbierto, setModalAbierto] = useState(false);
 
   const agregarAlCarrito = (producto: Producto) => {
+    if (!hasActiveShift) {
+      alert(
+        "No hay un corte abierto. Por favor, abre un corte para realizar ventas.",
+      );
+      return;
+    }
+
     const existente = carrito.find((item) => item.producto.id === producto.id);
 
     if (existente) {
@@ -92,12 +102,30 @@ export default function VentasContainer({
     setRecargo(0);
   };
 
+  const handleFinalizarClick = () => {
+    if (!hasActiveShift) {
+      alert(
+        "No hay un corte abierto. Por favor, abre un corte para realizar ventas.",
+      );
+      return;
+    }
+    setModalAbierto(true);
+  };
+
   const subtotal = carrito.reduce(
     (sum, item) => sum + item.precioUnitario * item.cantidad,
     0,
   );
 
   const total = subtotal - descuento + recargo;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">Verificando estado del sistema...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -108,6 +136,24 @@ export default function VentasContainer({
         </p>
       </div>
 
+      {/* Alerta si no hay corte abierto */}
+      {!hasActiveShift && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No hay un corte abierto. Debes abrir un corte antes de realizar
+            ventas.{" "}
+            <Button
+              variant="link"
+              className="h-auto p-0 text-red-600 underline"
+              onClick={() => (window.location.href = "/cortes")}
+            >
+              Ir a Cortes
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Búsqueda y selección */}
         <div className="lg:col-span-2">
@@ -116,6 +162,7 @@ export default function VentasContainer({
             onAgregarProducto={agregarAlCarrito}
             clienteId={clienteId}
             onClienteChange={setClienteId}
+            deshabilitado={!hasActiveShift}
           />
         </div>
 
@@ -128,8 +175,8 @@ export default function VentasContainer({
             total={total}
             onDescuentoChange={setDescuento}
             onRecargoChange={setRecargo}
-            onFinalizar={() => setModalAbierto(true)}
-            deshabilitado={carrito.length === 0}
+            onFinalizar={handleFinalizarClick}
+            deshabilitado={carrito.length === 0 || !hasActiveShift}
           />
         </div>
       </div>
@@ -169,7 +216,7 @@ export default function VentasContainer({
       </Card>
 
       {/* Modal de finalización */}
-      {modalAbierto && (
+      {modalAbierto && hasActiveShift && (
         <FinalizarVentaModal
           carrito={carrito}
           clienteId={clienteId}

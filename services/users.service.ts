@@ -2,8 +2,6 @@
 import { prisma } from "@/lib/db";
 import { Role } from "@prisma/client";
 
-// ==================== TYPES ====================
-
 export interface CreateUserInput {
   name: string;
   email: string;
@@ -18,20 +16,23 @@ export interface UpdateUserInput {
   isActive?: boolean;
 }
 
-// ==================== VALIDATIONS ====================
+interface UserResponse {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
-function validateAdminRole(userRole: Role) {
+function validateAdminRole(userRole: Role): void {
   if (userRole !== "ADMIN") {
     throw new Error("No tienes permisos para realizar esta operación");
   }
 }
 
-// ==================== PUBLIC SERVICES ====================
-
-/**
- * Lista todos los usuarios
- */
-export async function getAllUsers() {
+export async function getAllUsers(): Promise<UserResponse[]> {
   return await prisma.user.findMany({
     select: {
       id: true,
@@ -46,10 +47,7 @@ export async function getAllUsers() {
   });
 }
 
-/**
- * Obtiene un usuario por ID
- */
-export async function getUserById(userId: string) {
+export async function getUserById(userId: string): Promise<UserResponse> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -70,10 +68,10 @@ export async function getUserById(userId: string) {
   return user;
 }
 
-/**
- * Crea un nuevo usuario (solo ADMIN)
- */
-export async function createUser(data: CreateUserInput, currentUserRole: Role) {
+export async function createUser(
+  data: CreateUserInput,
+  currentUserRole: Role,
+): Promise<UserResponse> {
   validateAdminRole(currentUserRole);
 
   const existingUser = await prisma.user.findUnique({
@@ -84,11 +82,14 @@ export async function createUser(data: CreateUserInput, currentUserRole: Role) {
     throw new Error("El correo electrónico ya está registrado");
   }
 
-  const { password, ...userData } = data;
+  // Generate unique ID for user
+  const userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
   const user = await prisma.user.create({
     data: {
-      ...userData,
+      id: userId,
+      name: data.name,
+      email: data.email,
       role: data.role || "EMPLEADO",
       emailVerified: true,
     },
@@ -104,14 +105,11 @@ export async function createUser(data: CreateUserInput, currentUserRole: Role) {
   return user;
 }
 
-/**
- * Actualiza un usuario (solo ADMIN)
- */
 export async function updateUser(
   userId: string,
   data: UpdateUserInput,
   currentUserRole: Role,
-) {
+): Promise<UserResponse> {
   validateAdminRole(currentUserRole);
 
   const user = await prisma.user.findUnique({
@@ -148,10 +146,10 @@ export async function updateUser(
   return updatedUser;
 }
 
-/**
- * Activa/desactiva un usuario (solo ADMIN)
- */
-export async function toggleUserStatus(userId: string, currentUserRole: Role) {
+export async function toggleUserStatus(
+  userId: string,
+  currentUserRole: Role,
+): Promise<UserResponse> {
   validateAdminRole(currentUserRole);
 
   const user = await prisma.user.findUnique({
@@ -177,10 +175,7 @@ export async function toggleUserStatus(userId: string, currentUserRole: Role) {
   return updatedUser;
 }
 
-/**
- * Lista solo usuarios activos
- */
-export async function getActiveUsers() {
+export async function getActiveUsers(): Promise<UserResponse[]> {
   return await prisma.user.findMany({
     where: { isActive: true },
     select: {
@@ -188,6 +183,7 @@ export async function getActiveUsers() {
       name: true,
       email: true,
       role: true,
+      isActive: true,
     },
     orderBy: { name: "asc" },
   });

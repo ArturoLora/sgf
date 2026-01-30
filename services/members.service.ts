@@ -1,9 +1,50 @@
 // services/members.service.ts
 import { prisma } from "@/lib/db";
 import { MembershipType } from "@prisma/client";
-import { serializeDecimal } from "./utils";
+import { mapMembershipType } from "./enum-mappers";
+import type {
+  SocioResponse,
+  SocioConHistorialResponse,
+  VigenciaMembresiaResponse,
+} from "@/types/api/members";
 
-// ==================== TYPES ====================
+function serializeMember(member: {
+  id: number;
+  memberNumber: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  birthDate: Date | null;
+  membershipType: MembershipType | null;
+  membershipDescription: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  totalVisits: number;
+  lastVisit: Date | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): SocioResponse {
+  return {
+    id: member.id,
+    memberNumber: member.memberNumber,
+    name: member.name ?? undefined,
+    phone: member.phone ?? undefined,
+    email: member.email ?? undefined,
+    birthDate: member.birthDate ?? undefined,
+    membershipType: member.membershipType
+      ? mapMembershipType(member.membershipType)
+      : undefined,
+    membershipDescription: member.membershipDescription ?? undefined,
+    startDate: member.startDate ?? undefined,
+    endDate: member.endDate ?? undefined,
+    totalVisits: member.totalVisits,
+    lastVisit: member.lastVisit ?? undefined,
+    isActive: member.isActive,
+    createdAt: member.createdAt,
+    updatedAt: member.updatedAt,
+  };
+}
 
 export interface CreateMemberInput {
   memberNumber: string;
@@ -52,11 +93,6 @@ export interface SearchMembersParams {
   membershipType?: MembershipType;
 }
 
-// ==================== HELPERS ====================
-
-/**
- * Calcula la fecha de fin según el tipo de membresía
- */
 function calculateEndDate(
   startDate: Date,
   membershipType: MembershipType,
@@ -91,9 +127,6 @@ function calculateEndDate(
   return date;
 }
 
-/**
- * Calcula fechas de inicio y fin para una membresía
- */
 export function calculateMembershipDates(
   membershipType: MembershipType,
   startDate?: Date,
@@ -107,13 +140,19 @@ export function calculateMembershipDates(
   };
 }
 
-// ==================== PUBLIC SERVICES ====================
-
-/**
- * Lista todos los socios con filtros opcionales
- */
-export async function getAllMembers(params?: SearchMembersParams) {
-  const where: any = {};
+export async function getAllMembers(
+  params?: SearchMembersParams,
+): Promise<SocioResponse[]> {
+  const where: {
+    OR?: Array<{
+      memberNumber?: { contains: string; mode: "insensitive" };
+      name?: { contains: string; mode: "insensitive" };
+      phone?: { contains: string; mode: "insensitive" };
+      email?: { contains: string; mode: "insensitive" };
+    }>;
+    isActive?: boolean;
+    membershipType?: MembershipType;
+  } = {};
 
   if (params?.search) {
     where.OR = [
@@ -137,13 +176,12 @@ export async function getAllMembers(params?: SearchMembersParams) {
     orderBy: { createdAt: "desc" },
   });
 
-  return serializeDecimal(members);
+  return members.map(serializeMember);
 }
 
-/**
- * Obtiene un socio por ID con su historial de compras
- */
-export async function getMemberById(id: number) {
+export async function getMemberById(
+  id: number,
+): Promise<SocioConHistorialResponse> {
   const member = await prisma.member.findUnique({
     where: { id },
     include: {
@@ -167,13 +205,25 @@ export async function getMemberById(id: number) {
     throw new Error("Socio no encontrado");
   }
 
-  return serializeDecimal(member);
+  return {
+    ...serializeMember(member),
+    inventoryMovements: member.inventoryMovements.map((m) => ({
+      id: m.id,
+      type: m.type,
+      quantity: m.quantity,
+      total: m.total ? Number(m.total) : 0,
+      date: m.date,
+      product: {
+        name: m.product.name,
+        salePrice: Number(m.product.salePrice),
+      },
+    })),
+  };
 }
 
-/**
- * Obtiene un socio por número de socio
- */
-export async function getMemberByNumber(memberNumber: string) {
+export async function getMemberByNumber(
+  memberNumber: string,
+): Promise<SocioConHistorialResponse> {
   const member = await prisma.member.findUnique({
     where: { memberNumber },
     include: {
@@ -197,14 +247,25 @@ export async function getMemberByNumber(memberNumber: string) {
     throw new Error("Socio no encontrado");
   }
 
-  return serializeDecimal(member);
+  return {
+    ...serializeMember(member),
+    inventoryMovements: member.inventoryMovements.map((m) => ({
+      id: m.id,
+      type: m.type,
+      quantity: m.quantity,
+      total: m.total ? Number(m.total) : 0,
+      date: m.date,
+      product: {
+        name: m.product.name,
+        salePrice: Number(m.product.salePrice),
+      },
+    })),
+  };
 }
 
-/**
- * Crea un nuevo socio
- * Si tiene membresía y userId, crea la venta automáticamente
- */
-export async function createMember(data: CreateMemberWithSaleInput) {
+export async function createMember(
+  data: CreateMemberWithSaleInput,
+): Promise<SocioResponse> {
   const existingMember = await prisma.member.findUnique({
     where: { memberNumber: data.memberNumber },
   });
@@ -227,7 +288,6 @@ export async function createMember(data: CreateMemberWithSaleInput) {
     },
   });
 
-  // Si tiene membresía y userId, crear venta
   if (data.membershipType && data.userId) {
     const keywordMap: Record<string, string> = {
       MONTH_STUDENT: "MENSUALIDAD ESTUDIANTE",
@@ -284,13 +344,13 @@ export async function createMember(data: CreateMemberWithSaleInput) {
     }
   }
 
-  return serializeDecimal(member);
+  return serializeMember(member);
 }
 
-/**
- * Actualiza un socio existente
- */
-export async function updateMember(id: number, data: UpdateMemberInput) {
+export async function updateMember(
+  id: number,
+  data: UpdateMemberInput,
+): Promise<SocioResponse> {
   const member = await prisma.member.findUnique({
     where: { id },
   });
@@ -309,13 +369,10 @@ export async function updateMember(id: number, data: UpdateMemberInput) {
     },
   });
 
-  return serializeDecimal(updatedMember);
+  return serializeMember(updatedMember);
 }
 
-/**
- * Activa/desactiva un socio
- */
-export async function toggleMemberStatus(id: number) {
+export async function toggleMemberStatus(id: number): Promise<SocioResponse> {
   const member = await prisma.member.findUnique({
     where: { id },
   });
@@ -329,13 +386,10 @@ export async function toggleMemberStatus(id: number) {
     data: { isActive: !member.isActive },
   });
 
-  return serializeDecimal(updatedMember);
+  return serializeMember(updatedMember);
 }
 
-/**
- * Registra una visita de un socio
- */
-export async function registerVisit(memberId: number) {
+export async function registerVisit(memberId: number): Promise<SocioResponse> {
   const member = await prisma.member.findUnique({
     where: { id: memberId },
   });
@@ -356,25 +410,21 @@ export async function registerVisit(memberId: number) {
     },
   });
 
-  return serializeDecimal(updatedMember);
+  return serializeMember(updatedMember);
 }
 
-/**
- * Lista solo socios activos
- */
-export async function getActiveMembers() {
+export async function getActiveMembers(): Promise<SocioResponse[]> {
   const members = await prisma.member.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
   });
 
-  return serializeDecimal(members);
+  return members.map(serializeMember);
 }
 
-/**
- * Lista socios con membresía próxima a vencer
- */
-export async function getMembersExpiringSoon(days: number = 7) {
+export async function getMembersExpiringSoon(
+  days: number = 7,
+): Promise<SocioResponse[]> {
   const today = new Date();
   const limitDate = new Date();
   limitDate.setDate(limitDate.getDate() + days);
@@ -393,13 +443,15 @@ export async function getMembersExpiringSoon(days: number = 7) {
     orderBy: { endDate: "asc" },
   });
 
-  return serializeDecimal(members);
+  return members.map(serializeMember);
 }
 
-/**
- * Genera estadísticas de socios
- */
-export async function getMembersStatistics() {
+export async function getMembersStatistics(): Promise<{
+  total: number;
+  active: number;
+  inactive: number;
+  byType: Array<{ membershipType: MembershipType | null; _count: number }>;
+}> {
   const total = await prisma.member.count();
   const active = await prisma.member.count({ where: { isActive: true } });
   const inactive = await prisma.member.count({ where: { isActive: false } });
@@ -418,11 +470,9 @@ export async function getMembersStatistics() {
   };
 }
 
-/**
- * Renueva la membresía de un socio
- * Crea la venta automáticamente
- */
-export async function renewMembership(data: RenewMembershipWithSaleInput) {
+export async function renewMembership(
+  data: RenewMembershipWithSaleInput,
+): Promise<SocioResponse> {
   const member = await prisma.member.findUnique({
     where: { id: data.memberId },
   });
@@ -433,7 +483,6 @@ export async function renewMembership(data: RenewMembershipWithSaleInput) {
 
   const dates = calculateMembershipDates(data.membershipType, data.startDate);
 
-  // Buscar producto de membresía
   const keywordMap: Record<string, string> = {
     MONTH_STUDENT: "MENSUALIDAD ESTUDIANTE",
     MONTH_GENERAL: "MENSUALIDAD GENERAL",
@@ -472,8 +521,8 @@ export async function renewMembership(data: RenewMembershipWithSaleInput) {
     .padStart(2, "0");
   const ticket = `REN${timestamp}${random}`;
 
-  const [updatedMember] = await prisma.$transaction([
-    prisma.member.update({
+  const updatedMember = await prisma.$transaction(async (tx) => {
+    const renewed = await tx.member.update({
       where: { id: data.memberId },
       data: {
         membershipType: data.membershipType,
@@ -484,8 +533,9 @@ export async function renewMembership(data: RenewMembershipWithSaleInput) {
         totalVisits: { increment: 1 },
         lastVisit: new Date(),
       },
-    }),
-    prisma.inventoryMovement.create({
+    });
+
+    await tx.inventoryMovement.create({
       data: {
         productId: product.id,
         type: "SALE",
@@ -503,16 +553,15 @@ export async function renewMembership(data: RenewMembershipWithSaleInput) {
         shiftId: activeShift?.id,
         notes: `Renovación: ${data.membershipDescription || data.membershipType}`,
       },
-    }),
-  ]);
+    });
 
-  return serializeDecimal(updatedMember);
+    return renewed;
+  });
+
+  return serializeMember(updatedMember);
 }
 
-/**
- * Lista socios con membresía vencida
- */
-export async function getExpiredMembers() {
+export async function getExpiredMembers(): Promise<SocioResponse[]> {
   const today = new Date();
 
   const members = await prisma.member.findMany({
@@ -528,17 +577,12 @@ export async function getExpiredMembers() {
     orderBy: { endDate: "desc" },
   });
 
-  return serializeDecimal(members);
+  return members.map(serializeMember);
 }
 
-/**
- * Verifica la vigencia de una membresía
- */
-export async function verifyMembershipValidity(memberId: number): Promise<{
-  isValid: boolean;
-  daysRemaining: number;
-  endDate: Date | null;
-}> {
+export async function verifyMembershipValidity(
+  memberId: number,
+): Promise<VigenciaMembresiaResponse> {
   const member = await prisma.member.findUnique({
     where: { id: memberId },
   });

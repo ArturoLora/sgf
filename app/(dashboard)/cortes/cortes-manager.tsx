@@ -72,10 +72,13 @@ export default function CortesManager({
       const res = await fetch("/api/shifts/active");
       if (res.ok) {
         const data = await res.json();
-        setCorteActivo(data.shift);
+        setCorteActivo(data); // ✅ El endpoint retorna el shift directamente
+      } else if (res.status === 404) {
+        setCorteActivo(null); // No hay corte activo
       }
     } catch (err) {
       console.error("Error al verificar corte activo:", err);
+      setCorteActivo(null);
     }
   };
 

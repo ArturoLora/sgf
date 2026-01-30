@@ -1,0 +1,4778 @@
+PASO 2 - API CONTRACTS EXPORT Thu Jan 29 19:47:58 MST 2026
+
+
+### CONFIG ###
+
+
+=== package.json ===
+
+{
+  "name": "sgf",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:reset": "prisma migrate reset",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx seed.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^6.19.2",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "better-auth": "^1.4.12",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.2.3",
+    "lucide-react": "^0.562.0",
+    "next": "16.1.1",
+    "pg": "^8.16.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.16.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "prisma": "^6.19.2",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5"
+  }
+}
+
+
+
+=== tsconfig.json ===
+
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"],
+      "@prisma/client": ["./app/generated/prisma"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+
+
+
+### PRISMA ###
+
+
+=== prisma/schema.prisma ===
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  EMPLEADO
+}
+
+enum MembershipType {
+  VISIT
+  WEEK
+  MONTH_STUDENT
+  MONTH_GENERAL
+  QUARTER_STUDENT
+  QUARTER_GENERAL
+  ANNUAL_STUDENT
+  ANNUAL_GENERAL
+  PROMOTION
+  REBIRTH
+  NUTRITION_CONSULTATION
+}
+
+enum InventoryType {
+  SALE
+  ADJUSTMENT
+  WAREHOUSE_ENTRY
+  GYM_ENTRY
+  TRANSFER_TO_GYM
+  TRANSFER_TO_WAREHOUSE
+}
+
+enum Location {
+  WAREHOUSE
+  GYM
+}
+
+enum PaymentMethod {
+  CASH
+  DEBIT_CARD
+  CREDIT_CARD
+  TRANSFER
+}
+
+// ==================== BETTER AUTH ====================
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          Role      @default(EMPLEADO)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  sessions      Session[]
+  accounts      Account[]
+  shifts        Shift[]
+  inventoryMovements InventoryMovement[]
+
+  @@index([role, isActive])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verification")
+}
+
+// ==================== MEMBERS ====================
+
+model Member {
+  id                     Int             @id @default(autoincrement())
+  memberNumber           String          @unique
+  name                   String?
+  phone                  String?
+  email                  String?
+  birthDate              DateTime?
+  membershipType         MembershipType?
+  membershipDescription  String?
+  startDate              DateTime?
+  endDate                DateTime?
+  totalVisits            Int             @default(0)
+  lastVisit              DateTime?
+  isActive               Boolean         @default(true)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  
+  inventoryMovements InventoryMovement[]
+
+  @@index([membershipType, isActive])
+  @@index([endDate, isActive])
+  @@map("member")
+}
+
+// ==================== PRODUCTS ====================
+
+model Product {
+  id               Int      @id @default(autoincrement())
+  name             String   @unique
+  salePrice        Decimal  @default(0) @db.Decimal(10, 2)
+  warehouseStock   Int      @default(0)
+  gymStock         Int      @default(0)
+  minStock         Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  inventoryMovements InventoryMovement[]
+
+  @@index([gymStock, minStock])
+  @@index([warehouseStock, minStock])
+  @@map("product")
+}
+
+// ==================== INVENTORY ====================
+
+model InventoryMovement {
+  id             Int             @id @default(autoincrement())
+  productId      Int
+  type           InventoryType
+  location       Location
+  quantity       Int
+  
+  ticket         String?
+  memberId       Int?
+  userId         String
+  unitPrice      Decimal?        @db.Decimal(10, 2)
+  subtotal       Decimal?        @db.Decimal(10, 2)
+  discount       Decimal?        @default(0) @db.Decimal(10, 2)
+  surcharge      Decimal?        @default(0) @db.Decimal(10, 2)
+  total          Decimal?        @db.Decimal(10, 2)
+  paymentMethod  PaymentMethod?
+  
+  shiftId              Int?
+  notes                String?
+  isCancelled          Boolean  @default(false)
+  cancellationReason   String?
+  cancellationDate     DateTime?
+  
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  member  Member?  @relation(fields: [memberId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  shift   Shift?   @relation(fields: [shiftId], references: [id])
+
+  @@index([type, date(sort: Desc)])
+  @@index([type, ticket])
+  @@index([type, userId, date])
+  @@index([type, productId, date])
+  @@map("inventory_movement")
+}
+
+// ==================== SHIFTS ====================
+
+model Shift {
+  id                   Int      @id @default(autoincrement())
+  folio                String   @unique
+  cashierId            String
+  openingDate          DateTime
+  closingDate          DateTime?
+  initialCash          Decimal  @db.Decimal(10, 2)
+  ticketCount          Int      @default(0)
+  membershipSales      Decimal  @default(0) @db.Decimal(10, 2)
+  productSales0Tax     Decimal  @default(0) @db.Decimal(10, 2)
+  productSales16Tax    Decimal  @default(0) @db.Decimal(10, 2)
+  subtotal             Decimal  @default(0) @db.Decimal(10, 2)
+  tax                  Decimal  @default(0) @db.Decimal(10, 2)
+  totalSales           Decimal  @default(0) @db.Decimal(10, 2)
+  cashAmount           Decimal  @default(0) @db.Decimal(10, 2)
+  debitCardAmount      Decimal  @default(0) @db.Decimal(10, 2)
+  creditCardAmount     Decimal  @default(0) @db.Decimal(10, 2)
+  totalVoucher         Decimal  @default(0) @db.Decimal(10, 2)
+  totalWithdrawals     Decimal  @default(0) @db.Decimal(10, 2)
+  withdrawalsConcept   String?
+  cancelledSales       Decimal  @default(0) @db.Decimal(10, 2)
+  totalCash            Decimal  @default(0) @db.Decimal(10, 2)
+  difference           Decimal  @default(0) @db.Decimal(10, 2)
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  cashier User @relation(fields: [cashierId], references: [id])
+  inventoryMovements InventoryMovement[]
+
+  @@index([cashierId])
+  @@index([openingDate])
+  @@index([closingDate])
+  @@map("shift")
+}
+
+
+
+### TYPES MODELS ###
+
+
+=== types/models/corte.ts ===
+
+export interface Corte {
+  id: number;
+  folio: string;
+  cashierId: string;
+  openingDate: Date;
+  closingDate?: Date;
+  initialCash: number;
+  ticketCount: number;
+  membershipSales: number;
+  productSales0Tax: number;
+  productSales16Tax: number;
+  subtotal: number;
+  tax: number;
+  totalSales: number;
+  cashAmount: number;
+  debitCardAmount: number;
+  creditCardAmount: number;
+  totalVoucher: number;
+  totalWithdrawals: number;
+  withdrawalsConcept?: string;
+  cancelledSales: number;
+  totalCash: number;
+  difference: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CorteConRelaciones extends Corte {
+  cashier: Usuario;
+  inventoryMovements: MovimientoInventario[];
+}
+
+import type { Usuario } from "./usuario";
+import type { MovimientoInventario } from "./movimiento-inventario";
+
+
+
+=== types/models/cuenta.ts ===
+
+export interface Cuenta {
+  id: string;
+  accountId: string;
+  providerId: string;
+  userId: string;
+  accessToken?: string;
+  refreshToken?: string;
+  idToken?: string;
+  accessTokenExpiresAt?: Date;
+  refreshTokenExpiresAt?: Date;
+  scope?: string;
+  password?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CuentaConRelaciones extends Cuenta {
+  user: Usuario;
+}
+
+import type { Usuario } from "./usuario";
+
+
+
+=== types/models/index.ts ===
+
+// Enums
+export { Rol } from "./usuario";
+export { TipoMembresia } from "./socio";
+export { TipoInventario, Ubicacion, MetodoPago } from "./movimiento-inventario";
+
+// Interfaces base
+export type { Usuario, UsuarioConRelaciones } from "./usuario";
+export type { Sesion, SesionConRelaciones } from "./sesion";
+export type { Cuenta, CuentaConRelaciones } from "./cuenta";
+export type { Verificacion } from "./verificacion";
+export type { Socio, SocioConRelaciones } from "./socio";
+export type { Producto, ProductoConRelaciones } from "./producto";
+export type {
+  MovimientoInventario,
+  MovimientoInventarioConRelaciones,
+} from "./movimiento-inventario";
+export type { Corte, CorteConRelaciones } from "./corte";
+
+
+
+=== types/models/movimiento-inventario.ts ===
+
+export enum TipoInventario {
+  SALE = "SALE",
+  ADJUSTMENT = "ADJUSTMENT",
+  WAREHOUSE_ENTRY = "WAREHOUSE_ENTRY",
+  GYM_ENTRY = "GYM_ENTRY",
+  TRANSFER_TO_GYM = "TRANSFER_TO_GYM",
+  TRANSFER_TO_WAREHOUSE = "TRANSFER_TO_WAREHOUSE",
+}
+
+export enum Ubicacion {
+  WAREHOUSE = "WAREHOUSE",
+  GYM = "GYM",
+}
+
+export enum MetodoPago {
+  CASH = "CASH",
+  DEBIT_CARD = "DEBIT_CARD",
+  CREDIT_CARD = "CREDIT_CARD",
+  TRANSFER = "TRANSFER",
+}
+
+export interface MovimientoInventario {
+  id: number;
+  productId: number;
+  type: TipoInventario;
+  location: Ubicacion;
+  quantity: number;
+  ticket?: string;
+  memberId?: number;
+  userId: string;
+  unitPrice?: number;
+  subtotal?: number;
+  discount?: number;
+  surcharge?: number;
+  total?: number;
+  paymentMethod?: MetodoPago;
+  shiftId?: number;
+  notes?: string;
+  isCancelled: boolean;
+  cancellationReason?: string;
+  cancellationDate?: Date;
+  date: Date;
+  createdAt: Date;
+}
+
+export interface MovimientoInventarioConRelaciones extends MovimientoInventario {
+  product: Producto;
+  member?: Socio;
+  user: Usuario;
+  shift?: Corte;
+}
+
+import type { Producto } from "./producto";
+import type { Socio } from "./socio";
+import type { Usuario } from "./usuario";
+import type { Corte } from "./corte";
+
+
+
+=== types/models/producto.ts ===
+
+export interface Producto {
+  id: number;
+  name: string;
+  salePrice: number;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProductoConRelaciones extends Producto {
+  inventoryMovements: MovimientoInventario[];
+}
+
+import type { MovimientoInventario } from "./movimiento-inventario";
+
+
+
+=== types/models/sesion.ts ===
+
+export interface Sesion {
+  id: string;
+  expiresAt: Date;
+  token: string;
+  createdAt: Date;
+  updatedAt: Date;
+  ipAddress?: string;
+  userAgent?: string;
+  userId: string;
+}
+
+export interface SesionConRelaciones extends Sesion {
+  user: Usuario;
+}
+
+import type { Usuario } from "./usuario";
+
+
+
+=== types/models/socio.ts ===
+
+export enum TipoMembresia {
+  VISIT = "VISIT",
+  WEEK = "WEEK",
+  MONTH_STUDENT = "MONTH_STUDENT",
+  MONTH_GENERAL = "MONTH_GENERAL",
+  QUARTER_STUDENT = "QUARTER_STUDENT",
+  QUARTER_GENERAL = "QUARTER_GENERAL",
+  ANNUAL_STUDENT = "ANNUAL_STUDENT",
+  ANNUAL_GENERAL = "ANNUAL_GENERAL",
+  PROMOTION = "PROMOTION",
+  REBIRTH = "REBIRTH",
+  NUTRITION_CONSULTATION = "NUTRITION_CONSULTATION",
+}
+
+export interface Socio {
+  id: number;
+  memberNumber: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  birthDate?: Date;
+  membershipType?: TipoMembresia;
+  membershipDescription?: string;
+  startDate?: Date;
+  endDate?: Date;
+  totalVisits: number;
+  lastVisit?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SocioConRelaciones extends Socio {
+  inventoryMovements: MovimientoInventario[];
+}
+
+import type { MovimientoInventario } from "./movimiento-inventario";
+
+
+
+=== types/models/usuario.ts ===
+
+export enum Rol {
+  ADMIN = "ADMIN",
+  EMPLEADO = "EMPLEADO",
+}
+
+export interface Usuario {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image?: string;
+  role: Rol;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UsuarioConRelaciones extends Usuario {
+  sessions: Sesion[];
+  accounts: Cuenta[];
+  shifts: Corte[];
+  inventoryMovements: MovimientoInventario[];
+}
+
+// Importaciones necesarias para las relaciones
+import type { Sesion } from "./sesion";
+import type { Cuenta } from "./cuenta";
+import type { Corte } from "./corte";
+import type { MovimientoInventario } from "./movimiento-inventario";
+
+
+
+=== types/models/verificacion.ts ===
+
+export interface Verificacion {
+  id: string;
+  identifier: string;
+  value: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+
+
+
+### API ROUTES ###
+
+
+=== app/api/auth/[...all]/route.ts ===
+
+import { auth } from "@/lib/auth"; // path to your auth file
+import { toNextJsHandler } from "better-auth/next-js";
+
+export const { POST, GET } = toNextJsHandler(auth);
+
+
+
+=== app/api/inventory/adjustment/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const adjustment = await InventoryService.createAdjustment({
+      ...body,
+      userId: session.user.id, // ✅ Agregar esto
+    });
+    return NextResponse.json(adjustment, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/inventory/cancel/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+// POST /api/inventory/cancel
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const cancelledSale = await InventoryService.cancelSale({
+      ...body,
+      userId: session.user.id,
+    });
+
+    return NextResponse.json(cancelledSale);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/inventory/cancelled/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+
+// GET /api/inventory/cancelled
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    let cancelledSales;
+
+    if (startDate && endDate) {
+      cancelledSales = await InventoryService.getCancelledSales(
+        new Date(startDate),
+        new Date(endDate)
+      );
+    } else {
+      cancelledSales = await InventoryService.getCancelledSales();
+    }
+
+    return NextResponse.json(cancelledSales);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/inventory/entry/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const entry = await InventoryService.createEntry({
+      ...body,
+      userId: session.user.id,
+    });
+    return NextResponse.json(entry, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/inventory/kardex/[id]/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const productId = parseInt(id);
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { productId },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+        member: {
+          select: {
+            memberNumber: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+      take: 100,
+    });
+
+    return NextResponse.json(serializeDecimal(movements));
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/inventory/movements/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+
+// GET /api/inventory/movements?startDate=...&endDate=...
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    if (!startDate || !endDate) {
+      return NextResponse.json(
+        { error: "Se requieren startDate y endDate" },
+        { status: 400 }
+      );
+    }
+
+    const movements = await InventoryService.getMovementsByDate(
+      new Date(startDate),
+      new Date(endDate)
+    );
+
+    return NextResponse.json(movements);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/inventory/report/stock/route.ts ===
+
+import { NextResponse } from "next/server";
+import { ReportsService } from "@/services";
+
+// GET /api/inventory/report/stock
+export async function GET() {
+  try {
+    const report = await ReportsService.getCurrentStockReport();
+    return NextResponse.json(report);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/inventory/sale/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+// POST /api/inventory/sale
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const sale = await InventoryService.createSale({
+      ...body,
+      userId: session.user.id,
+    });
+
+    return NextResponse.json(sale, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/inventory/ticket/[ticket]/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ ticket: string }> },
+) {
+  try {
+    const { ticket } = await params;
+
+    const sales = await InventoryService.getSalesByTicket(ticket);
+
+    return NextResponse.json(sales);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/inventory/transfer/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { InventoryService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const transfer = await InventoryService.createTransfer({
+      ...body,
+      userId: session.user.id, // ✅ Agregar esto
+    });
+    return NextResponse.json(transfer, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/members/[id]/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { MembersService } from "@/services";
+
+// GET /api/members/[id]
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    const memberId = Number(id);
+
+    if (isNaN(memberId)) {
+      return NextResponse.json(
+        { error: "ID de socio inválido" },
+        { status: 400 }
+      );
+    }
+
+    const member = await MembersService.getMemberById(memberId);
+    return NextResponse.json(member);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message ?? "Socio no encontrado" },
+      { status: 404 }
+    );
+  }
+}
+
+// PATCH /api/members/[id]
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    const memberId = Number(id);
+
+    if (isNaN(memberId)) {
+      return NextResponse.json(
+        { error: "ID de socio inválido" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const member = await MembersService.updateMember(memberId, body);
+
+    return NextResponse.json(member);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message ?? "Error al actualizar socio" },
+      { status: 400 }
+    );
+  }
+}
+
+// DELETE /api/members/[id]
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    const memberId = Number(id);
+
+    if (isNaN(memberId)) {
+      return NextResponse.json(
+        { error: "ID de socio inválido" },
+        { status: 400 }
+      );
+    }
+
+    const member = await MembersService.toggleMemberStatus(memberId);
+    return NextResponse.json(member);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message ?? "Error al cambiar estado del socio" },
+      { status: 400 }
+    );
+  }
+}
+
+
+
+=== app/api/members/[id]/validity/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { MembersService } from "@/services";
+
+// GET /api/members/[id]/validity
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+    const memberId = Number(id);
+
+    if (isNaN(memberId)) {
+      return NextResponse.json(
+        { error: "ID de socio inválido" },
+        { status: 400 }
+      );
+    }
+
+    const validity = await MembersService.verifyMembershipValidity(memberId);
+    return NextResponse.json(validity);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message ?? "Error al verificar vigencia" },
+      { status: 400 }
+    );
+  }
+}
+
+
+
+=== app/api/members/expired/route.ts ===
+
+import { NextResponse } from "next/server";
+import { MembersService } from "@/services";
+
+// GET /api/members/expired
+export async function GET() {
+  try {
+    const members = await MembersService.getExpiredMembers();
+    return NextResponse.json(members);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/members/renew/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { MembersService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const member = await MembersService.renewMembership({
+      ...body,
+      userId: session.user.id,
+    });
+
+    return NextResponse.json(member);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/members/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { MembersService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+
+// GET /api/members
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const search = searchParams.get("search") || undefined;
+    const isActive = searchParams.get("isActive");
+    const membershipType = searchParams.get("membershipType") || undefined;
+
+    const params = {
+      search,
+      isActive: isActive ? isActive === "true" : undefined,
+      membershipType: membershipType as any,
+    };
+
+    const members = await MembersService.getAllMembers(params);
+    return NextResponse.json(members);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// POST /api/members
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const member = await MembersService.createMember({
+      ...body,
+      userId: session.user.id,
+    });
+
+    return NextResponse.json(member, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/products/[id]/route.ts ===
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { NextRequest, NextResponse } from "next/server";
+import { ProductsService } from "@/services";
+
+// GET /api/products/[id]
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const productId = parseInt(id);
+
+    const product = await ProductsService.getProductById(productId);
+    return NextResponse.json(product);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 404 });
+  }
+}
+
+// PATCH /api/products/[id]
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const productId = parseInt(id);
+
+    const body = await request.json();
+    const product = await ProductsService.updateProduct(productId, body);
+
+    return NextResponse.json(product);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+// DELETE /api/products/[id]
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const productId = parseInt(id);
+
+    const product = await ProductsService.toggleProductStatus(productId);
+    return NextResponse.json(product);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/products/route.ts ===
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { NextRequest, NextResponse } from "next/server";
+import { ProductsService } from "@/services";
+
+// GET /api/products - Lista todos los productos
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const search = searchParams.get("search") || undefined;
+    const isActive = searchParams.get("isActive");
+    const lowStock = searchParams.get("lowStock") === "true";
+
+    const params = {
+      search,
+      isActive: isActive ? isActive === "true" : undefined,
+      lowStock,
+    };
+
+    const products = await ProductsService.getAllProducts(params);
+    return NextResponse.json(products);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// POST /api/products - Crear producto
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const product = await ProductsService.createProduct(body);
+    return NextResponse.json(product, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/sales/history/route.ts ===
+
+// app/api/sales/history/route.ts
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+import { Prisma } from "@prisma/client";
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+
+    const where: Prisma.InventoryMovementWhereInput = {
+      type: "SALE",
+    };
+
+    // ================= Filters =================
+
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    if (startDate && endDate) {
+      where.date = {
+        gte: new Date(startDate),
+        lte: new Date(endDate + "T23:59:59"),
+      };
+    }
+
+    const cashier = searchParams.get("cashier");
+    if (cashier && cashier !== "todos") where.userId = cashier;
+
+    const product = searchParams.get("product");
+    if (product && product !== "todos") where.productId = parseInt(product);
+
+    const member = searchParams.get("member");
+    if (member && member !== "todos") where.memberId = parseInt(member);
+
+    const paymentMethod = searchParams.get("paymentMethod");
+    if (paymentMethod && paymentMethod !== "todos")
+      where.paymentMethod = paymentMethod as any;
+
+    const onlyActive = searchParams.get("onlyActive") === "true";
+    if (onlyActive) where.isCancelled = false;
+
+    // Product type filter
+    const productType = searchParams.get("productType");
+    if (productType && productType !== "todos") {
+      const membershipProducts = [
+        "VISITA",
+        "EFECTIVO SEMANA",
+        "EFECTIVO MENSUALIDAD ESTUDIANTE",
+        "EFECTIVO MENSUALIDAD GENERAL",
+        "EFECTIVO TRIMESTRE ESTUDIANTE",
+        "EFECTIVO TRIMESTRE GENERAL",
+        "EFECTIVO ANUAL ESTUDIANTE",
+        "EFECTIVO ANUAL GENERAL",
+      ];
+
+      if (productType === "membresias") {
+        where.product = {
+          name: { in: membershipProducts },
+        };
+      } else if (productType === "productos") {
+        where.product = {
+          name: { notIn: membershipProducts },
+        };
+      }
+    }
+
+    // Search filter
+    const search = searchParams.get("search");
+    if (search) {
+      where.OR = [
+        { ticket: { contains: search, mode: "insensitive" } },
+        { product: { name: { contains: search, mode: "insensitive" } } },
+        { member: { name: { contains: search, mode: "insensitive" } } },
+        { member: { memberNumber: { contains: search, mode: "insensitive" } } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    // ================= Order By =================
+
+    const orderBy = searchParams.get("orderBy") || "date";
+    const order = searchParams.get("order") || "desc";
+
+    let orderByClause: any = { date: order };
+
+    if (orderBy === "total") {
+      orderByClause = { total: order };
+    } else if (orderBy === "ticket") {
+      orderByClause = { ticket: order };
+    }
+
+    // ================= Pagination =================
+
+    const page = parseInt(searchParams.get("page") || "1");
+    const perPage = parseInt(searchParams.get("perPage") || "10");
+
+    // ================= Get unique tickets count =================
+
+    const uniqueTickets = await prisma.inventoryMovement.findMany({
+      where,
+      select: { ticket: true },
+      distinct: ["ticket"],
+    });
+
+    const total = uniqueTickets.length;
+
+    // ================= Get movements for current page =================
+
+    // Get all movements, then group by ticket
+    const movements = await prisma.inventoryMovement.findMany({
+      where,
+      orderBy: orderByClause,
+      select: {
+        id: true,
+        ticket: true,
+        date: true,
+        quantity: true,
+        total: true,
+        paymentMethod: true,
+        isCancelled: true,
+        product: { select: { name: true } },
+        member: { select: { memberNumber: true, name: true } },
+        user: { select: { name: true } },
+      },
+    });
+
+    // ================= Group by ticket =================
+
+    const groups = new Map<string, any>();
+
+    for (const m of movements) {
+      const ticket = m.ticket || "NO-TICKET";
+
+      if (!groups.has(ticket)) {
+        groups.set(ticket, {
+          ticket,
+          date: m.date,
+          total: 0,
+          paymentMethod: m.paymentMethod,
+          cashier: m.user.name,
+          member: m.member,
+          isCancelled: m.isCancelled,
+          items: [],
+        });
+      }
+
+      const g = groups.get(ticket);
+      g.total += Number(m.total || 0);
+
+      g.items.push({
+        id: m.id,
+        product: m.product,
+        quantity: m.quantity,
+        total: m.total,
+      });
+    }
+
+    // Convert to array and apply ordering
+    let ticketsArray = Array.from(groups.values());
+
+    // Apply ordering to grouped tickets
+    if (orderBy === "date") {
+      ticketsArray.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return order === "desc" ? dateB - dateA : dateA - dateB;
+      });
+    } else if (orderBy === "total") {
+      ticketsArray.sort((a, b) => {
+        return order === "desc" ? b.total - a.total : a.total - b.total;
+      });
+    } else if (orderBy === "ticket") {
+      ticketsArray.sort((a, b) => {
+        const ticketA = a.ticket || "";
+        const ticketB = b.ticket || "";
+        return order === "desc"
+          ? ticketB.localeCompare(ticketA)
+          : ticketA.localeCompare(ticketB);
+      });
+    }
+
+    // Apply pagination
+    const skip = (page - 1) * perPage;
+    const tickets = ticketsArray.slice(skip, skip + perPage);
+
+    return NextResponse.json({
+      tickets: serializeDecimal(tickets),
+      total,
+      page,
+      perPage,
+      totalPages: Math.ceil(total / perPage),
+    });
+  } catch (error: any) {
+    console.error("[sales/history]", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/sales/products/route.ts ===
+
+import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+
+export async function GET() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      // Solo productos físicos con stock
+      // Excluir membresías basados en keywords
+      NOT: {
+        OR: [
+          { name: { contains: "EFECTIVO", mode: "insensitive" } },
+          { name: { contains: "VISITA", mode: "insensitive" } },
+          { name: { contains: "MENSUALIDAD", mode: "insensitive" } },
+          { name: { contains: "SEMANA", mode: "insensitive" } },
+          { name: { contains: "TRIMESTRE", mode: "insensitive" } },
+          { name: { contains: "ANUAL", mode: "insensitive" } },
+        ],
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      salePrice: true,
+      gymStock: true,
+      warehouseStock: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  // Agregar campo calculado de stock total
+  const productsWithStock = products.map(p => ({
+    ...p,
+    totalStock: p.gymStock + p.warehouseStock,
+  }));
+
+  return NextResponse.json(productsWithStock);
+}
+
+
+
+=== app/api/sales/ticket/[ticket]/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ ticket: string }> },
+) {
+  try {
+    const { ticket } = await params;
+
+    const sales = await prisma.inventoryMovement.findMany({
+      where: {
+        ticket,
+        type: "SALE",
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+          },
+        },
+        member: {
+          select: {
+            memberNumber: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    if (sales.length === 0) {
+      return NextResponse.json(
+        { error: "Ticket no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    // Agrupar en estructura de ticket
+    const firstSale = sales[0];
+
+    const ticketData = {
+      ticket,
+      date: firstSale.date,
+      cashier: firstSale.user.name,
+      paymentMethod: firstSale.paymentMethod,
+      member: firstSale.member,
+      isCancelled: firstSale.isCancelled,
+      cancellationReason: firstSale.cancellationReason,
+      cancellationDate: firstSale.cancellationDate,
+      notes: firstSale.notes,
+      total: sales.reduce((sum, s) => sum + Number(s.total || 0), 0),
+      items: sales.map((s) => ({
+        id: s.id,
+        product: s.product,
+        quantity: s.quantity,
+        total: s.total,
+      })),
+    };
+
+    return NextResponse.json(serializeDecimal(ticketData));
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/shifts/[id]/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { ShiftsService } from "@/services";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const shift = await ShiftsService.getShiftById(parseInt(id));
+    return NextResponse.json(shift);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 404 });
+  }
+}
+
+
+
+=== app/api/shifts/[id]/summary/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const shiftId = parseInt(id);
+
+    const shift = await prisma.shift.findUnique({
+      where: { id: shiftId },
+      include: {
+        inventoryMovements: {
+          where: {
+            type: "SALE",
+            isCancelled: false,
+          },
+        },
+      },
+    });
+
+    if (!shift) {
+      return NextResponse.json(
+        { error: "Corte no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    // Calcular totales para el cierre
+    const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
+
+    let cashAmount = 0;
+    let debitCardAmount = 0;
+    let creditCardAmount = 0;
+    let totalSales = 0;
+
+    shift.inventoryMovements.forEach((sale) => {
+      const total = Number(sale.total || 0);
+      totalSales += total;
+
+      switch (sale.paymentMethod) {
+        case "CASH":
+          cashAmount += total;
+          break;
+        case "DEBIT_CARD":
+          debitCardAmount += total;
+          break;
+        case "CREDIT_CARD":
+          creditCardAmount += total;
+          break;
+      }
+    });
+
+    const summary = {
+      initialCash: Number(shift.initialCash),
+      ticketCount: tickets,
+      totalSales,
+      cashAmount,
+      debitCardAmount,
+      creditCardAmount,
+      totalWithdrawals: Number(shift.totalWithdrawals || 0),
+    };
+
+    return NextResponse.json(serializeDecimal(summary));
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/shifts/active/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { ShiftsService } from "@/services";
+
+// GET /api/shifts/active
+export async function GET() {
+  try {
+    const shift = await ShiftsService.getActiveShift();
+
+    if (!shift) {
+      return NextResponse.json(
+        { message: "No hay corte activo" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(shift);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+=== app/api/shifts/close/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    const {
+      shiftId,
+      cashAmount,
+      debitCardAmount,
+      creditCardAmount,
+      totalWithdrawals,
+      withdrawalsConcept,
+      difference,
+      notes,
+    } = body;
+
+    const shift = await prisma.shift.findUnique({
+      where: { id: shiftId },
+      include: {
+        inventoryMovements: {
+          where: {
+            type: "SALE",
+            isCancelled: false,
+          },
+        },
+      },
+    });
+
+    if (!shift) {
+      return NextResponse.json(
+        { error: "Corte no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    if (shift.closingDate) {
+      return NextResponse.json(
+        { error: "El corte ya está cerrado" },
+        { status: 400 },
+      );
+    }
+
+    // Calcular totales reales de ventas
+    const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
+
+    let realCash = 0;
+    let realDebit = 0;
+    let realCredit = 0;
+    let membershipSales = 0;
+    let productSales0Tax = 0;
+
+    // Obtener IDs de productos de membresía
+    const membershipProducts = await prisma.product.findMany({
+      where: {
+        OR: [
+          { name: { contains: "EFECTIVO", mode: "insensitive" } },
+          { name: { contains: "VISITA", mode: "insensitive" } },
+        ],
+      },
+    });
+    const membershipIds = membershipProducts.map((p) => p.id);
+
+    shift.inventoryMovements.forEach((sale) => {
+      const total = Number(sale.total || 0);
+
+      // Clasificar por tipo de producto
+      if (membershipIds.includes(sale.productId)) {
+        membershipSales += total;
+      } else {
+        productSales0Tax += total;
+      }
+
+      // Sumar por forma de pago
+      switch (sale.paymentMethod) {
+        case "CASH":
+          realCash += total;
+          break;
+        case "DEBIT_CARD":
+          realDebit += total;
+          break;
+        case "CREDIT_CARD":
+          realCredit += total;
+          break;
+      }
+    });
+
+    const totalSales = membershipSales + productSales0Tax;
+    const totalVoucher = realDebit + realCredit;
+    const totalCash =
+      (cashAmount || 0) +
+      (debitCardAmount || 0) +
+      (creditCardAmount || 0) -
+      (totalWithdrawals || 0);
+
+    const updatedShift = await prisma.shift.update({
+      where: { id: shiftId },
+      data: {
+        closingDate: new Date(),
+        ticketCount: tickets,
+        membershipSales,
+        productSales0Tax,
+        productSales16Tax: 0,
+        subtotal: totalSales,
+        tax: 0,
+        totalSales,
+        cashAmount: realCash,
+        debitCardAmount: realDebit,
+        creditCardAmount: realCredit,
+        totalVoucher,
+        totalWithdrawals: totalWithdrawals || 0,
+        withdrawalsConcept,
+        totalCash,
+        difference: difference || 0,
+        notes: notes || shift.notes,
+      },
+      include: {
+        cashier: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(serializeDecimal(updatedShift));
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+
+
+=== app/api/shifts/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { ShiftsService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const shift = await ShiftsService.openShift({
+      ...body,
+      cashierId: session.user.id,
+    });
+
+    return NextResponse.json(shift, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+
+    // Filtros
+    const search = searchParams.get("search");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const cashier = searchParams.get("cashier");
+    const status = searchParams.get("status");
+
+    // Ordenamiento
+    const orderBy = searchParams.get("orderBy") || "fecha";
+    const order = searchParams.get("order") || "desc";
+
+    // Paginación
+    const page = parseInt(searchParams.get("page") || "1");
+    const perPage = parseInt(searchParams.get("perPage") || "10");
+
+    // Construir filtros
+    const where: any = {};
+
+    if (search) {
+      where.folio = {
+        contains: search,
+        mode: "insensitive",
+      };
+    }
+
+    if (startDate && endDate) {
+      where.openingDate = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      };
+    }
+
+    if (cashier) {
+      where.cashierId = cashier;
+    }
+
+    if (status === "abiertos") {
+      where.closingDate = null;
+    } else if (status === "cerrados") {
+      where.closingDate = { not: null };
+    }
+
+    // Ordenamiento
+    const orderByField = orderBy === "folio" ? "folio" : "openingDate";
+    const orderDirection = order === "asc" ? "asc" : "desc";
+
+    // Contar total
+    const total = await prisma.shift.count({ where });
+
+    // Obtener shifts paginados
+    const shifts = await prisma.shift.findMany({
+      where,
+      include: {
+        cashier: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        [orderByField]: orderDirection,
+      },
+      skip: (page - 1) * perPage,
+      take: perPage,
+    });
+
+    return NextResponse.json({
+      shifts: serializeDecimal(shifts),
+      total,
+      page,
+      perPage,
+      totalPages: Math.ceil(total / perPage),
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+
+### SERVICES ###
+
+
+=== services/index.ts ===
+
+// Exportar todos los servicios
+export * as UsersService from "./users.service";
+export * as MembersService from "./members.service";
+export * as ProductsService from "./products.service";
+export * as InventoryService from "./inventory.service";
+export * as ShiftsService from "./shifts.service";
+export * as ReportsService from "./reports.service";
+
+
+
+=== services/inventory.service.ts ===
+
+// services/inventory.service.ts
+import { prisma } from "@/lib/db";
+import { InventoryType, Location, PaymentMethod } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+import { calculateMembershipDates } from "./members.service";
+import { serializeDecimal } from "./utils";
+
+// ==================== TYPES ====================
+
+export interface CreateSaleInput {
+  productId: number;
+  quantity: number;
+  memberId?: number;
+  userId: string;
+  unitPrice?: number;
+  discount?: number;
+  surcharge?: number;
+  paymentMethod: PaymentMethod;
+  ticket: string;
+  shiftId?: number;
+  notes?: string;
+}
+
+export interface CreateEntryInput {
+  productId: number;
+  quantity: number;
+  location: Location;
+  userId: string;
+  notes?: string;
+}
+
+export interface CreateTransferInput {
+  productId: number;
+  quantity: number;
+  destination: Location;
+  userId: string;
+  notes?: string;
+}
+
+export interface CreateAdjustmentInput {
+  productId: number;
+  quantity: number;
+  location: Location;
+  userId: string;
+  notes: string;
+}
+
+export interface CancelSaleInput {
+  inventoryId: number;
+  userId: string;
+  cancellationReason: string;
+}
+
+// ==================== VALIDATIONS ====================
+
+/**
+ * Valida que existe stock suficiente para una operación
+ * Retorna el producto si pasa la validación
+ */
+async function validateStock(
+  productId: number,
+  quantity: number,
+  location: Location,
+) {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  // Verificar si es producto de membresía (no requiere stock)
+  const isMembership =
+    product.name.includes("EFECTIVO") ||
+    product.name.includes("VISITA") ||
+    product.name.includes("MENSUALIDAD") ||
+    product.name.includes("SEMANA") ||
+    product.name.includes("TRIMESTRE") ||
+    product.name.includes("ANUAL");
+
+  if (!isMembership) {
+    const currentStock =
+      location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+
+    if (currentStock < quantity) {
+      throw new Error(
+        `Stock insuficiente en ${location}. Disponible: ${currentStock}, Solicitado: ${quantity}`,
+      );
+    }
+  }
+
+  return product;
+}
+
+// ==================== SALE SERVICES ====================
+
+/**
+ * Crea una venta de producto
+ * - Descuenta del stock de GYM
+ * - Actualiza visitas del socio si aplica
+ * - Renueva membresía si es producto de membresía
+ */
+export async function createSale(data: CreateSaleInput) {
+  const product = await validateStock(data.productId, data.quantity, "GYM");
+
+  const unitPrice = data.unitPrice || product.salePrice;
+  const subtotal = Number(unitPrice) * data.quantity;
+  const discount = data.discount || 0;
+  const surcharge = data.surcharge || 0;
+  const total = subtotal - Number(discount) + Number(surcharge);
+
+  const isMembership =
+    product.name.includes("EFECTIVO") ||
+    product.name.includes("VISITA") ||
+    product.name.includes("MENSUALIDAD") ||
+    product.name.includes("SEMANA") ||
+    product.name.includes("TRIMESTRE") ||
+    product.name.includes("ANUAL");
+
+  const operations: any[] = [
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type: "SALE",
+        location: "GYM",
+        quantity: -data.quantity,
+        ticket: data.ticket,
+        memberId: data.memberId,
+        userId: data.userId,
+        unitPrice,
+        subtotal,
+        discount,
+        surcharge,
+        total,
+        paymentMethod: data.paymentMethod,
+        shiftId: data.shiftId,
+        notes: data.notes,
+      },
+      include: {
+        product: true,
+        member: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+  ];
+
+  // Solo descontar stock si NO es membresía
+  if (!isMembership) {
+    operations.push(
+      prisma.product.update({
+        where: { id: data.productId },
+        data: {
+          gymStock: product.gymStock - data.quantity,
+        },
+      }),
+    );
+  }
+
+  const [inventoryMovement] = await prisma.$transaction(operations);
+
+  // Actualizar socio si aplica
+  if (data.memberId && isMembership) {
+    const member = await prisma.member.findUnique({
+      where: { id: data.memberId },
+    });
+
+    if (member && member.membershipType) {
+      const dates = calculateMembershipDates(member.membershipType);
+
+      await prisma.member.update({
+        where: { id: data.memberId },
+        data: {
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          totalVisits: { increment: 1 },
+          lastVisit: new Date(),
+        },
+      });
+    }
+  } else if (data.memberId) {
+    await prisma.member.update({
+      where: { id: data.memberId },
+      data: {
+        totalVisits: { increment: 1 },
+        lastVisit: new Date(),
+      },
+    });
+  }
+
+  return serializeDecimal(inventoryMovement);
+}
+
+/**
+ * Cancela una venta
+ * - Marca como cancelada
+ * - Devuelve stock a GYM
+ * - No afecta membresías ya renovadas
+ */
+export async function cancelSale(data: CancelSaleInput) {
+  const sale = await prisma.inventoryMovement.findUnique({
+    where: { id: data.inventoryId },
+    include: { product: true },
+  });
+
+  if (!sale) {
+    throw new Error("Venta no encontrada");
+  }
+
+  if (sale.type !== "SALE") {
+    throw new Error("Solo se pueden cancelar ventas");
+  }
+
+  if (sale.isCancelled) {
+    throw new Error("La venta ya fue cancelada");
+  }
+
+  const quantityToReturn = Math.abs(sale.quantity);
+
+  const [cancelledInventory] = await prisma.$transaction([
+    prisma.inventoryMovement.update({
+      where: { id: data.inventoryId },
+      data: {
+        isCancelled: true,
+        cancellationReason: data.cancellationReason,
+        cancellationDate: new Date(),
+      },
+      include: {
+        product: true,
+        member: true,
+      },
+    }),
+    prisma.product.update({
+      where: { id: sale.productId },
+      data: {
+        gymStock: sale.product.gymStock + quantityToReturn,
+      },
+    }),
+  ]);
+
+  return serializeDecimal(cancelledInventory);
+}
+
+// ==================== ENTRY SERVICES ====================
+
+/**
+ * Crea una entrada de producto a bodega o gym
+ * Incrementa el stock correspondiente
+ */
+export async function createEntry(data: CreateEntryInput) {
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  const type: InventoryType =
+    data.location === "WAREHOUSE" ? "WAREHOUSE_ENTRY" : "GYM_ENTRY";
+
+  const [inventoryMovement] = await prisma.$transaction([
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type,
+        location: data.location,
+        quantity: data.quantity,
+        userId: data.userId,
+        notes: data.notes,
+      },
+      include: {
+        product: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.product.update({
+      where: { id: data.productId },
+      data: {
+        [data.location === "WAREHOUSE" ? "warehouseStock" : "gymStock"]: {
+          increment: data.quantity,
+        },
+      },
+    }),
+  ]);
+
+  return serializeDecimal(inventoryMovement);
+}
+
+// ==================== TRANSFER SERVICES ====================
+
+/**
+ * Crea un traspaso entre bodega y gym
+ * - Valida stock en origen
+ * - Descuenta de origen, suma a destino
+ */
+export async function createTransfer(data: CreateTransferInput) {
+  const origin: Location = data.destination === "GYM" ? "WAREHOUSE" : "GYM";
+
+  const product = await validateStock(data.productId, data.quantity, origin);
+
+  const type: InventoryType =
+    data.destination === "GYM" ? "TRANSFER_TO_GYM" : "TRANSFER_TO_WAREHOUSE";
+
+  const [inventoryMovement] = await prisma.$transaction([
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type,
+        location: data.destination,
+        quantity: data.quantity,
+        userId: data.userId,
+        notes:
+          data.notes ||
+          `Traspaso de ${data.quantity} unidades de ${origin} a ${data.destination}`,
+      },
+      include: {
+        product: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.product.update({
+      where: { id: data.productId },
+      data: {
+        warehouseStock:
+          origin === "WAREHOUSE"
+            ? product.warehouseStock - data.quantity
+            : product.warehouseStock + data.quantity,
+        gymStock:
+          origin === "GYM"
+            ? product.gymStock - data.quantity
+            : product.gymStock + data.quantity,
+      },
+    }),
+  ]);
+
+  return serializeDecimal(inventoryMovement);
+}
+
+// ==================== ADJUSTMENT SERVICES ====================
+
+/**
+ * Crea un ajuste de inventario
+ * - Puede ser positivo (incrementa) o negativo (decrementa)
+ * - Requiere observaciones obligatorias
+ * - Valida que no resulte en stock negativo
+ */
+export async function createAdjustment(data: CreateAdjustmentInput) {
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  const currentStock =
+    data.location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+  const newStock = currentStock + data.quantity;
+
+  if (newStock < 0) {
+    throw new Error(
+      `El ajuste resultaría en existencia negativa. Existencia actual: ${currentStock}`,
+    );
+  }
+
+  const [inventoryMovement] = await prisma.$transaction([
+    prisma.inventoryMovement.create({
+      data: {
+        productId: data.productId,
+        type: "ADJUSTMENT",
+        location: data.location,
+        quantity: data.quantity,
+        userId: data.userId,
+        notes: data.notes,
+      },
+      include: {
+        product: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.product.update({
+      where: { id: data.productId },
+      data: {
+        [data.location === "WAREHOUSE" ? "warehouseStock" : "gymStock"]:
+          newStock,
+      },
+    }),
+  ]);
+
+  return serializeDecimal(inventoryMovement);
+}
+
+// ==================== QUERY SERVICES ====================
+
+/**
+ * Obtiene movimientos de un producto específico
+ */
+export async function getMovementsByProduct(productId: number, limit?: number) {
+  const movements = await prisma.inventoryMovement.findMany({
+    where: { productId },
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+    take: limit,
+  });
+
+  return serializeDecimal(movements);
+}
+
+/**
+ * Obtiene movimientos dentro de un rango de fechas
+ */
+export async function getMovementsByDate(startDate: Date, endDate: Date) {
+  const movements = await prisma.inventoryMovement.findMany({
+    where: {
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+          salePrice: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  return serializeDecimal(movements);
+}
+
+/**
+ * Obtiene todas las ventas de un ticket específico
+ */
+export async function getSalesByTicket(ticket: string) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      ticket,
+      type: "SALE",
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+          salePrice: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  return serializeDecimal(sales);
+}
+
+/**
+ * Obtiene ventas de un corte específico
+ */
+export async function getSalesByShift(shiftId: number) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      shiftId,
+      type: "SALE",
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+          salePrice: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  return serializeDecimal(sales);
+}
+
+/**
+ * Obtiene ventas canceladas en un período
+ */
+export async function getCancelledSales(startDate?: Date, endDate?: Date) {
+  const where: any = {
+    type: "SALE",
+    isCancelled: true,
+  };
+
+  if (startDate && endDate) {
+    where.cancellationDate = {
+      gte: startDate,
+      lte: endDate,
+    };
+  }
+
+  const sales = await prisma.inventoryMovement.findMany({
+    where,
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { cancellationDate: "desc" },
+  });
+
+  return serializeDecimal(sales);
+}
+
+
+
+=== services/members.service.ts ===
+
+// services/members.service.ts
+import { prisma } from "@/lib/db";
+import { MembershipType } from "@prisma/client";
+import { serializeDecimal } from "./utils";
+
+// ==================== TYPES ====================
+
+export interface CreateMemberInput {
+  memberNumber: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  birthDate?: Date;
+  membershipType?: MembershipType;
+  membershipDescription?: string;
+  startDate?: Date;
+  endDate?: Date;
+}
+
+export interface CreateMemberWithSaleInput extends CreateMemberInput {
+  userId?: string;
+  paymentMethod?: "CASH" | "DEBIT_CARD" | "CREDIT_CARD" | "TRANSFER";
+}
+
+export interface UpdateMemberInput {
+  name?: string;
+  phone?: string;
+  email?: string;
+  birthDate?: Date;
+  membershipType?: MembershipType;
+  membershipDescription?: string;
+  startDate?: Date;
+  endDate?: Date;
+  isActive?: boolean;
+}
+
+export interface RenewMembershipInput {
+  memberId: number;
+  membershipType: MembershipType;
+  membershipDescription?: string;
+  startDate?: Date;
+}
+
+export interface RenewMembershipWithSaleInput extends RenewMembershipInput {
+  userId: string;
+  paymentMethod?: "CASH" | "DEBIT_CARD" | "CREDIT_CARD" | "TRANSFER";
+}
+
+export interface SearchMembersParams {
+  search?: string;
+  isActive?: boolean;
+  membershipType?: MembershipType;
+}
+
+// ==================== HELPERS ====================
+
+/**
+ * Calcula la fecha de fin según el tipo de membresía
+ */
+function calculateEndDate(
+  startDate: Date,
+  membershipType: MembershipType,
+): Date {
+  const date = new Date(startDate);
+
+  switch (membershipType) {
+    case "VISIT":
+      return date;
+    case "WEEK":
+      date.setDate(date.getDate() + 7);
+      break;
+    case "MONTH_STUDENT":
+    case "MONTH_GENERAL":
+      date.setMonth(date.getMonth() + 1);
+      break;
+    case "QUARTER_STUDENT":
+    case "QUARTER_GENERAL":
+      date.setMonth(date.getMonth() + 3);
+      break;
+    case "ANNUAL_STUDENT":
+    case "ANNUAL_GENERAL":
+      date.setFullYear(date.getFullYear() + 1);
+      break;
+    case "PROMOTION":
+    case "REBIRTH":
+    case "NUTRITION_CONSULTATION":
+      date.setMonth(date.getMonth() + 1);
+      break;
+  }
+
+  return date;
+}
+
+/**
+ * Calcula fechas de inicio y fin para una membresía
+ */
+export function calculateMembershipDates(
+  membershipType: MembershipType,
+  startDate?: Date,
+): { startDate: Date; endDate: Date } {
+  const start = startDate || new Date();
+  const end = calculateEndDate(start, membershipType);
+
+  return {
+    startDate: start,
+    endDate: end,
+  };
+}
+
+// ==================== PUBLIC SERVICES ====================
+
+/**
+ * Lista todos los socios con filtros opcionales
+ */
+export async function getAllMembers(params?: SearchMembersParams) {
+  const where: any = {};
+
+  if (params?.search) {
+    where.OR = [
+      { memberNumber: { contains: params.search, mode: "insensitive" } },
+      { name: { contains: params.search, mode: "insensitive" } },
+      { phone: { contains: params.search, mode: "insensitive" } },
+      { email: { contains: params.search, mode: "insensitive" } },
+    ];
+  }
+
+  if (params?.isActive !== undefined) {
+    where.isActive = params.isActive;
+  }
+
+  if (params?.membershipType) {
+    where.membershipType = params.membershipType;
+  }
+
+  const members = await prisma.member.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+  });
+
+  return serializeDecimal(members);
+}
+
+/**
+ * Obtiene un socio por ID con su historial de compras
+ */
+export async function getMemberById(id: number) {
+  const member = await prisma.member.findUnique({
+    where: { id },
+    include: {
+      inventoryMovements: {
+        where: { type: "SALE", isCancelled: false },
+        orderBy: { date: "desc" },
+        take: 20,
+        include: {
+          product: {
+            select: {
+              name: true,
+              salePrice: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!member) {
+    throw new Error("Socio no encontrado");
+  }
+
+  return serializeDecimal(member);
+}
+
+/**
+ * Obtiene un socio por número de socio
+ */
+export async function getMemberByNumber(memberNumber: string) {
+  const member = await prisma.member.findUnique({
+    where: { memberNumber },
+    include: {
+      inventoryMovements: {
+        where: { type: "SALE", isCancelled: false },
+        orderBy: { date: "desc" },
+        take: 5,
+        include: {
+          product: {
+            select: {
+              name: true,
+              salePrice: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!member) {
+    throw new Error("Socio no encontrado");
+  }
+
+  return serializeDecimal(member);
+}
+
+/**
+ * Crea un nuevo socio
+ * Si tiene membresía y userId, crea la venta automáticamente
+ */
+export async function createMember(data: CreateMemberWithSaleInput) {
+  const existingMember = await prisma.member.findUnique({
+    where: { memberNumber: data.memberNumber },
+  });
+
+  if (existingMember) {
+    throw new Error("El número de socio ya existe");
+  }
+
+  const member = await prisma.member.create({
+    data: {
+      memberNumber: data.memberNumber,
+      name: data.name,
+      phone: data.phone,
+      email: data.email,
+      birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+      membershipType: data.membershipType,
+      membershipDescription: data.membershipDescription,
+      startDate: data.startDate ? new Date(data.startDate) : undefined,
+      endDate: data.endDate ? new Date(data.endDate) : undefined,
+    },
+  });
+
+  // Si tiene membresía y userId, crear venta
+  if (data.membershipType && data.userId) {
+    const keywordMap: Record<string, string> = {
+      MONTH_STUDENT: "MENSUALIDAD ESTUDIANTE",
+      MONTH_GENERAL: "MENSUALIDAD GENERAL",
+      WEEK: "SEMANA",
+      VISIT: "VISITA",
+      QUARTER_STUDENT: "TRIMESTRE ESTUDIANTE",
+      QUARTER_GENERAL: "TRIMESTRE GENERAL",
+      ANNUAL_STUDENT: "ANUAL ESTUDIANTE",
+      ANNUAL_GENERAL: "ANUAL GENERAL",
+      PROMOTION: "PROMOCION",
+      REBIRTH: "RENACER",
+    };
+
+    const keyword = keywordMap[data.membershipType] || data.membershipType;
+
+    const product = await prisma.product.findFirst({
+      where: {
+        name: { contains: keyword, mode: "insensitive" },
+        isActive: true,
+      },
+    });
+
+    if (product) {
+      const activeShift = await prisma.shift.findFirst({
+        where: { closingDate: null },
+      });
+
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.floor(Math.random() * 100)
+        .toString()
+        .padStart(2, "0");
+      const ticket = `NEW${timestamp}${random}`;
+
+      await prisma.inventoryMovement.create({
+        data: {
+          productId: product.id,
+          type: "SALE",
+          location: "GYM",
+          quantity: -1,
+          ticket,
+          memberId: member.id,
+          userId: data.userId,
+          unitPrice: product.salePrice,
+          subtotal: product.salePrice,
+          discount: 0,
+          surcharge: 0,
+          total: product.salePrice,
+          paymentMethod: data.paymentMethod || "CASH",
+          shiftId: activeShift?.id,
+          notes: `Alta de socio: ${data.membershipDescription || data.membershipType}`,
+        },
+      });
+    }
+  }
+
+  return serializeDecimal(member);
+}
+
+/**
+ * Actualiza un socio existente
+ */
+export async function updateMember(id: number, data: UpdateMemberInput) {
+  const member = await prisma.member.findUnique({
+    where: { id },
+  });
+
+  if (!member) {
+    throw new Error("Socio no encontrado");
+  }
+
+  const updatedMember = await prisma.member.update({
+    where: { id },
+    data: {
+      ...data,
+      birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+      startDate: data.startDate ? new Date(data.startDate) : undefined,
+      endDate: data.endDate ? new Date(data.endDate) : undefined,
+    },
+  });
+
+  return serializeDecimal(updatedMember);
+}
+
+/**
+ * Activa/desactiva un socio
+ */
+export async function toggleMemberStatus(id: number) {
+  const member = await prisma.member.findUnique({
+    where: { id },
+  });
+
+  if (!member) {
+    throw new Error("Socio no encontrado");
+  }
+
+  const updatedMember = await prisma.member.update({
+    where: { id },
+    data: { isActive: !member.isActive },
+  });
+
+  return serializeDecimal(updatedMember);
+}
+
+/**
+ * Registra una visita de un socio
+ */
+export async function registerVisit(memberId: number) {
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+  });
+
+  if (!member) {
+    throw new Error("Socio no encontrado");
+  }
+
+  if (!member.isActive) {
+    throw new Error("El socio no está activo");
+  }
+
+  const updatedMember = await prisma.member.update({
+    where: { id: memberId },
+    data: {
+      totalVisits: { increment: 1 },
+      lastVisit: new Date(),
+    },
+  });
+
+  return serializeDecimal(updatedMember);
+}
+
+/**
+ * Lista solo socios activos
+ */
+export async function getActiveMembers() {
+  const members = await prisma.member.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+
+  return serializeDecimal(members);
+}
+
+/**
+ * Lista socios con membresía próxima a vencer
+ */
+export async function getMembersExpiringSoon(days: number = 7) {
+  const today = new Date();
+  const limitDate = new Date();
+  limitDate.setDate(limitDate.getDate() + days);
+
+  const members = await prisma.member.findMany({
+    where: {
+      isActive: true,
+      endDate: {
+        gte: today,
+        lte: limitDate,
+      },
+      membershipType: {
+        not: "VISIT",
+      },
+    },
+    orderBy: { endDate: "asc" },
+  });
+
+  return serializeDecimal(members);
+}
+
+/**
+ * Genera estadísticas de socios
+ */
+export async function getMembersStatistics() {
+  const total = await prisma.member.count();
+  const active = await prisma.member.count({ where: { isActive: true } });
+  const inactive = await prisma.member.count({ where: { isActive: false } });
+
+  const byType = await prisma.member.groupBy({
+    by: ["membershipType"],
+    where: { isActive: true },
+    _count: true,
+  });
+
+  return {
+    total,
+    active,
+    inactive,
+    byType,
+  };
+}
+
+/**
+ * Renueva la membresía de un socio
+ * Crea la venta automáticamente
+ */
+export async function renewMembership(data: RenewMembershipWithSaleInput) {
+  const member = await prisma.member.findUnique({
+    where: { id: data.memberId },
+  });
+
+  if (!member) {
+    throw new Error("Socio no encontrado");
+  }
+
+  const dates = calculateMembershipDates(data.membershipType, data.startDate);
+
+  // Buscar producto de membresía
+  const keywordMap: Record<string, string> = {
+    MONTH_STUDENT: "MENSUALIDAD ESTUDIANTE",
+    MONTH_GENERAL: "MENSUALIDAD GENERAL",
+    WEEK: "SEMANA",
+    VISIT: "VISITA",
+    QUARTER_STUDENT: "TRIMESTRE ESTUDIANTE",
+    QUARTER_GENERAL: "TRIMESTRE GENERAL",
+    ANNUAL_STUDENT: "ANUAL ESTUDIANTE",
+    ANNUAL_GENERAL: "ANUAL GENERAL",
+    PROMOTION: "PROMOCION",
+    REBIRTH: "RENACER",
+  };
+
+  const keyword = keywordMap[data.membershipType] || data.membershipType;
+
+  const product = await prisma.product.findFirst({
+    where: {
+      name: { contains: keyword, mode: "insensitive" },
+      isActive: true,
+    },
+  });
+
+  if (!product) {
+    throw new Error(
+      `No se encontró producto para membresía: ${data.membershipType}`,
+    );
+  }
+
+  const activeShift = await prisma.shift.findFirst({
+    where: { closingDate: null },
+  });
+
+  const timestamp = Date.now().toString().slice(-6);
+  const random = Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(2, "0");
+  const ticket = `REN${timestamp}${random}`;
+
+  const [updatedMember] = await prisma.$transaction([
+    prisma.member.update({
+      where: { id: data.memberId },
+      data: {
+        membershipType: data.membershipType,
+        membershipDescription: data.membershipDescription,
+        startDate: dates.startDate,
+        endDate: dates.endDate,
+        isActive: true,
+        totalVisits: { increment: 1 },
+        lastVisit: new Date(),
+      },
+    }),
+    prisma.inventoryMovement.create({
+      data: {
+        productId: product.id,
+        type: "SALE",
+        location: "GYM",
+        quantity: -1,
+        ticket,
+        memberId: data.memberId,
+        userId: data.userId,
+        unitPrice: product.salePrice,
+        subtotal: product.salePrice,
+        discount: 0,
+        surcharge: 0,
+        total: product.salePrice,
+        paymentMethod: data.paymentMethod || "CASH",
+        shiftId: activeShift?.id,
+        notes: `Renovación: ${data.membershipDescription || data.membershipType}`,
+      },
+    }),
+  ]);
+
+  return serializeDecimal(updatedMember);
+}
+
+/**
+ * Lista socios con membresía vencida
+ */
+export async function getExpiredMembers() {
+  const today = new Date();
+
+  const members = await prisma.member.findMany({
+    where: {
+      isActive: true,
+      endDate: {
+        lt: today,
+      },
+      membershipType: {
+        not: "VISIT",
+      },
+    },
+    orderBy: { endDate: "desc" },
+  });
+
+  return serializeDecimal(members);
+}
+
+/**
+ * Verifica la vigencia de una membresía
+ */
+export async function verifyMembershipValidity(memberId: number): Promise<{
+  isValid: boolean;
+  daysRemaining: number;
+  endDate: Date | null;
+}> {
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+  });
+
+  if (!member || !member.endDate || member.membershipType === "VISIT") {
+    return {
+      isValid: false,
+      daysRemaining: 0,
+      endDate: null,
+    };
+  }
+
+  const today = new Date();
+  const endDate = new Date(member.endDate);
+  const difference = endDate.getTime() - today.getTime();
+  const daysRemaining = Math.ceil(difference / (1000 * 60 * 60 * 24));
+
+  return {
+    isValid: daysRemaining > 0,
+    daysRemaining: Math.max(0, daysRemaining),
+    endDate,
+  };
+}
+
+
+
+=== services/products.service.ts ===
+
+// services/products.service.ts
+import { prisma } from "@/lib/db";
+import { Location } from "@prisma/client";
+import { serializeDecimal } from "./utils";
+
+// ==================== TYPES ====================
+
+export interface CreateProductInput {
+  name: string;
+  salePrice: number;
+  minStock?: number;
+}
+
+export interface UpdateProductInput {
+  name?: string;
+  salePrice?: number;
+  minStock?: number;
+  isActive?: boolean;
+}
+
+export interface SearchProductsParams {
+  search?: string;
+  isActive?: boolean;
+  lowStock?: boolean;
+}
+
+// ==================== PUBLIC SERVICES ====================
+
+/**
+ * Lista todos los productos con filtros opcionales
+ * - Búsqueda por nombre
+ * - Filtro por activo/inactivo
+ * - Filtro por stock bajo
+ */
+export async function getAllProducts(params?: SearchProductsParams) {
+  const where: any = {};
+
+  if (params?.search) {
+    where.name = {
+      contains: params.search,
+      mode: "insensitive",
+    };
+  }
+
+  if (params?.isActive !== undefined) {
+    where.isActive = params.isActive;
+  }
+
+  const products = await prisma.product.findMany({
+    where,
+    orderBy: { name: "asc" },
+  });
+
+  let result = products;
+
+  // Filtro de stock bajo se aplica después del query
+  if (params?.lowStock) {
+    result = products.filter(
+      (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
+    );
+  }
+
+  return serializeDecimal(result);
+}
+
+/**
+ * Obtiene un producto por ID con sus últimos movimientos
+ */
+export async function getProductById(id: number) {
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      inventoryMovements: {
+        orderBy: { date: "desc" },
+        take: 20,
+        include: {
+          user: {
+            select: {
+              name: true,
+            },
+          },
+          member: {
+            select: {
+              memberNumber: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  return serializeDecimal(product);
+}
+
+/**
+ * Crea un nuevo producto
+ * Valida que el nombre sea único
+ */
+export async function createProduct(data: CreateProductInput) {
+  const existingProduct = await prisma.product.findUnique({
+    where: { name: data.name },
+  });
+
+  if (existingProduct) {
+    throw new Error("Ya existe un producto con ese nombre");
+  }
+
+  const product = await prisma.product.create({
+    data: {
+      name: data.name,
+      salePrice: data.salePrice,
+      minStock: data.minStock || 0,
+    },
+  });
+
+  return serializeDecimal(product);
+}
+
+/**
+ * Actualiza un producto existente
+ * Valida unicidad de nombre si se cambia
+ */
+export async function updateProduct(id: number, data: UpdateProductInput) {
+  const product = await prisma.product.findUnique({
+    where: { id },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  if (data.name && data.name !== product.name) {
+    const existingProduct = await prisma.product.findUnique({
+      where: { name: data.name },
+    });
+
+    if (existingProduct) {
+      throw new Error("Ya existe un producto con ese nombre");
+    }
+  }
+
+  const updatedProduct = await prisma.product.update({
+    where: { id },
+    data,
+  });
+
+  return serializeDecimal(updatedProduct);
+}
+
+/**
+ * Activa/desactiva un producto
+ */
+export async function toggleProductStatus(id: number) {
+  const product = await prisma.product.findUnique({
+    where: { id },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  const updatedProduct = await prisma.product.update({
+    where: { id },
+    data: { isActive: !product.isActive },
+  });
+
+  return serializeDecimal(updatedProduct);
+}
+
+/**
+ * Lista solo productos activos
+ */
+export async function getActiveProducts() {
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+
+  return serializeDecimal(products);
+}
+
+/**
+ * Lista productos con stock bajo en cualquier ubicación
+ */
+export async function getLowStockProducts() {
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+  });
+
+  const result = products.filter(
+    (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
+  );
+
+  return serializeDecimal(result);
+}
+
+/**
+ * Obtiene el stock de un producto
+ * - Si se especifica ubicación, retorna solo ese stock
+ * - Si no, retorna bodega, gym y total
+ */
+export async function getProductStock(productId: number, location?: Location) {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  if (location === "WAREHOUSE") {
+    return product.warehouseStock;
+  } else if (location === "GYM") {
+    return product.gymStock;
+  }
+
+  return serializeDecimal({
+    warehouse: product.warehouseStock,
+    gym: product.gymStock,
+    total: product.warehouseStock + product.gymStock,
+  });
+}
+
+/**
+ * Lista productos de membresía
+ * Identifica por keywords en el nombre
+ */
+export async function getMembershipProducts() {
+  const keywords = ["EFECTIVO", "VISITA", "MENSUALIDAD", "SEMANA"];
+
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      OR: keywords.map((keyword) => ({
+        name: { contains: keyword, mode: "insensitive" },
+      })),
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return serializeDecimal(products);
+}
+
+/**
+ * Lista productos de venta (físicos)
+ * Excluye productos de membresía
+ */
+export async function getSaleProducts() {
+  const keywords = ["EFECTIVO", "VISITA", "MENSUALIDAD", "SEMANA"];
+
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      NOT: {
+        OR: keywords.map((keyword) => ({
+          name: { contains: keyword, mode: "insensitive" },
+        })),
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return serializeDecimal(products);
+}
+
+/**
+ * Genera estadísticas generales de productos
+ */
+export async function getProductsStatistics() {
+  const total = await prisma.product.count();
+  const active = await prisma.product.count({ where: { isActive: true } });
+
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+  });
+
+  const lowStockGym = products.filter((p) => p.gymStock < p.minStock).length;
+  const lowStockWarehouse = products.filter(
+    (p) => p.warehouseStock < p.minStock,
+  ).length;
+
+  const inventoryValue = products.reduce((sum, p) => {
+    const totalStock = p.warehouseStock + p.gymStock;
+    return sum + Number(p.salePrice) * totalStock;
+  }, 0);
+
+  return {
+    total,
+    active,
+    lowStockGym,
+    lowStockWarehouse,
+    inventoryValue,
+  };
+}
+
+
+
+=== services/reports.service.ts ===
+
+// services/reports.service.ts
+import { prisma } from "@/lib/db";
+import { Decimal } from "@prisma/client/runtime/library";
+import { serializeDecimal } from "./utils";
+
+// ==================== TYPES ====================
+
+export interface ReportPeriodParams {
+  startDate: Date;
+  endDate: Date;
+}
+
+export interface SalesReportByProduct {
+  productId: number;
+  productName: string;
+  quantitySold: number;
+  totalSales: Decimal;
+  quantityCancelled: number;
+  totalCancelled: Decimal;
+}
+
+export interface DailySalesReport {
+  date: string;
+  ticketCount: number;
+  totalSales: Decimal;
+  totalCancelled: Decimal;
+}
+
+// ==================== HELPERS ====================
+
+function toDecimal(value: number | Decimal): Decimal {
+  return new Decimal(value.toString());
+}
+
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+// ==================== SALES REPORTS ====================
+
+/**
+ * Reporte de ventas por producto en un período
+ */
+export async function getSalesReportByProduct(
+  params: ReportPeriodParams,
+): Promise<SalesReportByProduct[]> {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      type: "SALE",
+      date: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  const reportByProduct = sales.reduce(
+    (acc, sale) => {
+      const id = sale.product.id;
+      if (!acc[id]) {
+        acc[id] = {
+          productId: id,
+          productName: sale.product.name,
+          quantitySold: 0,
+          totalSales: new Decimal(0),
+          quantityCancelled: 0,
+          totalCancelled: new Decimal(0),
+        };
+      }
+
+      const quantity = Math.abs(sale.quantity);
+      const total = toDecimal(sale.total || 0);
+
+      if (sale.isCancelled) {
+        acc[id].quantityCancelled += quantity;
+        acc[id].totalCancelled = acc[id].totalCancelled.plus(total);
+      } else {
+        acc[id].quantitySold += quantity;
+        acc[id].totalSales = acc[id].totalSales.plus(total);
+      }
+
+      return acc;
+    },
+    {} as Record<number, SalesReportByProduct>,
+  );
+
+  return Object.values(reportByProduct).sort(
+    (a, b) => Number(b.totalSales) - Number(a.totalSales),
+  );
+}
+
+/**
+ * Reporte de ventas diarias
+ */
+export async function getDailySalesReport(
+  params: ReportPeriodParams,
+): Promise<DailySalesReport[]> {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      type: "SALE",
+      date: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+  });
+
+  const salesByDay = sales.reduce(
+    (acc, sale) => {
+      const date = formatDate(sale.date);
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          tickets: new Set<string>(),
+          totalSales: new Decimal(0),
+          totalCancelled: new Decimal(0),
+        };
+      }
+
+      if (sale.ticket) {
+        acc[date].tickets.add(sale.ticket);
+      }
+
+      const total = toDecimal(sale.total || 0);
+
+      if (sale.isCancelled) {
+        acc[date].totalCancelled = acc[date].totalCancelled.plus(total);
+      } else {
+        acc[date].totalSales = acc[date].totalSales.plus(total);
+      }
+
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        date: string;
+        tickets: Set<string>;
+        totalSales: Decimal;
+        totalCancelled: Decimal;
+      }
+    >,
+  );
+
+  return Object.values(salesByDay)
+    .map((day) => ({
+      date: day.date,
+      ticketCount: day.tickets.size,
+      totalSales: day.totalSales,
+      totalCancelled: day.totalCancelled,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Reporte de ventas por forma de pago
+ */
+export async function getSalesByPaymentMethod(params: ReportPeriodParams) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      type: "SALE",
+      isCancelled: false,
+      date: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+  });
+
+  const report = sales.reduce(
+    (acc, sale) => {
+      const method = sale.paymentMethod || "CASH";
+      const total = toDecimal(sale.total || 0);
+
+      acc[method].quantity += 1;
+      acc[method].total = acc[method].total.plus(total);
+
+      return acc;
+    },
+    {
+      CASH: { paymentMethod: "CASH", quantity: 0, total: new Decimal(0) },
+      DEBIT_CARD: {
+        paymentMethod: "DEBIT_CARD",
+        quantity: 0,
+        total: new Decimal(0),
+      },
+      CREDIT_CARD: {
+        paymentMethod: "CREDIT_CARD",
+        quantity: 0,
+        total: new Decimal(0),
+      },
+      TRANSFER: {
+        paymentMethod: "TRANSFER",
+        quantity: 0,
+        total: new Decimal(0),
+      },
+    },
+  );
+
+  return Object.values(report);
+}
+
+/**
+ * Reporte de ventas canceladas
+ */
+export async function getCancelledSalesReport(params: ReportPeriodParams) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      type: "SALE",
+      isCancelled: true,
+      cancellationDate: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { cancellationDate: "desc" },
+  });
+
+  const totalCancelled = sales.reduce(
+    (sum, v) => sum.plus(toDecimal(v.total || 0)),
+    new Decimal(0),
+  );
+
+  return {
+    sales,
+    totalCancelled,
+    cancellationCount: sales.length,
+  };
+}
+
+// ==================== INVENTORY REPORTS ====================
+
+/**
+ * Reporte de movimientos de inventario
+ */
+export async function getInventoryMovementsReport(params: ReportPeriodParams) {
+  const movements = await prisma.inventoryMovement.findMany({
+    where: {
+      date: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  const summaryByType = movements.reduce(
+    (acc, mov) => {
+      const type = mov.type;
+      if (!acc[type]) {
+        acc[type] = {
+          type,
+          quantity: 0,
+        };
+      }
+      acc[type].quantity += 1;
+      return acc;
+    },
+    {} as Record<string, { type: string; quantity: number }>,
+  );
+
+  return {
+    movements,
+    summaryByType: Object.values(summaryByType),
+  };
+}
+
+/**
+ * Reporte de stock actual
+ */
+export async function getCurrentStockReport() {
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+
+  const stockSummary = products.reduce(
+    (acc, p) => {
+      acc.warehouse += p.warehouseStock;
+      acc.gym += p.gymStock;
+      acc.total += p.warehouseStock + p.gymStock;
+      acc.totalValue += Number(p.salePrice) * (p.warehouseStock + p.gymStock);
+      return acc;
+    },
+    { warehouse: 0, gym: 0, total: 0, totalValue: 0 },
+  );
+
+  const lowStock = products.filter(
+    (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
+  );
+
+  return serializeDecimal({
+    products,
+    stockSummary,
+    lowStock,
+  });
+}
+
+// ==================== MEMBER REPORTS ====================
+
+/**
+ * Reporte de socios por tipo de membresía
+ */
+export async function getMembersByMembershipReport() {
+  const members = await prisma.member.groupBy({
+    by: ["membershipType", "isActive"],
+    _count: true,
+  });
+
+  return members.map((m) => ({
+    membershipType: m.membershipType || "NO_MEMBERSHIP",
+    isActive: m.isActive,
+    quantity: m._count,
+  }));
+}
+
+/**
+ * Reporte de nuevos socios
+ */
+export async function getNewMembersReport(params: ReportPeriodParams) {
+  const members = await prisma.member.findMany({
+    where: {
+      createdAt: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const byDay = members.reduce(
+    (acc, member) => {
+      const date = formatDate(member.createdAt);
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          quantity: 0,
+        };
+      }
+      acc[date].quantity += 1;
+      return acc;
+    },
+    {} as Record<string, { date: string; quantity: number }>,
+  );
+
+  return {
+    members,
+    byDay: Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)),
+    total: members.length,
+  };
+}
+
+/**
+ * Reporte de visitas de socios
+ */
+export async function getMemberVisitsReport(params: ReportPeriodParams) {
+  const visits = await prisma.inventoryMovement.findMany({
+    where: {
+      type: "SALE",
+      isCancelled: false,
+      memberId: { not: null },
+      date: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+    include: {
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+          membershipType: true,
+        },
+      },
+    },
+  });
+
+  const visitsByMember = visits.reduce(
+    (acc, visit) => {
+      const memberId = visit.memberId!;
+      if (!acc[memberId]) {
+        acc[memberId] = {
+          member: visit.member!,
+          visitCount: 0,
+        };
+      }
+      acc[memberId].visitCount += 1;
+      return acc;
+    },
+    {} as Record<number, { member: any; visitCount: number }>,
+  );
+
+  return Object.values(visitsByMember).sort(
+    (a, b) => b.visitCount - a.visitCount,
+  );
+}
+
+// ==================== DASHBOARD ====================
+
+/**
+ * Resumen para dashboard
+ */
+export async function getDashboardSummary(params?: ReportPeriodParams) {
+  const startDate =
+    params?.startDate || new Date(new Date().setHours(0, 0, 0, 0));
+  const endDate =
+    params?.endDate || new Date(new Date().setHours(23, 59, 59, 999));
+
+  const [salesToday, activeMembers, activeProducts, activeShift] =
+    await Promise.all([
+      prisma.inventoryMovement.findMany({
+        where: {
+          type: "SALE",
+          isCancelled: false,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }),
+      prisma.member.count({ where: { isActive: true } }),
+      prisma.product.count({ where: { isActive: true } }),
+      prisma.shift.findFirst({
+        where: { closingDate: null },
+        include: {
+          cashier: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+  const totalSalesToday = salesToday.reduce(
+    (sum, v) => sum.plus(toDecimal(v.total || 0)),
+    new Decimal(0),
+  );
+
+  const ticketsToday = new Set(salesToday.map((v) => v.ticket)).size;
+
+  const productsLowStock = await prisma.product.count({
+    where: {
+      isActive: true,
+      OR: [
+        {
+          gymStock: {
+            lt: prisma.product.fields.minStock,
+          },
+        },
+        {
+          warehouseStock: {
+            lt: prisma.product.fields.minStock,
+          },
+        },
+      ],
+    },
+  });
+
+  return {
+    salesToday: {
+      total: totalSalesToday,
+      tickets: ticketsToday,
+      quantity: salesToday.length,
+    },
+    members: {
+      active: activeMembers,
+    },
+    products: {
+      active: activeProducts,
+      lowStock: productsLowStock,
+    },
+    activeShift,
+  };
+}
+
+// ==================== SHIFT REPORTS ====================
+
+/**
+ * Reporte de cortes
+ */
+export async function getShiftsReport(params: ReportPeriodParams) {
+  const shifts = await prisma.shift.findMany({
+    where: {
+      openingDate: {
+        gte: params.startDate,
+        lte: params.endDate,
+      },
+    },
+    include: {
+      cashier: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { openingDate: "desc" },
+  });
+
+  const totalSales = shifts.reduce(
+    (sum, s) => sum.plus(toDecimal(s.totalSales)),
+    new Decimal(0),
+  );
+
+  const totalDifferences = shifts.reduce(
+    (sum, s) => sum.plus(toDecimal(Math.abs(Number(s.difference)))),
+    new Decimal(0),
+  );
+
+  const averageSales =
+    shifts.length > 0 ? totalSales.dividedBy(shifts.length) : new Decimal(0);
+
+  return {
+    shifts,
+    summary: {
+      totalShifts: shifts.length,
+      totalSales,
+      totalDifferences,
+      averageSales,
+    },
+  };
+}
+
+
+
+=== services/shifts.service.ts ===
+
+// services/shifts.service.ts
+import { prisma } from "@/lib/db";
+import { PaymentMethod } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+import { serializeDecimal } from "./utils";
+
+// ==================== TYPES ====================
+
+export interface OpenShiftInput {
+  cashierId: string;
+  initialCash: number;
+  notes?: string;
+}
+
+export interface CloseShiftInput {
+  shiftId: number;
+  totalWithdrawals?: number;
+  withdrawalsConcept?: string;
+  totalCash: number;
+  notes?: string;
+}
+
+// ==================== HELPERS ====================
+
+/**
+ * Convierte un número o Decimal a tipo Decimal de Prisma
+ */
+function toDecimal(value: number | Decimal): Decimal {
+  return new Decimal(value.toString());
+}
+
+/**
+ * Suma múltiples valores Decimal
+ */
+function addDecimals(...values: (number | Decimal)[]): Decimal {
+  return values.reduce((sum, val) => sum.plus(toDecimal(val)), new Decimal(0));
+}
+
+/**
+ * Resta dos valores Decimal
+ */
+function subtractDecimals(a: number | Decimal, b: number | Decimal): Decimal {
+  return toDecimal(a).minus(toDecimal(b));
+}
+
+// ==================== VALIDATIONS ====================
+
+/**
+ * Verifica que el cajero no tenga un corte abierto
+ */
+async function validateNoOpenShift(cashierId: string) {
+  const openShift = await prisma.shift.findFirst({
+    where: {
+      cashierId,
+      closingDate: null,
+    },
+  });
+
+  if (openShift) {
+    throw new Error("Ya tienes un corte abierto");
+  }
+}
+
+/**
+ * Verifica que no exista ningún corte abierto en el sistema
+ */
+async function validateNoSystemOpenShift() {
+  const openShift = await prisma.shift.findFirst({
+    where: {
+      closingDate: null,
+    },
+  });
+
+  if (openShift) {
+    throw new Error("Ya existe un corte abierto en el sistema");
+  }
+}
+
+// ==================== PUBLIC SERVICES ====================
+
+/**
+ * Abre un nuevo corte de caja
+ * Genera folio automático secuencial (FN-1, FN-2, etc.)
+ */
+export async function openShift(data: OpenShiftInput) {
+  await validateNoOpenShift(data.cashierId);
+  await validateNoSystemOpenShift();
+
+  // Generar folio secuencial
+  const lastShift = await prisma.shift.findFirst({
+    orderBy: { createdAt: "desc" },
+  });
+
+  let newFolio = "FN-1";
+  if (lastShift) {
+    const currentNumber = parseInt(lastShift.folio.split("-")[1]) || 0;
+    newFolio = `FN-${currentNumber + 1}`;
+  }
+
+  const shift = await prisma.shift.create({
+    data: {
+      folio: newFolio,
+      cashierId: data.cashierId,
+      openingDate: new Date(),
+      initialCash: data.initialCash,
+      notes: data.notes,
+    },
+    include: {
+      cashier: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return serializeDecimal(shift);
+}
+
+/**
+ * Cierra un corte de caja
+ * Calcula totales por forma de pago, tickets, diferencias, etc.
+ */
+export async function closeShift(data: CloseShiftInput) {
+  const shift = await prisma.shift.findUnique({
+    where: { id: data.shiftId },
+    include: {
+      inventoryMovements: {
+        where: {
+          type: "SALE",
+          isCancelled: false,
+        },
+      },
+    },
+  });
+
+  if (!shift) {
+    throw new Error("Corte no encontrado");
+  }
+
+  if (shift.closingDate) {
+    throw new Error("El corte ya está cerrado");
+  }
+
+  // Contar tickets únicos
+  const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
+
+  // Inicializar totales
+  let membershipSales = new Decimal(0);
+  let productSales0Tax = new Decimal(0);
+  let productSales16Tax = new Decimal(0);
+  let cashAmount = new Decimal(0);
+  let debitCardAmount = new Decimal(0);
+  let creditCardAmount = new Decimal(0);
+
+  // Obtener productos de membresía
+  const membershipProducts = await prisma.product.findMany({
+    where: {
+      OR: [
+        { name: { contains: "EFECTIVO", mode: "insensitive" } },
+        { name: { contains: "VISITA", mode: "insensitive" } },
+      ],
+    },
+  });
+  const membershipIds = membershipProducts.map((p) => p.id);
+
+  // Calcular totales por tipo de producto y forma de pago
+  for (const sale of shift.inventoryMovements) {
+    const total = toDecimal(sale.total || 0);
+
+    if (membershipIds.includes(sale.productId)) {
+      membershipSales = membershipSales.plus(total);
+    } else {
+      productSales0Tax = productSales0Tax.plus(total);
+    }
+
+    switch (sale.paymentMethod) {
+      case "CASH":
+        cashAmount = cashAmount.plus(total);
+        break;
+      case "DEBIT_CARD":
+        debitCardAmount = debitCardAmount.plus(total);
+        break;
+      case "CREDIT_CARD":
+        creditCardAmount = creditCardAmount.plus(total);
+        break;
+    }
+  }
+
+  // Calcular subtotal, IVA, total
+  const subtotal = addDecimals(
+    membershipSales,
+    productSales0Tax,
+    productSales16Tax,
+  );
+  const tax = productSales16Tax.times(0.16);
+  const totalSales = addDecimals(subtotal, tax);
+  const totalVoucher = addDecimals(debitCardAmount, creditCardAmount);
+  const totalWithdrawals = toDecimal(data.totalWithdrawals || 0);
+  const totalCash = toDecimal(data.totalCash);
+  const expectedCash = addDecimals(shift.initialCash, cashAmount).minus(
+    totalWithdrawals,
+  );
+  const difference = subtractDecimals(totalCash, expectedCash);
+
+  const updatedShift = await prisma.shift.update({
+    where: { id: data.shiftId },
+    data: {
+      closingDate: new Date(),
+      ticketCount: tickets,
+      membershipSales,
+      productSales0Tax,
+      productSales16Tax,
+      subtotal,
+      tax,
+      totalSales,
+      cashAmount,
+      debitCardAmount,
+      creditCardAmount,
+      totalVoucher,
+      totalWithdrawals,
+      withdrawalsConcept: data.withdrawalsConcept,
+      totalCash,
+      difference,
+      notes: data.notes || shift.notes,
+    },
+    include: {
+      cashier: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return serializeDecimal(updatedShift);
+}
+
+/**
+ * Obtiene el corte activo (sin cerrar)
+ * Recalcula totales en tiempo real
+ */
+export async function getActiveShift() {
+  const shift = await prisma.shift.findFirst({
+    where: { closingDate: null },
+    include: {
+      cashier: {
+        select: { id: true, name: true, email: true },
+      },
+      inventoryMovements: {
+        where: { type: "SALE", isCancelled: false },
+        include: {
+          product: { select: { name: true } },
+          member: { select: { memberNumber: true, name: true } },
+        },
+        orderBy: { date: "desc" },
+      },
+    },
+  });
+
+  if (!shift) return null;
+
+  // Recalcular totales en tiempo real
+  const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
+  let cashAmount = 0;
+  let debitCardAmount = 0;
+  let creditCardAmount = 0;
+  let totalSales = 0;
+
+  shift.inventoryMovements.forEach((sale) => {
+    const total = Number(sale.total || 0);
+    totalSales += total;
+
+    switch (sale.paymentMethod) {
+      case "CASH":
+        cashAmount += total;
+        break;
+      case "DEBIT_CARD":
+        debitCardAmount += total;
+        break;
+      case "CREDIT_CARD":
+        creditCardAmount += total;
+        break;
+    }
+  });
+
+  return serializeDecimal({
+    ...shift,
+    ticketCount: tickets,
+    cashAmount,
+    debitCardAmount,
+    creditCardAmount,
+    totalSales,
+  });
+}
+
+/**
+ * Obtiene un corte por ID con todas sus relaciones
+ */
+export async function getShiftById(id: number) {
+  const shift = await prisma.shift.findUnique({
+    where: { id },
+    include: {
+      cashier: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      inventoryMovements: {
+        where: {
+          type: "SALE",
+        },
+        include: {
+          product: {
+            select: {
+              name: true,
+            },
+          },
+          member: {
+            select: {
+              memberNumber: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { date: "asc" },
+      },
+    },
+  });
+
+  if (!shift) {
+    throw new Error("Corte no encontrado");
+  }
+
+  return serializeDecimal(shift);
+}
+
+/**
+ * Lista todos los cortes con opción de límite
+ */
+export async function getAllShifts(limit?: number) {
+  const shifts = await prisma.shift.findMany({
+    include: {
+      cashier: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: { openingDate: "desc" },
+    take: limit,
+  });
+
+  return serializeDecimal(shifts);
+}
+
+/**
+ * Obtiene cortes dentro de un rango de fechas
+ */
+export async function getShiftsBetweenDates(startDate: Date, endDate: Date) {
+  const shifts = await prisma.shift.findMany({
+    where: {
+      openingDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      cashier: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: { openingDate: "desc" },
+  });
+
+  return serializeDecimal(shifts);
+}
+
+/**
+ * Obtiene cortes de un cajero específico
+ */
+export async function getShiftsByCashier(cashierId: string, limit?: number) {
+  const shifts = await prisma.shift.findMany({
+    where: { cashierId },
+    include: {
+      cashier: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: { openingDate: "desc" },
+    take: limit,
+  });
+
+  return serializeDecimal(shifts);
+}
+
+/**
+ * Genera resumen de ventas por producto para un corte
+ */
+export async function getSalesSummaryByShift(shiftId: number) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      shiftId,
+      type: "SALE",
+      isCancelled: false,
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  const summaryByProduct = sales.reduce(
+    (acc, sale) => {
+      const name = sale.product.name;
+      if (!acc[name]) {
+        acc[name] = {
+          product: name,
+          quantity: 0,
+          total: new Decimal(0),
+        };
+      }
+      acc[name].quantity += Math.abs(sale.quantity);
+      acc[name].total = acc[name].total.plus(toDecimal(sale.total || 0));
+      return acc;
+    },
+    {} as Record<string, { product: string; quantity: number; total: Decimal }>,
+  );
+
+  return serializeDecimal(Object.values(summaryByProduct));
+}
+
+/**
+ * Genera resumen por forma de pago para un corte
+ */
+export async function getPaymentMethodSummary(shiftId: number) {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      shiftId,
+      type: "SALE",
+      isCancelled: false,
+    },
+  });
+
+  const summary = sales.reduce(
+    (acc, sale) => {
+      const total = toDecimal(sale.total || 0);
+      const method = sale.paymentMethod || "CASH";
+      acc[method] = acc[method].plus(total);
+      return acc;
+    },
+    {
+      CASH: new Decimal(0),
+      DEBIT_CARD: new Decimal(0),
+      CREDIT_CARD: new Decimal(0),
+      TRANSFER: new Decimal(0),
+    },
+  );
+
+  return serializeDecimal(summary);
+}
+
+/**
+ * Genera estadísticas generales de cortes en un período
+ */
+export async function getShiftsStatistics(startDate?: Date, endDate?: Date) {
+  const where: any = {};
+
+  if (startDate && endDate) {
+    where.openingDate = {
+      gte: startDate,
+      lte: endDate,
+    };
+  }
+
+  const shifts = await prisma.shift.findMany({
+    where,
+  });
+
+  const totalShifts = shifts.length;
+  const totalSales = shifts.reduce(
+    (sum, s) => sum.plus(toDecimal(s.totalSales)),
+    new Decimal(0),
+  );
+  const averageSales =
+    totalShifts > 0 ? totalSales.dividedBy(totalShifts) : new Decimal(0);
+  const totalDifferences = shifts.reduce(
+    (sum, s) => sum.plus(toDecimal(Math.abs(Number(s.difference)))),
+    new Decimal(0),
+  );
+
+  return serializeDecimal({
+    totalShifts,
+    totalSales,
+    averageSales,
+    totalDifferences,
+  });
+}
+
+/**
+ * Cancela un corte (solo ADMIN)
+ * Elimina el corte del sistema
+ */
+export async function cancelShift(shiftId: number, userRole: string) {
+  if (userRole !== "ADMIN") {
+    throw new Error("Solo un administrador puede cancelar un corte");
+  }
+
+  const shift = await prisma.shift.findUnique({
+    where: { id: shiftId },
+  });
+
+  if (!shift) {
+    throw new Error("Corte no encontrado");
+  }
+
+  if (!shift.closingDate) {
+    throw new Error("No se puede cancelar un corte abierto");
+  }
+
+  await prisma.shift.delete({
+    where: { id: shiftId },
+  });
+
+  return { success: true, message: "Corte cancelado exitosamente" };
+}
+
+
+
+=== services/users.service.ts ===
+
+// services/users.service.ts
+import { prisma } from "@/lib/db";
+import { Role } from "@prisma/client";
+
+// ==================== TYPES ====================
+
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  role?: Role;
+  password: string;
+}
+
+export interface UpdateUserInput {
+  name?: string;
+  email?: string;
+  role?: Role;
+  isActive?: boolean;
+}
+
+// ==================== VALIDATIONS ====================
+
+function validateAdminRole(userRole: Role) {
+  if (userRole !== "ADMIN") {
+    throw new Error("No tienes permisos para realizar esta operación");
+  }
+}
+
+// ==================== PUBLIC SERVICES ====================
+
+/**
+ * Lista todos los usuarios
+ */
+export async function getAllUsers() {
+  return await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Obtiene un usuario por ID
+ */
+export async function getUserById(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  return user;
+}
+
+/**
+ * Crea un nuevo usuario (solo ADMIN)
+ */
+export async function createUser(data: CreateUserInput, currentUserRole: Role) {
+  validateAdminRole(currentUserRole);
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (existingUser) {
+    throw new Error("El correo electrónico ya está registrado");
+  }
+
+  const { password, ...userData } = data;
+
+  const user = await prisma.user.create({
+    data: {
+      ...userData,
+      role: data.role || "EMPLEADO",
+      emailVerified: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  return user;
+}
+
+/**
+ * Actualiza un usuario (solo ADMIN)
+ */
+export async function updateUser(
+  userId: string,
+  data: UpdateUserInput,
+  currentUserRole: Role,
+) {
+  validateAdminRole(currentUserRole);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  if (data.email && data.email !== user.email) {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      throw new Error("El correo electrónico ya está registrado");
+    }
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      updatedAt: true,
+    },
+  });
+
+  return updatedUser;
+}
+
+/**
+ * Activa/desactiva un usuario (solo ADMIN)
+ */
+export async function toggleUserStatus(userId: string, currentUserRole: Role) {
+  validateAdminRole(currentUserRole);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: !user.isActive },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  return updatedUser;
+}
+
+/**
+ * Lista solo usuarios activos
+ */
+export async function getActiveUsers() {
+  return await prisma.user.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+
+
+=== services/utils.ts ===
+
+import { Decimal } from "@prisma/client/runtime/library";
+
+export function serializeDecimal(value: any): any {
+  // Convertir a JSON y volver a parsear elimina todos los métodos y propiedades no serializables
+  return JSON.parse(
+    JSON.stringify(value, (key, val) => {
+      // Convertir Decimals a números
+      if (val instanceof Decimal) {
+        return Number(val.toString());
+      }
+      // Convertir Dates a ISO strings
+      if (val instanceof Date) {
+        return val.toISOString();
+      }
+      return val;
+    }),
+  );
+}
+
+

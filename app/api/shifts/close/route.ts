@@ -88,9 +88,12 @@ export async function POST(request: NextRequest) {
     });
 
     const totalSales = membershipSales + productSales0Tax;
-    const totalVoucher = debitCardAmount + creditCardAmount;
+    const totalVoucher = realDebit + realCredit;
     const totalCash =
-      cashAmount + debitCardAmount + creditCardAmount - (totalWithdrawals || 0);
+      (cashAmount || 0) +
+      (debitCardAmount || 0) +
+      (creditCardAmount || 0) -
+      (totalWithdrawals || 0);
 
     const updatedShift = await prisma.shift.update({
       where: { id: shiftId },
@@ -110,7 +113,7 @@ export async function POST(request: NextRequest) {
         totalWithdrawals: totalWithdrawals || 0,
         withdrawalsConcept,
         totalCash,
-        difference,
+        difference: difference || 0,
         notes: notes || shift.notes,
       },
       include: {

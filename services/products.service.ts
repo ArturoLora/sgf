@@ -1,9 +1,37 @@
 // services/products.service.ts
 import { prisma } from "@/lib/db";
 import { Location } from "@prisma/client";
-import { serializeDecimal } from "./utils";
+import { mapLocation } from "./enum-mappers";
+import type {
+  ProductoResponse,
+  ProductoConMovimientosResponse,
+  StockProductoResponse,
+  EstadisticasProductosResponse,
+} from "@/types/api/products";
 
-// ==================== TYPES ====================
+function serializeProduct(product: {
+  id: number;
+  name: string;
+  salePrice: import("@prisma/client/runtime/library").Decimal;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProductoResponse {
+  return {
+    id: product.id,
+    name: product.name,
+    salePrice: Number(product.salePrice),
+    warehouseStock: product.warehouseStock,
+    gymStock: product.gymStock,
+    minStock: product.minStock,
+    isActive: product.isActive,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
+  };
+}
 
 export interface CreateProductInput {
   name: string;
@@ -24,16 +52,13 @@ export interface SearchProductsParams {
   lowStock?: boolean;
 }
 
-// ==================== PUBLIC SERVICES ====================
-
-/**
- * Lista todos los productos con filtros opcionales
- * - Búsqueda por nombre
- * - Filtro por activo/inactivo
- * - Filtro por stock bajo
- */
-export async function getAllProducts(params?: SearchProductsParams) {
-  const where: any = {};
+export async function getAllProducts(
+  params?: SearchProductsParams,
+): Promise<ProductoResponse[]> {
+  const where: {
+    name?: { contains: string; mode: "insensitive" };
+    isActive?: boolean;
+  } = {};
 
   if (params?.search) {
     where.name = {
@@ -53,20 +78,18 @@ export async function getAllProducts(params?: SearchProductsParams) {
 
   let result = products;
 
-  // Filtro de stock bajo se aplica después del query
   if (params?.lowStock) {
     result = products.filter(
       (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
     );
   }
 
-  return serializeDecimal(result);
+  return result.map(serializeProduct);
 }
 
-/**
- * Obtiene un producto por ID con sus últimos movimientos
- */
-export async function getProductById(id: number) {
+export async function getProductById(
+  id: number,
+): Promise<ProductoConMovimientosResponse> {
   const product = await prisma.product.findUnique({
     where: { id },
     include: {
@@ -94,14 +117,35 @@ export async function getProductById(id: number) {
     throw new Error("Producto no encontrado");
   }
 
-  return serializeDecimal(product);
+  return {
+    ...serializeProduct(product),
+    inventoryMovements: product.inventoryMovements.map((m) => ({
+      id: m.id,
+      type: m.type,
+      location: mapLocation(m.location),
+      quantity: m.quantity,
+      ticket: m.ticket ?? undefined,
+      unitPrice: m.unitPrice ? Number(m.unitPrice) : undefined,
+      total: m.total ? Number(m.total) : undefined,
+      notes: m.notes ?? undefined,
+      isCancelled: m.isCancelled,
+      date: m.date,
+      user: {
+        name: m.user.name,
+      },
+      member: m.member
+        ? {
+            memberNumber: m.member.memberNumber,
+            name: m.member.name ?? undefined,
+          }
+        : undefined,
+    })),
+  };
 }
 
-/**
- * Crea un nuevo producto
- * Valida que el nombre sea único
- */
-export async function createProduct(data: CreateProductInput) {
+export async function createProduct(
+  data: CreateProductInput,
+): Promise<ProductoResponse> {
   const existingProduct = await prisma.product.findUnique({
     where: { name: data.name },
   });
@@ -118,14 +162,13 @@ export async function createProduct(data: CreateProductInput) {
     },
   });
 
-  return serializeDecimal(product);
+  return serializeProduct(product);
 }
 
-/**
- * Actualiza un producto existente
- * Valida unicidad de nombre si se cambia
- */
-export async function updateProduct(id: number, data: UpdateProductInput) {
+export async function updateProduct(
+  id: number,
+  data: UpdateProductInput,
+): Promise<ProductoResponse> {
   const product = await prisma.product.findUnique({
     where: { id },
   });
@@ -149,13 +192,12 @@ export async function updateProduct(id: number, data: UpdateProductInput) {
     data,
   });
 
-  return serializeDecimal(updatedProduct);
+  return serializeProduct(updatedProduct);
 }
 
-/**
- * Activa/desactiva un producto
- */
-export async function toggleProductStatus(id: number) {
+export async function toggleProductStatus(
+  id: number,
+): Promise<ProductoResponse> {
   const product = await prisma.product.findUnique({
     where: { id },
   });
@@ -169,25 +211,19 @@ export async function toggleProductStatus(id: number) {
     data: { isActive: !product.isActive },
   });
 
-  return serializeDecimal(updatedProduct);
+  return serializeProduct(updatedProduct);
 }
 
-/**
- * Lista solo productos activos
- */
-export async function getActiveProducts() {
+export async function getActiveProducts(): Promise<ProductoResponse[]> {
   const products = await prisma.product.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
   });
 
-  return serializeDecimal(products);
+  return products.map(serializeProduct);
 }
 
-/**
- * Lista productos con stock bajo en cualquier ubicación
- */
-export async function getLowStockProducts() {
+export async function getLowStockProducts(): Promise<ProductoResponse[]> {
   const products = await prisma.product.findMany({
     where: { isActive: true },
   });
@@ -196,15 +232,13 @@ export async function getLowStockProducts() {
     (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
   );
 
-  return serializeDecimal(result);
+  return result.map(serializeProduct);
 }
 
-/**
- * Obtiene el stock de un producto
- * - Si se especifica ubicación, retorna solo ese stock
- * - Si no, retorna bodega, gym y total
- */
-export async function getProductStock(productId: number, location?: Location) {
+export async function getProductStock(
+  productId: number,
+  location?: Location,
+): Promise<StockProductoResponse | number> {
   const product = await prisma.product.findUnique({
     where: { id: productId },
   });
@@ -219,18 +253,14 @@ export async function getProductStock(productId: number, location?: Location) {
     return product.gymStock;
   }
 
-  return serializeDecimal({
+  return {
     warehouse: product.warehouseStock,
     gym: product.gymStock,
     total: product.warehouseStock + product.gymStock,
-  });
+  };
 }
 
-/**
- * Lista productos de membresía
- * Identifica por keywords en el nombre
- */
-export async function getMembershipProducts() {
+export async function getMembershipProducts(): Promise<ProductoResponse[]> {
   const keywords = ["EFECTIVO", "VISITA", "MENSUALIDAD", "SEMANA"];
 
   const products = await prisma.product.findMany({
@@ -243,14 +273,10 @@ export async function getMembershipProducts() {
     orderBy: { name: "asc" },
   });
 
-  return serializeDecimal(products);
+  return products.map(serializeProduct);
 }
 
-/**
- * Lista productos de venta (físicos)
- * Excluye productos de membresía
- */
-export async function getSaleProducts() {
+export async function getSaleProducts(): Promise<ProductoResponse[]> {
   const keywords = ["EFECTIVO", "VISITA", "MENSUALIDAD", "SEMANA"];
 
   const products = await prisma.product.findMany({
@@ -265,13 +291,10 @@ export async function getSaleProducts() {
     orderBy: { name: "asc" },
   });
 
-  return serializeDecimal(products);
+  return products.map(serializeProduct);
 }
 
-/**
- * Genera estadísticas generales de productos
- */
-export async function getProductsStatistics() {
+export async function getProductsStatistics(): Promise<EstadisticasProductosResponse> {
   const total = await prisma.product.count();
   const active = await prisma.product.count({ where: { isActive: true } });
 

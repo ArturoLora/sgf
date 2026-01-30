@@ -20,6 +20,7 @@ interface VentasFormProps {
   onAgregarProducto: (producto: Producto) => void;
   clienteId: number | null;
   onClienteChange: (id: number | null) => void;
+  deshabilitado?: boolean;
 }
 
 export default function VentasForm({
@@ -27,6 +28,7 @@ export default function VentasForm({
   onAgregarProducto,
   clienteId,
   onClienteChange,
+  deshabilitado,
 }: VentasFormProps) {
   const [busqueda, setBusqueda] = useState("");
   const [numeroCliente, setNumeroCliente] = useState("");
@@ -86,6 +88,7 @@ export default function VentasForm({
             <div className="relative flex-1">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
+                disabled={deshabilitado}
                 placeholder="Número de cliente..."
                 value={numeroCliente}
                 onChange={(e) => setNumeroCliente(e.target.value)}
@@ -95,7 +98,11 @@ export default function VentasForm({
                 className="pl-9"
               />
             </div>
-            <Button onClick={buscarCliente} variant="outline">
+            <Button
+              onClick={buscarCliente}
+              variant="outline"
+              disabled={deshabilitado}
+            >
               Buscar
             </Button>
             {clienteId && (
@@ -121,6 +128,7 @@ export default function VentasForm({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
+              disabled={deshabilitado}
               placeholder="Escribe para buscar..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
@@ -156,6 +164,7 @@ export default function VentasForm({
                     </p>
                   </div>
                   <Button
+                    disabled={deshabilitado}
                     size="sm"
                     onClick={() => {
                       onAgregarProducto(producto);
