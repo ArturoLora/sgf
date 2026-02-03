@@ -2,12 +2,22 @@
 import { prisma } from "@/lib/db";
 import { Location } from "@prisma/client";
 import { mapLocation } from "./enum-mappers";
+import { parseBooleanQuery, parseIntParam } from "./utils";
+import {
+  ProductsQuerySchema,
+  CreateProductInputSchema,
+  UpdateProductInputSchema,
+} from "@/types/api/products";
 import type {
   ProductoResponse,
   ProductoConMovimientosResponse,
   StockProductoResponse,
   EstadisticasProductosResponse,
+  ProductsQueryInput,
+  CreateProductInputRaw,
+  UpdateProductInputRaw,
 } from "@/types/api/products";
+import type { ProductoVentaResponse } from "@/types/api/sales";
 
 function serializeProduct(product: {
   id: number;
@@ -51,6 +61,63 @@ export interface SearchProductsParams {
   isActive?: boolean;
   lowStock?: boolean;
 }
+
+// ==================== PARSING HELPERS ====================
+
+/**
+ * Parse and validate products query parameters
+ */
+export function parseProductsQuery(
+  raw: ProductsQueryInput,
+): SearchProductsParams {
+  const validated = ProductsQuerySchema.parse(raw);
+
+  return {
+    search: validated.search,
+    isActive: parseBooleanQuery(validated.isActive),
+    lowStock: parseBooleanQuery(validated.lowStock) ?? false,
+  };
+}
+
+/**
+ * Parse and validate create product input
+ */
+export function parseCreateProductInput(
+  raw: CreateProductInputRaw,
+): CreateProductInput {
+  const validated = CreateProductInputSchema.parse(raw);
+
+  return {
+    name: validated.name,
+    salePrice: validated.salePrice,
+    minStock: validated.minStock,
+  };
+}
+
+/**
+ * Parse and validate update product input
+ */
+export function parseUpdateProductInput(
+  raw: UpdateProductInputRaw,
+): UpdateProductInput {
+  const validated = UpdateProductInputSchema.parse(raw);
+
+  return {
+    name: validated.name,
+    salePrice: validated.salePrice,
+    minStock: validated.minStock,
+    isActive: validated.isActive,
+  };
+}
+
+/**
+ * Parse and validate product ID from URL param
+ */
+export function parseProductId(id: string): number {
+  return parseIntParam(id, "ID de producto");
+}
+
+// ==================== SERVICE METHODS ====================
 
 export async function getAllProducts(
   params?: SearchProductsParams,
@@ -276,7 +343,7 @@ export async function getMembershipProducts(): Promise<ProductoResponse[]> {
   return products.map(serializeProduct);
 }
 
-export async function getSaleProducts(): Promise<ProductoResponse[]> {
+export async function getSaleProducts(): Promise<ProductoVentaResponse[]> {
   const keywords = ["EFECTIVO", "VISITA", "MENSUALIDAD", "SEMANA"];
 
   const products = await prisma.product.findMany({
@@ -291,7 +358,14 @@ export async function getSaleProducts(): Promise<ProductoResponse[]> {
     orderBy: { name: "asc" },
   });
 
-  return products.map(serializeProduct);
+  return products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    salePrice: Number(p.salePrice),
+    gymStock: p.gymStock,
+    warehouseStock: p.warehouseStock,
+    totalStock: p.gymStock + p.warehouseStock,
+  }));
 }
 
 export async function getProductsStatistics(): Promise<EstadisticasProductosResponse> {

@@ -1,11 +1,27 @@
 // services/members.service.ts
 import { prisma } from "@/lib/db";
 import { MembershipType } from "@prisma/client";
-import { mapMembershipType } from "./enum-mappers";
+import { mapMembershipType, parseMembershipType } from "./enum-mappers";
+import {
+  parseISODate,
+  parseBooleanQuery,
+  calculateEndDate,
+  calculateMembershipDates,
+} from "./utils";
+import {
+  MembersQuerySchema,
+  CreateMemberInputSchema,
+  UpdateMemberInputSchema,
+  RenewMemberInputSchema,
+} from "@/types/api/members";
 import type {
   SocioResponse,
   SocioConHistorialResponse,
   VigenciaMembresiaResponse,
+  MembersQueryInput,
+  CreateMemberInputRaw,
+  UpdateMemberInputRaw,
+  RenewMemberInputRaw,
 } from "@/types/api/members";
 
 function serializeMember(member: {
@@ -56,11 +72,8 @@ export interface CreateMemberInput {
   membershipDescription?: string;
   startDate?: Date;
   endDate?: Date;
-}
-
-export interface CreateMemberWithSaleInput extends CreateMemberInput {
-  userId?: string;
   paymentMethod?: "CASH" | "DEBIT_CARD" | "CREDIT_CARD" | "TRANSFER";
+  userId: string;
 }
 
 export interface UpdateMemberInput {
@@ -80,9 +93,6 @@ export interface RenewMembershipInput {
   membershipType: MembershipType;
   membershipDescription?: string;
   startDate?: Date;
-}
-
-export interface RenewMembershipWithSaleInput extends RenewMembershipInput {
   userId: string;
   paymentMethod?: "CASH" | "DEBIT_CARD" | "CREDIT_CARD" | "TRANSFER";
 }
@@ -93,52 +103,91 @@ export interface SearchMembersParams {
   membershipType?: MembershipType;
 }
 
-function calculateEndDate(
-  startDate: Date,
-  membershipType: MembershipType,
-): Date {
-  const date = new Date(startDate);
+// ==================== PARSING HELPERS ====================
 
-  switch (membershipType) {
-    case "VISIT":
-      return date;
-    case "WEEK":
-      date.setDate(date.getDate() + 7);
-      break;
-    case "MONTH_STUDENT":
-    case "MONTH_GENERAL":
-      date.setMonth(date.getMonth() + 1);
-      break;
-    case "QUARTER_STUDENT":
-    case "QUARTER_GENERAL":
-      date.setMonth(date.getMonth() + 3);
-      break;
-    case "ANNUAL_STUDENT":
-    case "ANNUAL_GENERAL":
-      date.setFullYear(date.getFullYear() + 1);
-      break;
-    case "PROMOTION":
-    case "REBIRTH":
-    case "NUTRITION_CONSULTATION":
-      date.setMonth(date.getMonth() + 1);
-      break;
-  }
-
-  return date;
-}
-
-export function calculateMembershipDates(
-  membershipType: MembershipType,
-  startDate?: Date,
-): { startDate: Date; endDate: Date } {
-  const start = startDate || new Date();
-  const end = calculateEndDate(start, membershipType);
+/**
+ * Parse and validate members query parameters
+ */
+export function parseMembersQuery(raw: MembersQueryInput): SearchMembersParams {
+  const validated = MembersQuerySchema.parse(raw);
 
   return {
-    startDate: start,
-    endDate: end,
+    search: validated.search,
+    isActive: parseBooleanQuery(validated.isActive),
+    membershipType: parseMembershipType(validated.membershipType),
   };
 }
+
+/**
+ * Parse and validate create member input
+ */
+export function parseCreateMemberInput(
+  raw: CreateMemberInputRaw,
+  userId: string,
+): CreateMemberInput {
+  const validated = CreateMemberInputSchema.parse(raw);
+
+  return {
+    memberNumber: validated.memberNumber,
+    name: validated.name,
+    phone: validated.phone,
+    email: validated.email,
+    birthDate: parseISODate(validated.birthDate),
+    membershipType: parseMembershipType(validated.membershipType),
+    membershipDescription: validated.membershipDescription,
+    startDate: parseISODate(validated.startDate),
+    endDate: parseISODate(validated.endDate),
+    paymentMethod: validated.paymentMethod,
+    userId,
+  };
+}
+
+/**
+ * Parse and validate update member input
+ */
+export function parseUpdateMemberInput(
+  raw: UpdateMemberInputRaw,
+): UpdateMemberInput {
+  const validated = UpdateMemberInputSchema.parse(raw);
+
+  return {
+    name: validated.name,
+    phone: validated.phone,
+    email: validated.email,
+    birthDate: parseISODate(validated.birthDate),
+    membershipType: parseMembershipType(validated.membershipType),
+    membershipDescription: validated.membershipDescription,
+    startDate: parseISODate(validated.startDate),
+    endDate: parseISODate(validated.endDate),
+    isActive: validated.isActive,
+  };
+}
+
+/**
+ * Parse and validate renew membership input
+ */
+export function parseRenewMemberInput(
+  raw: RenewMemberInputRaw,
+  userId: string,
+): RenewMembershipInput {
+  const validated = RenewMemberInputSchema.parse(raw);
+
+  const membershipType = parseMembershipType(validated.membershipType);
+  if (!membershipType) {
+    throw new Error("membershipType is required for renewal");
+  }
+
+  return {
+    memberId: validated.memberId,
+    membershipType,
+    membershipDescription: validated.membershipDescription,
+    startDate: parseISODate(validated.startDate),
+    paymentMethod: validated.paymentMethod,
+    userId,
+  };
+}
+
+// ==================== SERVICE METHODS ====================
 
 export async function getAllMembers(
   params?: SearchMembersParams,
@@ -264,7 +313,7 @@ export async function getMemberByNumber(
 }
 
 export async function createMember(
-  data: CreateMemberWithSaleInput,
+  data: CreateMemberInput,
 ): Promise<SocioResponse> {
   const existingMember = await prisma.member.findUnique({
     where: { memberNumber: data.memberNumber },
@@ -280,11 +329,11 @@ export async function createMember(
       name: data.name,
       phone: data.phone,
       email: data.email,
-      birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+      birthDate: data.birthDate,
       membershipType: data.membershipType,
       membershipDescription: data.membershipDescription,
-      startDate: data.startDate ? new Date(data.startDate) : undefined,
-      endDate: data.endDate ? new Date(data.endDate) : undefined,
+      startDate: data.startDate,
+      endDate: data.endDate,
     },
   });
 
@@ -361,12 +410,7 @@ export async function updateMember(
 
   const updatedMember = await prisma.member.update({
     where: { id },
-    data: {
-      ...data,
-      birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
-      startDate: data.startDate ? new Date(data.startDate) : undefined,
-      endDate: data.endDate ? new Date(data.endDate) : undefined,
-    },
+    data,
   });
 
   return serializeMember(updatedMember);
@@ -471,7 +515,7 @@ export async function getMembersStatistics(): Promise<{
 }
 
 export async function renewMembership(
-  data: RenewMembershipWithSaleInput,
+  data: RenewMembershipInput,
 ): Promise<SocioResponse> {
   const member = await prisma.member.findUnique({
     where: { id: data.memberId },

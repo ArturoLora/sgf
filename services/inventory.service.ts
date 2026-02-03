@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { InventoryType, Location, PaymentMethod } from "@prisma/client";
-import { calculateMembershipDates } from "./members.service";
+import { calculateMembershipDates } from "./utils";
 import {
   mapInventoryType,
   mapLocation,
@@ -14,6 +14,7 @@ import type {
   VentaCancelada,
   MovimientoInventarioResponse,
 } from "@/types/api/inventory";
+import type { DetalleTicketResponse, ItemVentaTicket } from "@/types/api/sales";
 
 // ==================== INPUT TYPES ====================
 
@@ -328,6 +329,79 @@ export async function cancelSale(
   });
 
   return serializeInventoryMovement(cancelledInventory) as VentaCancelada;
+}
+
+// ==================== TICKET SERVICES ====================
+
+/**
+ * Get ticket detail with all sales and calculated totals
+ */
+export async function getTicketDetail(
+  ticket: string,
+): Promise<DetalleTicketResponse> {
+  const sales = await prisma.inventoryMovement.findMany({
+    where: {
+      ticket,
+      type: "SALE",
+    },
+    include: {
+      product: {
+        select: {
+          name: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  if (sales.length === 0) {
+    throw new Error("Ticket no encontrado");
+  }
+
+  const firstSale = sales[0];
+
+  const items: ItemVentaTicket[] = sales.map((s) => ({
+    id: s.id,
+    product: {
+      name: s.product.name,
+    },
+    quantity: s.quantity,
+    total: Number(s.total || 0),
+  }));
+
+  const total = sales.reduce((sum, s) => sum + Number(s.total || 0), 0);
+
+  return {
+    ticket,
+    date: firstSale.date,
+    cashier: firstSale.user.name,
+    paymentMethod: firstSale.paymentMethod
+      ? mapPaymentMethod(firstSale.paymentMethod)
+      : undefined,
+    member: firstSale.member
+      ? {
+          memberNumber: firstSale.member.memberNumber,
+          name: firstSale.member.name ?? undefined,
+        }
+      : undefined,
+    isCancelled: firstSale.isCancelled,
+    cancellationReason: firstSale.cancellationReason ?? undefined,
+    cancellationDate: firstSale.cancellationDate ?? undefined,
+    notes: firstSale.notes ?? undefined,
+    total,
+    items,
+  };
 }
 
 // ==================== ENTRY SERVICES ====================

@@ -1,4 +1,15 @@
+import { z } from "zod";
 import type { MetodoPago } from "../models/movimiento-inventario";
+
+// ==================== ZOD SCHEMAS ====================
+
+export const TicketParamsSchema = z.object({
+  ticket: z.string(),
+});
+
+// ==================== INFERRED TYPES ====================
+
+export type TicketParamsInput = z.infer<typeof TicketParamsSchema>;
 
 // ==================== QUERY PARAMS ====================
 

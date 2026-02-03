@@ -93,3 +93,35 @@ export function mapMembershipType(type: MembershipType): TipoMembresia {
       throw new Error(`Unknown MembershipType: ${type}`);
   }
 }
+
+// ==================== MEMBERSHIP TYPE PARSING ====================
+
+/**
+ * Parse and validate membership type string to MembershipType enum
+ */
+export function parseMembershipType(
+  type: string | undefined,
+): MembershipType | undefined {
+  if (!type) return undefined;
+
+  const normalized = type.toUpperCase();
+  const validTypes: MembershipType[] = [
+    "VISIT",
+    "WEEK",
+    "MONTH_STUDENT",
+    "MONTH_GENERAL",
+    "QUARTER_STUDENT",
+    "QUARTER_GENERAL",
+    "ANNUAL_STUDENT",
+    "ANNUAL_GENERAL",
+    "PROMOTION",
+    "REBIRTH",
+    "NUTRITION_CONSULTATION",
+  ];
+
+  if (validTypes.includes(normalized as MembershipType)) {
+    return normalized as MembershipType;
+  }
+
+  throw new Error(`Invalid membership type: ${type}`);
+}

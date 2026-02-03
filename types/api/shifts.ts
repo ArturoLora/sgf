@@ -1,5 +1,23 @@
-import type { Corte } from "../models/corte";
+import { z } from "zod";
 import type { MetodoPago } from "../models/movimiento-inventario";
+
+// ==================== ZOD SCHEMAS ====================
+
+export const ShiftsQuerySchema = z.object({
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  cashier: z.string().optional(),
+  status: z.string().optional(),
+  orderBy: z.string().optional(),
+  order: z.string().optional(),
+  page: z.string().optional(),
+  perPage: z.string().optional(),
+});
+
+// ==================== INFERRED TYPES ====================
+
+export type ShiftsQueryInput = z.infer<typeof ShiftsQuerySchema>;
 
 // ==================== QUERY PARAMS ====================
 

@@ -11,14 +11,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-
-    const member = await MembersService.renewMembership({
-      ...body,
-      userId: session.user.id,
-    });
-
+    const serviceInput = MembersService.parseRenewMemberInput(
+      body,
+      session.user.id,
+    );
+    const member = await MembersService.renewMembership(serviceInput);
     return NextResponse.json(member);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al renovar membresía";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

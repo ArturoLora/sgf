@@ -1,5 +1,32 @@
-import type { Producto } from "../models/producto";
+import { z } from "zod";
 import type { Ubicacion } from "../models/movimiento-inventario";
+
+// ==================== ZOD SCHEMAS ====================
+
+export const ProductsQuerySchema = z.object({
+  search: z.string().optional(),
+  isActive: z.string().optional(),
+  lowStock: z.string().optional(),
+});
+
+export const CreateProductInputSchema = z.object({
+  name: z.string(),
+  salePrice: z.number(),
+  minStock: z.number().optional(),
+});
+
+export const UpdateProductInputSchema = z.object({
+  name: z.string().optional(),
+  salePrice: z.number().optional(),
+  minStock: z.number().optional(),
+  isActive: z.boolean().optional(),
+});
+
+// ==================== INFERRED TYPES ====================
+
+export type ProductsQueryInput = z.infer<typeof ProductsQuerySchema>;
+export type CreateProductInputRaw = z.infer<typeof CreateProductInputSchema>;
+export type UpdateProductInputRaw = z.infer<typeof UpdateProductInputSchema>;
 
 // ==================== QUERY PARAMS ====================
 

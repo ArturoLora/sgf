@@ -1,16 +1,20 @@
+NACHO GYM - SHIFTS PHASE 4 EXPORT 20260203_100111
+
+
+### SERVICES ###
+
+
+=== services/shifts.service.ts ===
+
 // services/shifts.service.ts
 import { prisma } from "@/lib/db";
 import { mapPaymentMethod } from "./enum-mappers";
-import { parseISODate } from "./utils";
-import { ShiftsQuerySchema } from "@/types/api/shifts";
 import type {
   CorteResponse,
   CorteConVentasResponse,
   EstadisticasCortesResponse,
   ResumenVentasPorProducto,
   ResumenPorFormaPago,
-  ListaCortesResponse,
-  ShiftsQueryInput,
 } from "@/types/api/shifts";
 
 export interface OpenShiftInput {
@@ -25,18 +29,6 @@ export interface CloseShiftInput {
   withdrawalsConcept?: string;
   totalCash: number;
   notes?: string;
-}
-
-export interface GetShiftsParams {
-  search?: string;
-  startDate?: Date;
-  endDate?: Date;
-  cashier?: string;
-  status?: string;
-  orderBy?: string;
-  order?: string;
-  page?: number;
-  perPage?: number;
 }
 
 function serializeShift(shift: {
@@ -121,29 +113,6 @@ async function validateNoSystemOpenShift(): Promise<void> {
     throw new Error("Ya existe un corte abierto en el sistema");
   }
 }
-
-// ==================== PARSING HELPERS ====================
-
-/**
- * Parse and validate shifts query parameters
- */
-export function parseShiftsQuery(raw: ShiftsQueryInput): GetShiftsParams {
-  const validated = ShiftsQuerySchema.parse(raw);
-
-  return {
-    search: validated.search,
-    startDate: parseISODate(validated.startDate),
-    endDate: parseISODate(validated.endDate),
-    cashier: validated.cashier,
-    status: validated.status,
-    orderBy: validated.orderBy,
-    order: validated.order,
-    page: validated.page ? parseInt(validated.page, 10) : 1,
-    perPage: validated.perPage ? parseInt(validated.perPage, 10) : 10,
-  };
-}
-
-// ==================== SHIFT SERVICES ====================
 
 export async function openShift(data: OpenShiftInput): Promise<CorteResponse> {
   await validateNoOpenShift(data.cashierId);
@@ -288,82 +257,6 @@ export async function closeShift(
   });
 
   return serializeShift(updatedShift);
-}
-
-/**
- * Get shifts with filtering, sorting, and pagination
- */
-export async function getShifts(
-  params?: GetShiftsParams,
-): Promise<ListaCortesResponse> {
-  const page = params?.page || 1;
-  const perPage = params?.perPage || 10;
-
-  // Build where clause
-  const where: {
-    folio?: { contains: string; mode: "insensitive" };
-    openingDate?: { gte: Date; lte: Date };
-    cashierId?: string;
-    closingDate?: null | { not: null };
-  } = {};
-
-  if (params?.search) {
-    where.folio = {
-      contains: params.search,
-      mode: "insensitive",
-    };
-  }
-
-  if (params?.startDate && params?.endDate) {
-    where.openingDate = {
-      gte: params.startDate,
-      lte: params.endDate,
-    };
-  }
-
-  if (params?.cashier) {
-    where.cashierId = params.cashier;
-  }
-
-  if (params?.status === "abiertos") {
-    where.closingDate = null;
-  } else if (params?.status === "cerrados") {
-    where.closingDate = { not: null };
-  }
-
-  // Build orderBy
-  const orderByField = params?.orderBy === "folio" ? "folio" : "openingDate";
-  const orderDirection = params?.order === "asc" ? "asc" : "desc";
-
-  // Get total count
-  const total = await prisma.shift.count({ where });
-
-  // Get paginated shifts
-  const shifts = await prisma.shift.findMany({
-    where,
-    include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-    },
-    orderBy: {
-      [orderByField]: orderDirection,
-    },
-    skip: (page - 1) * perPage,
-    take: perPage,
-  });
-
-  return {
-    shifts: shifts.map(serializeShift),
-    total,
-    page,
-    perPage,
-    totalPages: Math.ceil(total / perPage),
-  };
 }
 
 export async function getActiveShift(): Promise<CorteConVentasResponse | null> {
@@ -697,3 +590,366 @@ export async function cancelShift(
 
   return { success: true, message: "Corte cancelado exitosamente" };
 }
+
+
+
+=== services/utils.ts ===
+
+import { Decimal } from "@prisma/client/runtime/library";
+import { MembershipType } from "@prisma/client";
+
+export function serializeDecimal(value: unknown): unknown {
+  return JSON.parse(
+    JSON.stringify(value, (_key, val) => {
+      if (val instanceof Decimal) {
+        return Number(val.toString());
+      }
+      if (val instanceof Date) {
+        return val.toISOString();
+      }
+      return val;
+    }),
+  );
+}
+
+/**
+ * Parse ISO date string to Date object
+ */
+export function parseISODate(dateString: string | undefined): Date | undefined {
+  if (!dateString) return undefined;
+  return new Date(dateString);
+}
+
+/**
+ * Parse boolean from query string
+ */
+export function parseBooleanQuery(
+  value: string | undefined,
+): boolean | undefined {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+}
+
+/**
+ * Parse and validate integer parameter (e.g., from URL params)
+ */
+export function parseIntParam(value: string, paramName: string = "ID"): number {
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    throw new Error(`${paramName} inválido`);
+  }
+  return parsed;
+}
+
+/**
+ * Calculate end date based on membership type
+ */
+function calculateEndDate(
+  startDate: Date,
+  membershipType: MembershipType,
+): Date {
+  const date = new Date(startDate);
+
+  switch (membershipType) {
+    case "VISIT":
+      return date;
+    case "WEEK":
+      date.setDate(date.getDate() + 7);
+      break;
+    case "MONTH_STUDENT":
+    case "MONTH_GENERAL":
+      date.setMonth(date.getMonth() + 1);
+      break;
+    case "QUARTER_STUDENT":
+    case "QUARTER_GENERAL":
+      date.setMonth(date.getMonth() + 3);
+      break;
+    case "ANNUAL_STUDENT":
+    case "ANNUAL_GENERAL":
+      date.setFullYear(date.getFullYear() + 1);
+      break;
+    case "PROMOTION":
+    case "REBIRTH":
+    case "NUTRITION_CONSULTATION":
+      date.setMonth(date.getMonth() + 1);
+      break;
+  }
+
+  return date;
+}
+
+/**
+ * Calculate membership start and end dates
+ */
+export function calculateMembershipDates(
+  membershipType: MembershipType,
+  startDate?: Date,
+): { startDate: Date; endDate: Date } {
+  const start = startDate || new Date();
+  const end = calculateEndDate(start, membershipType);
+
+  return {
+    startDate: start,
+    endDate: end,
+  };
+}
+
+
+
+
+### API SHIFTS ###
+
+
+=== app/api/shifts/route.ts ===
+
+import { NextRequest, NextResponse } from "next/server";
+import { ShiftsService } from "@/services";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { serializeDecimal } from "@/services/utils";
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const shift = await ShiftsService.openShift({
+      ...body,
+      cashierId: session.user.id,
+    });
+
+    return NextResponse.json(shift, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+
+    // Filtros
+    const search = searchParams.get("search");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const cashier = searchParams.get("cashier");
+    const status = searchParams.get("status");
+
+    // Ordenamiento
+    const orderBy = searchParams.get("orderBy") || "fecha";
+    const order = searchParams.get("order") || "desc";
+
+    // Paginación
+    const page = parseInt(searchParams.get("page") || "1");
+    const perPage = parseInt(searchParams.get("perPage") || "10");
+
+    // Construir filtros
+    const where: any = {};
+
+    if (search) {
+      where.folio = {
+        contains: search,
+        mode: "insensitive",
+      };
+    }
+
+    if (startDate && endDate) {
+      where.openingDate = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      };
+    }
+
+    if (cashier) {
+      where.cashierId = cashier;
+    }
+
+    if (status === "abiertos") {
+      where.closingDate = null;
+    } else if (status === "cerrados") {
+      where.closingDate = { not: null };
+    }
+
+    // Ordenamiento
+    const orderByField = orderBy === "folio" ? "folio" : "openingDate";
+    const orderDirection = order === "asc" ? "asc" : "desc";
+
+    // Contar total
+    const total = await prisma.shift.count({ where });
+
+    // Obtener shifts paginados
+    const shifts = await prisma.shift.findMany({
+      where,
+      include: {
+        cashier: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        [orderByField]: orderDirection,
+      },
+      skip: (page - 1) * perPage,
+      take: perPage,
+    });
+
+    return NextResponse.json({
+      shifts: serializeDecimal(shifts),
+      total,
+      page,
+      perPage,
+      totalPages: Math.ceil(total / perPage),
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+
+
+### TYPES ###
+
+
+=== types/api/shifts.ts ===
+
+import type { Corte } from "../models/corte";
+import type { MetodoPago } from "../models/movimiento-inventario";
+
+// ==================== QUERY PARAMS ====================
+
+export interface BuscarCortesQuery {
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  cashier?: string;
+  status?: string;
+  orderBy?: string;
+  order?: string;
+  page?: string;
+  perPage?: string;
+}
+
+// ==================== REQUEST TYPES ====================
+
+export interface AbrirCorteRequest {
+  initialCash: number;
+  notes?: string;
+}
+
+export interface CerrarCorteRequest {
+  shiftId: number;
+  cashAmount: number;
+  debitCardAmount: number;
+  creditCardAmount: number;
+  totalWithdrawals?: number;
+  withdrawalsConcept?: string;
+  difference: number;
+  notes?: string;
+}
+
+// ==================== RESPONSE TYPES ====================
+
+export interface CorteResponse {
+  id: number;
+  folio: string;
+  cashierId: string;
+  openingDate: Date;
+  closingDate?: Date;
+  initialCash: number;
+  ticketCount: number;
+  membershipSales: number;
+  productSales0Tax: number;
+  productSales16Tax: number;
+  subtotal: number;
+  tax: number;
+  totalSales: number;
+  cashAmount: number;
+  debitCardAmount: number;
+  creditCardAmount: number;
+  totalVoucher: number;
+  totalWithdrawals: number;
+  withdrawalsConcept?: string;
+  cancelledSales: number;
+  totalCash: number;
+  difference: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  cashier: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface CorteConVentasResponse extends CorteResponse {
+  inventoryMovements: Array<{
+    id: number;
+    type: string;
+    quantity: number;
+    ticket?: string;
+    total: number;
+    paymentMethod?: MetodoPago;
+    date: Date;
+    product: {
+      name: string;
+    };
+    member?: {
+      memberNumber: string;
+      name?: string;
+    };
+  }>;
+}
+
+export interface ResumenCorteResponse {
+  initialCash: number;
+  ticketCount: number;
+  totalSales: number;
+  cashAmount: number;
+  debitCardAmount: number;
+  creditCardAmount: number;
+  totalWithdrawals: number;
+}
+
+export interface ListaCortesResponse {
+  shifts: CorteResponse[];
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+
+export interface EstadisticasCortesResponse {
+  totalShifts: number;
+  totalSales: number;
+  averageSales: number;
+  totalDifferences: number;
+}
+
+export interface ResumenVentasPorProducto {
+  product: string;
+  quantity: number;
+  total: number;
+}
+
+export interface ResumenPorFormaPago {
+  CASH: number;
+  DEBIT_CARD: number;
+  CREDIT_CARD: number;
+  TRANSFER: number;
+}
+
+

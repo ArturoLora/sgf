@@ -3,28 +3,25 @@ import { MembersService } from "@/services";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 
-// GET /api/members
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const search = searchParams.get("search") || undefined;
-    const isActive = searchParams.get("isActive");
-    const membershipType = searchParams.get("membershipType") || undefined;
-
-    const params = {
-      search,
-      isActive: isActive ? isActive === "true" : undefined,
-      membershipType: membershipType as any,
+    const queryRaw = {
+      search: searchParams.get("search") || undefined,
+      isActive: searchParams.get("isActive") || undefined,
+      membershipType: searchParams.get("membershipType") || undefined,
     };
 
+    const params = MembersService.parseMembersQuery(queryRaw);
     const members = await MembersService.getAllMembers(params);
     return NextResponse.json(members);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al obtener socios";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-// POST /api/members
 export async function POST(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -33,14 +30,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-
-    const member = await MembersService.createMember({
-      ...body,
-      userId: session.user.id,
-    });
-
+    const serviceInput = MembersService.parseCreateMemberInput(
+      body,
+      session.user.id,
+    );
+    const member = await MembersService.createMember(serviceInput);
     return NextResponse.json(member, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al crear socio";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
