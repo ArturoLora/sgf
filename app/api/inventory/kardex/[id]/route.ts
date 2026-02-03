@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { serializeDecimal } from "@/services/utils";
+import { InventoryService } from "@/services";
 
 export async function GET(
   request: NextRequest,
@@ -8,29 +7,15 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const productId = parseInt(id);
-
-    const movements = await prisma.inventoryMovement.findMany({
-      where: { productId },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-        member: {
-          select: {
-            memberNumber: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: { date: "desc" },
-      take: 100,
-    });
-
-    return NextResponse.json(serializeDecimal(movements));
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const productId = InventoryService.parseProductIdParam(id);
+    const movements = await InventoryService.getMovementsByProduct(
+      productId,
+      100,
+    );
+    return NextResponse.json(movements);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al obtener kardex";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

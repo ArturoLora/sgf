@@ -1,27 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services";
 
-// GET /api/inventory/movements?startDate=...&endDate=...
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const queryRaw = {
+      startDate: searchParams.get("startDate") ?? "",
+      endDate: searchParams.get("endDate") ?? "",
+    };
 
-    if (!startDate || !endDate) {
-      return NextResponse.json(
-        { error: "Se requieren startDate y endDate" },
-        { status: 400 }
-      );
-    }
-
-    const movements = await InventoryService.getMovementsByDate(
-      new Date(startDate),
-      new Date(endDate)
-    );
-
+    const params = InventoryService.parseMovementsQuery(queryRaw);
+    const movements = await InventoryService.getMovementsByDate(params);
     return NextResponse.json(movements);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al obtener movimientos";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

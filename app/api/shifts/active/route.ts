@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { ShiftsService } from "@/services";
 
-// GET /api/shifts/active
 export async function GET() {
   try {
     const shift = await ShiftsService.getActiveShift();
@@ -9,12 +8,14 @@ export async function GET() {
     if (!shift) {
       return NextResponse.json(
         { message: "No hay corte activo" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(shift);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al obtener corte activo";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

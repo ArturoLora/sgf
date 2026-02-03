@@ -1,16 +1,18 @@
 // services/shifts.service.ts
 import { prisma } from "@/lib/db";
 import { mapPaymentMethod } from "./enum-mappers";
-import { parseISODate } from "./utils";
-import { ShiftsQuerySchema } from "@/types/api/shifts";
+import { parseISODate, parseIntParam } from "./utils";
+import { ShiftsQuerySchema, CloseShiftSchema } from "@/types/api/shifts";
 import type {
   CorteResponse,
   CorteConVentasResponse,
   EstadisticasCortesResponse,
   ResumenVentasPorProducto,
   ResumenPorFormaPago,
+  ResumenCorteResponse,
   ListaCortesResponse,
   ShiftsQueryInput,
+  CloseShiftInput as CloseShiftInputRaw,
 } from "@/types/api/shifts";
 
 export interface OpenShiftInput {
@@ -21,9 +23,12 @@ export interface OpenShiftInput {
 
 export interface CloseShiftInput {
   shiftId: number;
+  cashAmount?: number;
+  debitCardAmount?: number;
+  creditCardAmount?: number;
   totalWithdrawals?: number;
   withdrawalsConcept?: string;
-  totalCash: number;
+  difference?: number;
   notes?: string;
 }
 
@@ -143,6 +148,21 @@ export function parseShiftsQuery(raw: ShiftsQueryInput): GetShiftsParams {
   };
 }
 
+/**
+ * Parse and validate close shift input
+ */
+export function parseCloseShiftInput(raw: CloseShiftInputRaw): CloseShiftInput {
+  const validated = CloseShiftSchema.parse(raw);
+  return validated;
+}
+
+/**
+ * Parse shift ID from URL param
+ */
+export function parseShiftIdParam(id: string): number {
+  return parseIntParam(id, "ID de corte");
+}
+
 // ==================== SHIFT SERVICES ====================
 
 export async function openShift(data: OpenShiftInput): Promise<CorteResponse> {
@@ -250,10 +270,15 @@ export async function closeShift(
   const totalSales = subtotal + tax;
   const totalVoucher = debitCardAmount + creditCardAmount;
   const totalWithdrawals = data.totalWithdrawals || 0;
-  const totalCash = data.totalCash;
+  const totalCash =
+    (data.cashAmount || 0) +
+    (data.debitCardAmount || 0) +
+    (data.creditCardAmount || 0) -
+    totalWithdrawals;
   const expectedCash =
     Number(shift.initialCash) + cashAmount - totalWithdrawals;
-  const difference = totalCash - expectedCash;
+  const difference =
+    data.difference !== undefined ? data.difference : totalCash - expectedCash;
 
   const updatedShift = await prisma.shift.update({
     where: { id: data.shiftId },
@@ -696,4 +721,61 @@ export async function cancelShift(
   });
 
   return { success: true, message: "Corte cancelado exitosamente" };
+}
+
+/**
+ * Get shift summary for closing
+ */
+export async function getShiftSummary(
+  shiftId: number,
+): Promise<ResumenCorteResponse> {
+  const shift = await prisma.shift.findUnique({
+    where: { id: shiftId },
+    include: {
+      inventoryMovements: {
+        where: {
+          type: "SALE",
+          isCancelled: false,
+        },
+      },
+    },
+  });
+
+  if (!shift) {
+    throw new Error("Corte no encontrado");
+  }
+
+  const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
+
+  let cashAmount = 0;
+  let debitCardAmount = 0;
+  let creditCardAmount = 0;
+  let totalSales = 0;
+
+  shift.inventoryMovements.forEach((sale) => {
+    const total = Number(sale.total || 0);
+    totalSales += total;
+
+    switch (sale.paymentMethod) {
+      case "CASH":
+        cashAmount += total;
+        break;
+      case "DEBIT_CARD":
+        debitCardAmount += total;
+        break;
+      case "CREDIT_CARD":
+        creditCardAmount += total;
+        break;
+    }
+  });
+
+  return {
+    initialCash: Number(shift.initialCash),
+    ticketCount: tickets,
+    totalSales,
+    cashAmount,
+    debitCardAmount,
+    creditCardAmount,
+    totalWithdrawals: Number(shift.totalWithdrawals || 0),
+  };
 }

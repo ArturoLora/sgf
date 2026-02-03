@@ -15,9 +15,21 @@ export const ShiftsQuerySchema = z.object({
   perPage: z.string().optional(),
 });
 
+export const CloseShiftSchema = z.object({
+  shiftId: z.number(),
+  cashAmount: z.number().optional(),
+  debitCardAmount: z.number().optional(),
+  creditCardAmount: z.number().optional(),
+  totalWithdrawals: z.number().optional(),
+  withdrawalsConcept: z.string().optional(),
+  difference: z.number().optional(),
+  notes: z.string().optional(),
+});
+
 // ==================== INFERRED TYPES ====================
 
 export type ShiftsQueryInput = z.infer<typeof ShiftsQuerySchema>;
+export type CloseShiftInput = z.infer<typeof CloseShiftSchema>;
 
 // ==================== QUERY PARAMS ====================
 

@@ -1,3 +1,22 @@
+import { z } from "zod";
+
+// ==================== ZOD SCHEMAS ====================
+
+export const ReportPeriodQuerySchema = z.object({
+  startDate: z.string().min(1, "startDate is required"),
+  endDate: z.string().min(1, "endDate is required"),
+});
+
+export const DashboardQuerySchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+// ==================== INFERRED TYPES ====================
+
+export type ReportPeriodQueryInput = z.infer<typeof ReportPeriodQuerySchema>;
+export type DashboardQueryInput = z.infer<typeof DashboardQuerySchema>;
+
 // ==================== REQUEST/QUERY TYPES ====================
 
 export interface PeriodoReporteQuery {

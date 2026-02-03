@@ -1,26 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services";
 
-// GET /api/inventory/cancelled
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const queryRaw = {
+      startDate: searchParams.get("startDate") || undefined,
+      endDate: searchParams.get("endDate") || undefined,
+    };
 
-    let cancelledSales;
-
-    if (startDate && endDate) {
-      cancelledSales = await InventoryService.getCancelledSales(
-        new Date(startDate),
-        new Date(endDate)
-      );
-    } else {
-      cancelledSales = await InventoryService.getCancelledSales();
-    }
-
+    const params = InventoryService.parseCancelledSalesQuery(queryRaw);
+    const cancelledSales = await InventoryService.getCancelledSales(params);
     return NextResponse.json(cancelledSales);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Error al obtener ventas canceladas";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

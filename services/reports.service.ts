@@ -1,10 +1,16 @@
 // services/reports.service.ts
 import { prisma } from "@/lib/db";
+import {
+  ReportPeriodQuerySchema,
+  DashboardQuerySchema,
+} from "@/types/api/reports";
 import type {
   ReporteVentasPorProducto,
   ReporteVentasDiarias,
   ReporteStockActual,
   ResumenDashboard,
+  ReportPeriodQueryInput,
+  DashboardQueryInput,
 } from "@/types/api/reports";
 
 export interface ReportPeriodParams {
@@ -12,9 +18,42 @@ export interface ReportPeriodParams {
   endDate: Date;
 }
 
+export interface DashboardParams {
+  startDate?: Date;
+  endDate?: Date;
+}
+
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
+
+// ==================== PARSING HELPERS ====================
+
+export function parseReportPeriodQuery(
+  raw: ReportPeriodQueryInput,
+): ReportPeriodParams {
+  const validated = ReportPeriodQuerySchema.parse(raw);
+
+  const startDate = new Date(validated.startDate);
+  const endDate = new Date(validated.endDate);
+
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    throw new Error("Fechas inválidas");
+  }
+
+  return { startDate, endDate };
+}
+
+export function parseDashboardQuery(raw: DashboardQueryInput): DashboardParams {
+  const validated = DashboardQuerySchema.parse(raw);
+
+  return {
+    startDate: validated.startDate ? new Date(validated.startDate) : undefined,
+    endDate: validated.endDate ? new Date(validated.endDate) : undefined,
+  };
+}
+
+// ==================== REPORT SERVICES ====================
 
 export async function getSalesReportByProduct(
   params: ReportPeriodParams,
@@ -174,7 +213,7 @@ export async function getCurrentStockReport(): Promise<ReporteStockActual> {
 }
 
 export async function getDashboardSummary(
-  params?: ReportPeriodParams,
+  params?: DashboardParams,
 ): Promise<ResumenDashboard> {
   const startDate =
     params?.startDate || new Date(new Date().setHours(0, 0, 0, 0));

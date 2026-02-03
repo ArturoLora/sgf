@@ -1,11 +1,15 @@
 import { prisma } from "@/lib/db";
 import { InventoryType, Location, PaymentMethod } from "@prisma/client";
-import { calculateMembershipDates } from "./utils";
+import { calculateMembershipDates, parseISODate, parseIntParam } from "./utils";
 import {
   mapInventoryType,
   mapLocation,
   mapPaymentMethod,
 } from "./enum-mappers";
+import {
+  MovementsQuerySchema,
+  CancelledSalesQuerySchema,
+} from "@/types/api/inventory";
 import type {
   VentaCreada,
   EntradaCreada,
@@ -13,6 +17,8 @@ import type {
   AjusteCreado,
   VentaCancelada,
   MovimientoInventarioResponse,
+  MovementsQueryInput,
+  CancelledSalesQueryInput,
 } from "@/types/api/inventory";
 import type { DetalleTicketResponse, ItemVentaTicket } from "@/types/api/sales";
 
@@ -60,6 +66,16 @@ export interface CancelSaleInput {
   inventoryId: number;
   userId: string;
   cancellationReason: string;
+}
+
+export interface GetMovementsByDateParams {
+  startDate: Date;
+  endDate: Date;
+}
+
+export interface GetCancelledSalesParams {
+  startDate?: Date;
+  endDate?: Date;
 }
 
 // ==================== HELPERS ====================
@@ -176,6 +192,38 @@ async function validateStock(
   }
 
   return product;
+}
+
+// ==================== PARSING HELPERS ====================
+
+export function parseMovementsQuery(
+  raw: MovementsQueryInput,
+): GetMovementsByDateParams {
+  const validated = MovementsQuerySchema.parse(raw);
+
+  const startDate = new Date(validated.startDate);
+  const endDate = new Date(validated.endDate);
+
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    throw new Error("Fechas inválidas");
+  }
+
+  return { startDate, endDate };
+}
+
+export function parseCancelledSalesQuery(
+  raw: CancelledSalesQueryInput,
+): GetCancelledSalesParams {
+  const validated = CancelledSalesQuerySchema.parse(raw);
+
+  return {
+    startDate: parseISODate(validated.startDate),
+    endDate: parseISODate(validated.endDate),
+  };
+}
+
+export function parseProductIdParam(id: string): number {
+  return parseIntParam(id, "ID de producto");
 }
 
 // ==================== SALE SERVICES ====================
@@ -333,9 +381,6 @@ export async function cancelSale(
 
 // ==================== TICKET SERVICES ====================
 
-/**
- * Get ticket detail with all sales and calculated totals
- */
 export async function getTicketDetail(
   ticket: string,
 ): Promise<DetalleTicketResponse> {
@@ -600,14 +645,13 @@ export async function getMovementsByProduct(
 }
 
 export async function getMovementsByDate(
-  startDate: Date,
-  endDate: Date,
+  params: GetMovementsByDateParams,
 ): Promise<MovimientoInventarioResponse[]> {
   const movements = await prisma.inventoryMovement.findMany({
     where: {
       date: {
-        gte: startDate,
-        lte: endDate,
+        gte: params.startDate,
+        lte: params.endDate,
       },
     },
     include: {
@@ -702,8 +746,7 @@ export async function getSalesByShift(
 }
 
 export async function getCancelledSales(
-  startDate?: Date,
-  endDate?: Date,
+  params?: GetCancelledSalesParams,
 ): Promise<MovimientoInventarioResponse[]> {
   const where: {
     type: InventoryType;
@@ -714,10 +757,10 @@ export async function getCancelledSales(
     isCancelled: true,
   };
 
-  if (startDate && endDate) {
+  if (params?.startDate && params?.endDate) {
     where.cancellationDate = {
-      gte: startDate,
-      lte: endDate,
+      gte: params.startDate,
+      lte: params.endDate,
     };
   }
 
