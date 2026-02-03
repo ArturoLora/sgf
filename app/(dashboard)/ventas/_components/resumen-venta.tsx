@@ -1,10 +1,20 @@
 "use client";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { DollarSign, ShoppingBag } from "lucide-react";
+
+const ajustesSchema = z.object({
+  descuento: z.number().min(0, "El descuento no puede ser negativo"),
+  recargo: z.number().min(0, "El recargo no puede ser negativo"),
+});
+
+type AjustesForm = z.infer<typeof ajustesSchema>;
 
 interface ResumenVentaProps {
   subtotal: number;
@@ -27,6 +37,14 @@ export default function ResumenVenta({
   onFinalizar,
   deshabilitado,
 }: ResumenVentaProps) {
+  const { register } = useForm<AjustesForm>({
+    resolver: zodResolver(ajustesSchema),
+    defaultValues: {
+      descuento,
+      recargo,
+    },
+  });
+
   return (
     <Card className="sticky top-4">
       <CardHeader>
@@ -36,13 +54,11 @@ export default function ResumenVenta({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Subtotal */}
         <div className="flex justify-between items-center pb-3 border-b">
-          <span className="text-sm text-gray-600">Subtotal</span>
+          <span className="text-sm text-muted-foreground">Subtotal</span>
           <span className="text-lg font-semibold">${subtotal.toFixed(2)}</span>
         </div>
 
-        {/* Descuento */}
         <div className="space-y-2">
           <Label className="text-sm">Descuento</Label>
           <Input
@@ -50,12 +66,14 @@ export default function ResumenVenta({
             step="0.01"
             min="0"
             value={descuento}
-            onChange={(e) => onDescuentoChange(Number(e.target.value))}
+            {...register("descuento", {
+              valueAsNumber: true,
+              onChange: (e) => onDescuentoChange(Number(e.target.value)),
+            })}
             placeholder="0.00"
           />
         </div>
 
-        {/* Recargo */}
         <div className="space-y-2">
           <Label className="text-sm">Recargo</Label>
           <Input
@@ -63,20 +81,21 @@ export default function ResumenVenta({
             step="0.01"
             min="0"
             value={recargo}
-            onChange={(e) => onRecargoChange(Number(e.target.value))}
+            {...register("recargo", {
+              valueAsNumber: true,
+              onChange: (e) => onRecargoChange(Number(e.target.value)),
+            })}
             placeholder="0.00"
           />
         </div>
 
-        {/* Total */}
         <div className="flex justify-between items-center pt-3 border-t">
           <span className="text-base font-semibold">Total</span>
-          <span className="text-2xl font-bold text-green-600">
+          <span className="text-2xl font-bold text-green-600 dark:text-green-500">
             ${total.toFixed(2)}
           </span>
         </div>
 
-        {/* Botón finalizar */}
         <Button
           onClick={onFinalizar}
           disabled={deshabilitado}

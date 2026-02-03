@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -122,7 +122,9 @@ export default function VentasContainer({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Verificando estado del sistema...</p>
+        <p className="text-muted-foreground">
+          Verificando estado del sistema...
+        </p>
       </div>
     );
   }
@@ -131,12 +133,11 @@ export default function VentasContainer({
     <div className="space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Punto de Venta</h1>
-        <p className="text-sm sm:text-base text-gray-500">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Registra ventas de productos y membresías
         </p>
       </div>
 
-      {/* Alerta si no hay corte abierto */}
       {!hasActiveShift && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -145,7 +146,7 @@ export default function VentasContainer({
             ventas.{" "}
             <Button
               variant="link"
-              className="h-auto p-0 text-red-600 underline"
+              className="h-auto p-0 text-destructive underline"
               onClick={() => (window.location.href = "/cortes")}
             >
               Ir a Cortes
@@ -155,7 +156,6 @@ export default function VentasContainer({
       )}
 
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-        {/* Búsqueda y selección */}
         <div className="lg:col-span-2">
           <VentasForm
             productos={initialProductos}
@@ -166,7 +166,6 @@ export default function VentasContainer({
           />
         </div>
 
-        {/* Resumen lateral */}
         <div className="lg:col-span-1">
           <ResumenVenta
             subtotal={subtotal}
@@ -181,7 +180,6 @@ export default function VentasContainer({
         </div>
       </div>
 
-      {/* Carrito */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -191,7 +189,7 @@ export default function VentasContainer({
         </CardHeader>
         <CardContent>
           {carrito.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>Agrega productos para comenzar</p>
             </div>
@@ -215,7 +213,6 @@ export default function VentasContainer({
         </CardContent>
       </Card>
 
-      {/* Modal de finalización */}
       {modalAbierto && hasActiveShift && (
         <FinalizarVentaModal
           carrito={carrito}

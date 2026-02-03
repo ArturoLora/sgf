@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,10 @@ interface VentasFormProps {
   deshabilitado?: boolean;
 }
 
+interface ClienteSearchForm {
+  numeroCliente: string;
+}
+
 export default function VentasForm({
   productos,
   onAgregarProducto,
@@ -31,9 +36,9 @@ export default function VentasForm({
   deshabilitado,
 }: VentasFormProps) {
   const [busqueda, setBusqueda] = useState("");
-  const [numeroCliente, setNumeroCliente] = useState("");
 
-  // Filtrar productos activos y con stock (excepto membresías)
+  const { register, handleSubmit, reset } = useForm<ClienteSearchForm>();
+
   const productosDisponibles = useMemo(() => {
     const query = busqueda.toLowerCase();
     return productos
@@ -53,15 +58,15 @@ export default function VentasForm({
       .slice(0, 10);
   }, [productos, busqueda]);
 
-  const buscarCliente = async () => {
-    if (!numeroCliente.trim()) {
+  const buscarCliente = async (data: ClienteSearchForm) => {
+    if (!data.numeroCliente.trim()) {
       onClienteChange(null);
       return;
     }
 
     try {
       const res = await fetch(
-        `/api/members?search=${encodeURIComponent(numeroCliente)}`,
+        `/api/members?search=${encodeURIComponent(data.numeroCliente)}`,
       );
       if (!res.ok) throw new Error("Cliente no encontrado");
 
@@ -72,61 +77,52 @@ export default function VentasForm({
         alert("Cliente no encontrado");
         onClienteChange(null);
       }
-    } catch (error) {
+    } catch {
       alert("Error al buscar cliente");
       onClienteChange(null);
     }
   };
 
+  const limpiarCliente = () => {
+    reset();
+    onClienteChange(null);
+  };
+
   return (
     <Card>
       <CardContent className="p-4 sm:p-6 space-y-4">
-        {/* Búsqueda de cliente */}
         <div className="space-y-2">
           <Label className="text-sm">Cliente (Opcional)</Label>
-          <div className="flex gap-2">
+          <form onSubmit={handleSubmit(buscarCliente)} className="flex gap-2">
             <div className="relative flex-1">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 disabled={deshabilitado}
                 placeholder="Número de cliente..."
-                value={numeroCliente}
-                onChange={(e) => setNumeroCliente(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") buscarCliente();
-                }}
+                {...register("numeroCliente")}
                 className="pl-9"
               />
             </div>
-            <Button
-              onClick={buscarCliente}
-              variant="outline"
-              disabled={deshabilitado}
-            >
+            <Button type="submit" variant="outline" disabled={deshabilitado}>
               Buscar
             </Button>
             {clienteId && (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setNumeroCliente("");
-                  onClienteChange(null);
-                }}
-              >
+              <Button type="button" variant="ghost" onClick={limpiarCliente}>
                 Limpiar
               </Button>
             )}
-          </div>
+          </form>
           {clienteId && (
-            <p className="text-xs text-green-600">✓ Cliente seleccionado</p>
+            <p className="text-xs text-green-600 dark:text-green-500">
+              ✓ Cliente seleccionado
+            </p>
           )}
         </div>
 
-        {/* Búsqueda de producto */}
         <div className="space-y-2">
           <Label className="text-sm">Buscar Producto</Label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               disabled={deshabilitado}
               placeholder="Escribe para buscar..."
@@ -137,24 +133,23 @@ export default function VentasForm({
           </div>
         </div>
 
-        {/* Lista de productos */}
         {busqueda && (
           <div className="max-h-64 sm:max-h-80 overflow-y-auto space-y-2 border rounded-lg p-2">
             {productosDisponibles.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm py-4">
+              <p className="text-center text-muted-foreground text-sm py-4">
                 No se encontraron productos
               </p>
             ) : (
               productosDisponibles.map((producto) => (
                 <div
                   key={producto.id}
-                  className="flex items-center justify-between p-2 sm:p-3 rounded border hover:bg-gray-50"
+                  className="flex items-center justify-between p-2 sm:p-3 rounded border hover:bg-muted/50"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm sm:text-base truncate">
                       {producto.nombre}
                     </p>
-                    <p className="text-xs sm:text-sm text-gray-600">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       ${Number(producto.precioVenta).toFixed(2)}
                       {producto.existenciaGym > 0 && (
                         <span className="ml-2">

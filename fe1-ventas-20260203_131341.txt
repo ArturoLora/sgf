@@ -1,0 +1,1303 @@
+NACHO GYM - FE1 VENTAS EXPORT 20260203_131341
+
+=== app/(dashboard)/ventas/finalizar-venta-modal.tsx ===
+
+"use client";
+
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, CheckCircle } from "lucide-react";
+
+interface ItemCarrito {
+  producto: {
+    id: number;
+    nombre: string;
+  };
+  cantidad: number;
+  precioUnitario: number;
+}
+
+interface FinalizarVentaModalProps {
+  carrito: ItemCarrito[];
+  clienteId: number | null;
+  subtotal: number;
+  descuento: number;
+  recargo: number;
+  total: number;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export default function FinalizarVentaModal({
+  carrito,
+  clienteId,
+  subtotal,
+  descuento,
+  recargo,
+  total,
+  onClose,
+  onSuccess,
+}: FinalizarVentaModalProps) {
+  const [metodoPago, setMetodoPago] = useState<string>("CASH");
+  const [procesando, setProcesando] = useState(false);
+  const [ticketGenerado, setTicketGenerado] = useState<string | null>(null);
+
+  const procesarVenta = async () => {
+    setProcesando(true);
+
+    try {
+      const ticket = `VEN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Procesar cada item del carrito
+      for (const item of carrito) {
+        const payload = {
+          productId: item.producto.id,
+          quantity: item.cantidad,
+          memberId: clienteId,
+          unitPrice: item.precioUnitario,
+          discount: descuento / carrito.length, // Distribuir descuento proporcionalmente
+          surcharge: recargo / carrito.length, // Distribuir recargo proporcionalmente
+          paymentMethod: metodoPago,
+          ticket,
+        };
+
+        const res = await fetch("/api/inventory/sale", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "Error al procesar venta");
+        }
+      }
+
+      setTicketGenerado(ticket);
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+      }, 2000);
+    } catch (error: any) {
+      alert(error.message);
+      setProcesando(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {ticketGenerado ? "¡Venta Completada!" : "Finalizar Venta"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {ticketGenerado ? (
+          <div className="flex flex-col items-center gap-4 py-6">
+            <CheckCircle className="h-16 w-16 text-green-600" />
+            <div className="text-center">
+              <p className="text-lg font-semibold">Ticket: {ticketGenerado}</p>
+              <p className="text-2xl font-bold text-green-600 mt-2">
+                ${total.toFixed(2)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 py-4">
+            {/* Resumen */}
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Items:</span>
+                <span className="font-medium">{carrito.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium">${subtotal.toFixed(2)}</span>
+              </div>
+              {descuento > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>Descuento:</span>
+                  <span>-${descuento.toFixed(2)}</span>
+                </div>
+              )}
+              {recargo > 0 && (
+                <div className="flex justify-between text-orange-600">
+                  <span>Recargo:</span>
+                  <span>+${recargo.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t">
+                <span className="font-semibold">Total:</span>
+                <span className="text-xl font-bold text-green-600">
+                  ${total.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Método de pago */}
+            <div className="space-y-2">
+              <Label>Método de Pago</Label>
+              <Select value={metodoPago} onValueChange={setMetodoPago}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Efectivo</SelectItem>
+                  <SelectItem value="DEBIT_CARD">Tarjeta Débito</SelectItem>
+                  <SelectItem value="CREDIT_CARD">Tarjeta Crédito</SelectItem>
+                  <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {!ticketGenerado && (
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={onClose} disabled={procesando}>
+              Cancelar
+            </Button>
+            <Button onClick={procesarVenta} disabled={procesando}>
+              {procesando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar Venta
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+
+=== app/(dashboard)/ventas/loading.tsx ===
+
+
+
+
+=== app/(dashboard)/ventas/page.tsx ===
+
+// app/(dashboard)/ventas/page.tsx
+import { requireAuth } from "@/lib/require-role";
+import { getAllProducts } from "@/services/products.service";
+import VentasContainer from "./ventas-container";
+
+export default async function VentasPage() {
+  await requireAuth();
+
+  const products = await getAllProducts({ isActive: true });
+
+  // Mapear propiedades a español para el frontend
+  const productosUI = products.map((p) => ({
+    id: p.id,
+    nombre: p.name,
+    precioVenta: p.salePrice,
+    existenciaGym: p.gymStock,
+    activo: p.isActive,
+  }));
+
+  return <VentasContainer initialProductos={productosUI} />;
+}
+
+
+
+=== app/(dashboard)/ventas/producto-item.tsx ===
+
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Minus, Plus, Trash2 } from "lucide-react";
+
+interface ItemCarrito {
+  producto: {
+    id: number;
+    nombre: string;
+    precioVenta: number;
+    existenciaGym: number;
+  };
+  cantidad: number;
+  precioUnitario: number;
+}
+
+interface ProductoItemProps {
+  item: ItemCarrito;
+  onCantidadChange: (cantidad: number) => void;
+  onPrecioChange: (precio: number) => void;
+  onEliminar: () => void;
+}
+
+export default function ProductoItem({
+  item,
+  onCantidadChange,
+  onPrecioChange,
+  onEliminar,
+}: ProductoItemProps) {
+  const subtotal = item.cantidad * item.precioUnitario;
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 border rounded-lg">
+      {/* Info del producto */}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm sm:text-base truncate">
+          {item.producto.nombre}
+        </p>
+        <p className="text-xs text-gray-500">
+          Stock: {item.producto.existenciaGym}
+        </p>
+      </div>
+
+      {/* Controles - responsive */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {/* Cantidad */}
+        <div className="flex items-center gap-1 border rounded">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onCantidadChange(Math.max(0, item.cantidad - 1))}
+            className="h-8 w-8 p-0"
+          >
+            <Minus className="h-3 w-3" />
+          </Button>
+          <span className="w-8 text-center text-sm font-medium">
+            {item.cantidad}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onCantidadChange(item.cantidad + 1)}
+            className="h-8 w-8 p-0"
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+        </div>
+
+        {/* Precio unitario */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-500">$</span>
+          <Input
+            type="number"
+            step="0.01"
+            value={item.precioUnitario}
+            onChange={(e) => onPrecioChange(Number(e.target.value))}
+            className="w-20 h-8 text-sm"
+          />
+        </div>
+
+        {/* Subtotal */}
+        <div className="text-right min-w-[80px]">
+          <p className="text-sm font-bold">${subtotal.toFixed(2)}</p>
+        </div>
+
+        {/* Eliminar */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onEliminar}
+          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
+
+=== app/(dashboard)/ventas/resumen-venta.tsx ===
+
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { DollarSign, ShoppingBag } from "lucide-react";
+
+interface ResumenVentaProps {
+  subtotal: number;
+  descuento: number;
+  recargo: number;
+  total: number;
+  onDescuentoChange: (valor: number) => void;
+  onRecargoChange: (valor: number) => void;
+  onFinalizar: () => void;
+  deshabilitado: boolean;
+}
+
+export default function ResumenVenta({
+  subtotal,
+  descuento,
+  recargo,
+  total,
+  onDescuentoChange,
+  onRecargoChange,
+  onFinalizar,
+  deshabilitado,
+}: ResumenVentaProps) {
+  return (
+    <Card className="sticky top-4">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <DollarSign className="h-5 w-5" />
+          Resumen
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Subtotal */}
+        <div className="flex justify-between items-center pb-3 border-b">
+          <span className="text-sm text-gray-600">Subtotal</span>
+          <span className="text-lg font-semibold">${subtotal.toFixed(2)}</span>
+        </div>
+
+        {/* Descuento */}
+        <div className="space-y-2">
+          <Label className="text-sm">Descuento</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={descuento}
+            onChange={(e) => onDescuentoChange(Number(e.target.value))}
+            placeholder="0.00"
+          />
+        </div>
+
+        {/* Recargo */}
+        <div className="space-y-2">
+          <Label className="text-sm">Recargo</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={recargo}
+            onChange={(e) => onRecargoChange(Number(e.target.value))}
+            placeholder="0.00"
+          />
+        </div>
+
+        {/* Total */}
+        <div className="flex justify-between items-center pt-3 border-t">
+          <span className="text-base font-semibold">Total</span>
+          <span className="text-2xl font-bold text-green-600">
+            ${total.toFixed(2)}
+          </span>
+        </div>
+
+        {/* Botón finalizar */}
+        <Button
+          onClick={onFinalizar}
+          disabled={deshabilitado}
+          className="w-full gap-2"
+          size="lg"
+        >
+          <ShoppingBag className="h-5 w-5" />
+          Finalizar Venta
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
+=== app/(dashboard)/ventas/use-shift-check.tsx ===
+
+// app/(dashboard)/ventas/use-shift-check.ts
+"use client";
+
+import { useEffect, useState } from "react";
+
+export function useShiftCheck() {
+  const [hasActiveShift, setHasActiveShift] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkActiveShift();
+  }, []);
+
+  const checkActiveShift = async () => {
+    try {
+      const res = await fetch("/api/shifts/active");
+      if (!res.ok) {
+        setHasActiveShift(false);
+        return;
+      }
+      const data = await res.json();
+      setHasActiveShift(!!data);
+    } catch (error) {
+      setHasActiveShift(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { hasActiveShift, loading, recheckShift: checkActiveShift };
+}
+
+
+
+=== app/(dashboard)/ventas/ventas-container.tsx ===
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShoppingCart, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import VentasForm from "./ventas-form";
+import ProductoItem from "./producto-item";
+import ResumenVenta from "./resumen-venta";
+import FinalizarVentaModal from "./finalizar-venta-modal";
+import { useShiftCheck } from "./use-shift-check";
+
+interface Producto {
+  id: number;
+  nombre: string;
+  precioVenta: number;
+  existenciaGym: number;
+  activo: boolean;
+}
+
+interface ItemCarrito {
+  producto: Producto;
+  cantidad: number;
+  precioUnitario: number;
+}
+
+interface VentasContainerProps {
+  initialProductos: Producto[];
+}
+
+export default function VentasContainer({
+  initialProductos,
+}: VentasContainerProps) {
+  const { hasActiveShift, loading } = useShiftCheck();
+  const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
+  const [clienteId, setClienteId] = useState<number | null>(null);
+  const [descuento, setDescuento] = useState(0);
+  const [recargo, setRecargo] = useState(0);
+  const [modalAbierto, setModalAbierto] = useState(false);
+
+  const agregarAlCarrito = (producto: Producto) => {
+    if (!hasActiveShift) {
+      alert(
+        "No hay un corte abierto. Por favor, abre un corte para realizar ventas.",
+      );
+      return;
+    }
+
+    const existente = carrito.find((item) => item.producto.id === producto.id);
+
+    if (existente) {
+      setCarrito(
+        carrito.map((item) =>
+          item.producto.id === producto.id
+            ? { ...item, cantidad: item.cantidad + 1 }
+            : item,
+        ),
+      );
+    } else {
+      setCarrito([
+        ...carrito,
+        {
+          producto,
+          cantidad: 1,
+          precioUnitario: producto.precioVenta,
+        },
+      ]);
+    }
+  };
+
+  const actualizarCantidad = (productoId: number, cantidad: number) => {
+    if (cantidad === 0) {
+      setCarrito(carrito.filter((item) => item.producto.id !== productoId));
+    } else {
+      setCarrito(
+        carrito.map((item) =>
+          item.producto.id === productoId ? { ...item, cantidad } : item,
+        ),
+      );
+    }
+  };
+
+  const actualizarPrecio = (productoId: number, precio: number) => {
+    setCarrito(
+      carrito.map((item) =>
+        item.producto.id === productoId
+          ? { ...item, precioUnitario: precio }
+          : item,
+      ),
+    );
+  };
+
+  const eliminarDelCarrito = (productoId: number) => {
+    setCarrito(carrito.filter((item) => item.producto.id !== productoId));
+  };
+
+  const limpiarCarrito = () => {
+    setCarrito([]);
+    setClienteId(null);
+    setDescuento(0);
+    setRecargo(0);
+  };
+
+  const handleFinalizarClick = () => {
+    if (!hasActiveShift) {
+      alert(
+        "No hay un corte abierto. Por favor, abre un corte para realizar ventas.",
+      );
+      return;
+    }
+    setModalAbierto(true);
+  };
+
+  const subtotal = carrito.reduce(
+    (sum, item) => sum + item.precioUnitario * item.cantidad,
+    0,
+  );
+
+  const total = subtotal - descuento + recargo;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">Verificando estado del sistema...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Punto de Venta</h1>
+        <p className="text-sm sm:text-base text-gray-500">
+          Registra ventas de productos y membresías
+        </p>
+      </div>
+
+      {/* Alerta si no hay corte abierto */}
+      {!hasActiveShift && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No hay un corte abierto. Debes abrir un corte antes de realizar
+            ventas.{" "}
+            <Button
+              variant="link"
+              className="h-auto p-0 text-red-600 underline"
+              onClick={() => (window.location.href = "/cortes")}
+            >
+              Ir a Cortes
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+        {/* Búsqueda y selección */}
+        <div className="lg:col-span-2">
+          <VentasForm
+            productos={initialProductos}
+            onAgregarProducto={agregarAlCarrito}
+            clienteId={clienteId}
+            onClienteChange={setClienteId}
+            deshabilitado={!hasActiveShift}
+          />
+        </div>
+
+        {/* Resumen lateral */}
+        <div className="lg:col-span-1">
+          <ResumenVenta
+            subtotal={subtotal}
+            descuento={descuento}
+            recargo={recargo}
+            total={total}
+            onDescuentoChange={setDescuento}
+            onRecargoChange={setRecargo}
+            onFinalizar={handleFinalizarClick}
+            deshabilitado={carrito.length === 0 || !hasActiveShift}
+          />
+        </div>
+      </div>
+
+      {/* Carrito */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <ShoppingCart className="h-5 w-5" />
+            Carrito ({carrito.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {carrito.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>Agrega productos para comenzar</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {carrito.map((item) => (
+                <ProductoItem
+                  key={item.producto.id}
+                  item={item}
+                  onCantidadChange={(cantidad) =>
+                    actualizarCantidad(item.producto.id, cantidad)
+                  }
+                  onPrecioChange={(precio) =>
+                    actualizarPrecio(item.producto.id, precio)
+                  }
+                  onEliminar={() => eliminarDelCarrito(item.producto.id)}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal de finalización */}
+      {modalAbierto && hasActiveShift && (
+        <FinalizarVentaModal
+          carrito={carrito}
+          clienteId={clienteId}
+          subtotal={subtotal}
+          descuento={descuento}
+          recargo={recargo}
+          total={total}
+          onClose={() => setModalAbierto(false)}
+          onSuccess={limpiarCarrito}
+        />
+      )}
+    </div>
+  );
+}
+
+
+
+=== app/(dashboard)/ventas/ventas-form.tsx ===
+
+"use client";
+
+import { useState, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Search, Plus, User } from "lucide-react";
+
+interface Producto {
+  id: number;
+  nombre: string;
+  precioVenta: number;
+  existenciaGym: number;
+  activo: boolean;
+}
+
+interface VentasFormProps {
+  productos: Producto[];
+  onAgregarProducto: (producto: Producto) => void;
+  clienteId: number | null;
+  onClienteChange: (id: number | null) => void;
+  deshabilitado?: boolean;
+}
+
+export default function VentasForm({
+  productos,
+  onAgregarProducto,
+  clienteId,
+  onClienteChange,
+  deshabilitado,
+}: VentasFormProps) {
+  const [busqueda, setBusqueda] = useState("");
+  const [numeroCliente, setNumeroCliente] = useState("");
+
+  // Filtrar productos activos y con stock (excepto membresías)
+  const productosDisponibles = useMemo(() => {
+    const query = busqueda.toLowerCase();
+    return productos
+      .filter((p) => p.activo)
+      .filter((p) => {
+        const esMembresia =
+          p.nombre.includes("EFECTIVO") ||
+          p.nombre.includes("VISITA") ||
+          p.nombre.includes("MENSUALIDAD") ||
+          p.nombre.includes("SEMANA") ||
+          p.nombre.includes("TRIMESTRE") ||
+          p.nombre.includes("ANUAL");
+
+        return esMembresia || p.existenciaGym > 0;
+      })
+      .filter((p) => p.nombre.toLowerCase().includes(query))
+      .slice(0, 10);
+  }, [productos, busqueda]);
+
+  const buscarCliente = async () => {
+    if (!numeroCliente.trim()) {
+      onClienteChange(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/members?search=${encodeURIComponent(numeroCliente)}`,
+      );
+      if (!res.ok) throw new Error("Cliente no encontrado");
+
+      const miembros = await res.json();
+      if (miembros.length > 0) {
+        onClienteChange(miembros[0].id);
+      } else {
+        alert("Cliente no encontrado");
+        onClienteChange(null);
+      }
+    } catch (error) {
+      alert("Error al buscar cliente");
+      onClienteChange(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4 sm:p-6 space-y-4">
+        {/* Búsqueda de cliente */}
+        <div className="space-y-2">
+          <Label className="text-sm">Cliente (Opcional)</Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                disabled={deshabilitado}
+                placeholder="Número de cliente..."
+                value={numeroCliente}
+                onChange={(e) => setNumeroCliente(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") buscarCliente();
+                }}
+                className="pl-9"
+              />
+            </div>
+            <Button
+              onClick={buscarCliente}
+              variant="outline"
+              disabled={deshabilitado}
+            >
+              Buscar
+            </Button>
+            {clienteId && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setNumeroCliente("");
+                  onClienteChange(null);
+                }}
+              >
+                Limpiar
+              </Button>
+            )}
+          </div>
+          {clienteId && (
+            <p className="text-xs text-green-600">✓ Cliente seleccionado</p>
+          )}
+        </div>
+
+        {/* Búsqueda de producto */}
+        <div className="space-y-2">
+          <Label className="text-sm">Buscar Producto</Label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              disabled={deshabilitado}
+              placeholder="Escribe para buscar..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        {/* Lista de productos */}
+        {busqueda && (
+          <div className="max-h-64 sm:max-h-80 overflow-y-auto space-y-2 border rounded-lg p-2">
+            {productosDisponibles.length === 0 ? (
+              <p className="text-center text-gray-500 text-sm py-4">
+                No se encontraron productos
+              </p>
+            ) : (
+              productosDisponibles.map((producto) => (
+                <div
+                  key={producto.id}
+                  className="flex items-center justify-between p-2 sm:p-3 rounded border hover:bg-gray-50"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm sm:text-base truncate">
+                      {producto.nombre}
+                    </p>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      ${Number(producto.precioVenta).toFixed(2)}
+                      {producto.existenciaGym > 0 && (
+                        <span className="ml-2">
+                          Stock: {producto.existenciaGym}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <Button
+                    disabled={deshabilitado}
+                    size="sm"
+                    onClick={() => {
+                      onAgregarProducto(producto);
+                      setBusqueda("");
+                    }}
+                    className="gap-1 shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Agregar</span>
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
+=== app/(dashboard)/ventas/README.md ===
+
+# Módulo de Ventas
+
+## Propósito
+
+Interfaz de punto de venta (POS) para registrar transacciones de productos y membresías en tiempo real.
+
+## Estructura
+
+### Server Components
+
+- `page.tsx`: Carga inicial de productos activos desde DB
+
+### Client Components
+
+- `ventas-container.tsx`: Estado global del carrito y coordinación
+- `ventas-form.tsx`: Búsqueda de productos y selección de cliente
+- `producto-item.tsx`: Línea individual del carrito con controles
+- `resumen-venta.tsx`: Cálculo de subtotal/descuento/recargo/total
+- `finalizar-venta-modal.tsx`: Confirmación y método de pago
+
+## Flujo de Datos
+
+1. **Carga Inicial** (Server)
+   - `page.tsx` → fetch productos activos desde DB
+   - Pasa a `ventas-container.tsx` como props
+
+2. **Agregar al Carrito** (Client)
+   - Usuario busca producto en `ventas-form.tsx`
+   - Se agrega a estado local en `ventas-container.tsx`
+   - Se renderiza en lista usando `producto-item.tsx`
+
+3. **Modificar Cantidades** (Client)
+   - Componente `producto-item.tsx` maneja +/-
+   - Actualiza estado en `ventas-container.tsx`
+   - `resumen-venta.tsx` recalcula totales
+
+4. **Finalizar Venta** (Client → API)
+   - Modal `finalizar-venta-modal.tsx` captura método de pago
+   - POST a `/api/inventory/sale` con cada item
+   - Recibe ticket generado
+   - Limpia carrito
+
+## Responsabilidades Server vs Client
+
+### Server (page.tsx)
+
+- Fetch inicial de productos
+- Autenticación vía `requireAuth()`
+- NO maneja estado del carrito
+
+### Client (todos los demás)
+
+- Estado del carrito
+- Búsqueda en tiempo real
+- Cálculos de totales
+- Interacción con API de ventas
+
+## Decisiones Importantes
+
+1. **Búsqueda en Memoria**: Filtrado de productos en cliente (lista pequeña)
+2. **Ticket Único**: Generado en cliente `VEN-${timestamp}-${random}`
+3. **Validación de Stock**: Delegada a API `/api/inventory/sale`
+4. **Cancelación**: Integrada con `/api/inventory/cancel`
+
+## Patrón Responsive
+
+- **Mobile**: Carrito en columna única, botones apilados
+- **Tablet**: Grid 2 columnas, búsqueda + carrito
+- **Desktop**: Grid 3 columnas, panel lateral de resumen
+
+### Breakpoints Tailwind
+
+- `sm:` 640px
+- `md:` 768px
+- `lg:` 1024px
+
+## Integración con Inventario
+
+Cada venta llama a `InventoryService.createSale()`:
+
+- Descuenta stock de GYM
+- Registra en `InventoryMovement` tipo `SALE`
+- Actualiza visitas del socio si aplica
+- Renueva membresía si es producto de membresía
+
+
+
+=== types/api/sales.ts ===
+
+import { z } from "zod";
+import type { MetodoPago } from "../models/movimiento-inventario";
+
+// ==================== ZOD SCHEMAS ====================
+
+export const TicketParamsSchema = z.object({
+  ticket: z.string(),
+});
+
+// ==================== INFERRED TYPES ====================
+
+export type TicketParamsInput = z.infer<typeof TicketParamsSchema>;
+
+// ==================== QUERY PARAMS ====================
+
+export interface ObtenerHistorialVentasQuery {
+  startDate?: string;
+  endDate?: string;
+  cashier?: string;
+  product?: string;
+  member?: string;
+  paymentMethod?: string;
+  onlyActive?: string;
+  productType?: string;
+  search?: string;
+  orderBy?: string;
+  order?: string;
+  page?: string;
+  perPage?: string;
+}
+
+// ==================== RESPONSE TYPES ====================
+
+export interface ProductoVentaResponse {
+  id: number;
+  name: string;
+  salePrice: number;
+  gymStock: number;
+  warehouseStock: number;
+  totalStock: number;
+}
+
+export interface ItemVentaTicket {
+  id: number;
+  product: {
+    name: string;
+  };
+  quantity: number;
+  total: number;
+}
+
+export interface TicketVentaAgrupado {
+  ticket: string;
+  date: Date;
+  total: number;
+  paymentMethod?: MetodoPago;
+  cashier: string;
+  member?: {
+    memberNumber: string;
+    name?: string;
+  };
+  isCancelled: boolean;
+  items: ItemVentaTicket[];
+}
+
+export interface HistorialVentasResponse {
+  tickets: TicketVentaAgrupado[];
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+
+export interface DetalleTicketResponse {
+  ticket: string;
+  date: Date;
+  cashier: string;
+  paymentMethod?: MetodoPago;
+  member?: {
+    memberNumber: string;
+    name?: string;
+  };
+  isCancelled: boolean;
+  cancellationReason?: string;
+  cancellationDate?: Date;
+  notes?: string;
+  total: number;
+  items: ItemVentaTicket[];
+}
+
+
+
+=== types/api/inventory.ts ===
+
+import { z } from "zod";
+import type {
+  TipoInventario,
+  Ubicacion,
+  MetodoPago,
+} from "../models/movimiento-inventario";
+import type {
+  MovimientoInventario,
+  MovimientoInventarioConRelaciones,
+} from "../models/movimiento-inventario";
+
+// ==================== ZOD SCHEMAS ====================
+
+export const MovementsQuerySchema = z.object({
+  startDate: z.string().min(1, "startDate is required"),
+  endDate: z.string().min(1, "endDate is required"),
+});
+
+export const CancelledSalesQuerySchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+export const CreateSaleInputSchema = z.object({
+  productId: z.number(),
+  quantity: z.number(),
+  memberId: z.number().optional(),
+  unitPrice: z.number().optional(),
+  discount: z.number().optional(),
+  surcharge: z.number().optional(),
+  paymentMethod: z.string(),
+  ticket: z.string(),
+  shiftId: z.number().optional(),
+  notes: z.string().optional(),
+});
+
+export const CreateEntryInputSchema = z.object({
+  productId: z.number(),
+  quantity: z.number(),
+  location: z.string(),
+  notes: z.string().optional(),
+});
+
+export const CreateTransferInputSchema = z.object({
+  productId: z.number(),
+  quantity: z.number(),
+  destination: z.string(),
+  notes: z.string().optional(),
+});
+
+export const CreateAdjustmentInputSchema = z.object({
+  productId: z.number(),
+  quantity: z.number(),
+  location: z.string(),
+  notes: z.string(),
+});
+
+export const CancelSaleInputSchema = z.object({
+  inventoryId: z.number(),
+  cancellationReason: z.string(),
+});
+
+// ==================== INFERRED TYPES ====================
+
+export type MovementsQueryInput = z.infer<typeof MovementsQuerySchema>;
+export type CancelledSalesQueryInput = z.infer<
+  typeof CancelledSalesQuerySchema
+>;
+
+// ==================== REQUEST TYPES ====================
+
+export interface CrearVentaRequest {
+  productId: number;
+  quantity: number;
+  memberId?: number;
+  unitPrice?: number;
+  discount?: number;
+  surcharge?: number;
+  paymentMethod: MetodoPago;
+  ticket: string;
+  shiftId?: number;
+  notes?: string;
+}
+
+export interface CrearEntradaRequest {
+  productId: number;
+  quantity: number;
+  location: Ubicacion;
+  notes?: string;
+}
+
+export interface CrearTraspasoRequest {
+  productId: number;
+  quantity: number;
+  destination: Ubicacion;
+  notes?: string;
+}
+
+export interface CrearAjusteRequest {
+  productId: number;
+  quantity: number;
+  location: Ubicacion;
+  notes: string;
+}
+
+export interface CancelarVentaRequest {
+  inventoryId: number;
+  cancellationReason: string;
+}
+
+// ==================== RESPONSE TYPES ====================
+
+export interface MovimientoInventarioResponse {
+  id: number;
+  productId: number;
+  type: TipoInventario;
+  location: Ubicacion;
+  quantity: number;
+  ticket?: string;
+  memberId?: number;
+  userId: string;
+  unitPrice?: number;
+  subtotal?: number;
+  discount?: number;
+  surcharge?: number;
+  total?: number;
+  paymentMethod?: MetodoPago;
+  shiftId?: number;
+  notes?: string;
+  isCancelled: boolean;
+  cancellationReason?: string;
+  cancellationDate?: Date;
+  date: Date;
+  createdAt: Date;
+  product: {
+    name: string;
+    salePrice?: number;
+  };
+  member?: {
+    memberNumber: string;
+    name?: string;
+  };
+  user: {
+    name: string;
+  };
+}
+
+export interface KardexMovimientoResponse {
+  id: number;
+  type: TipoInventario;
+  location: Ubicacion;
+  quantity: number;
+  ticket?: string;
+  unitPrice?: number;
+  total?: number;
+  paymentMethod?: MetodoPago;
+  notes?: string;
+  isCancelled: boolean;
+  date: Date;
+  user: {
+    name: string;
+  };
+  member?: {
+    memberNumber: string;
+    name?: string;
+  };
+}
+
+// ==================== QUERY PARAMS ====================
+
+export interface ObtenerMovimientosQuery {
+  startDate: string;
+  endDate: string;
+}
+
+export interface ObtenerVentasCanceladasQuery {
+  startDate?: string;
+  endDate?: string;
+}
+
+// ==================== INTERNAL TYPES ====================
+
+export interface VentaCreada extends MovimientoInventario {
+  product: {
+    name: string;
+  };
+  member?: {
+    memberNumber: string;
+    name?: string;
+  };
+  user: {
+    name: string;
+  };
+}
+
+export interface EntradaCreada extends MovimientoInventario {
+  product: {
+    name: string;
+  };
+  user: {
+    name: string;
+  };
+}
+
+export interface TraspasoCreado extends MovimientoInventario {
+  product: {
+    name: string;
+  };
+  user: {
+    name: string;
+  };
+}
+
+export interface AjusteCreado extends MovimientoInventario {
+  product: {
+    name: string;
+  };
+  user: {
+    name: string;
+  };
+}
+
+export interface VentaCancelada extends MovimientoInventario {
+  product: {
+    name: string;
+  };
+  member?: {
+    memberNumber: string;
+    name?: string;
+  };
+}
+
+

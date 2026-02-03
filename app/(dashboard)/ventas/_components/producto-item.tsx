@@ -32,19 +32,16 @@ export default function ProductoItem({
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 border rounded-lg">
-      {/* Info del producto */}
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm sm:text-base truncate">
           {item.producto.nombre}
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Stock: {item.producto.existenciaGym}
         </p>
       </div>
 
-      {/* Controles - responsive */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        {/* Cantidad */}
         <div className="flex items-center gap-1 border rounded">
           <Button
             size="sm"
@@ -67,9 +64,8 @@ export default function ProductoItem({
           </Button>
         </div>
 
-        {/* Precio unitario */}
         <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-500">$</span>
+          <span className="text-xs text-muted-foreground">$</span>
           <Input
             type="number"
             step="0.01"
@@ -79,17 +75,15 @@ export default function ProductoItem({
           />
         </div>
 
-        {/* Subtotal */}
-        <div className="text-right min-w-[80px]">
+        <div className="text-right min-w-20">
           <p className="text-sm font-bold">${subtotal.toFixed(2)}</p>
         </div>
 
-        {/* Eliminar */}
         <Button
           size="sm"
           variant="ghost"
           onClick={onEliminar}
-          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+          className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
         >
           <Trash2 className="h-4 w-4" />
         </Button>

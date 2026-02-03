@@ -1,4 +1,3 @@
-// app/(dashboard)/ventas/use-shift-check.ts
 "use client";
 
 import { useEffect, useState } from "react";
@@ -20,7 +19,7 @@ export function useShiftCheck() {
       }
       const data = await res.json();
       setHasActiveShift(!!data);
-    } catch (error) {
+    } catch {
       setHasActiveShift(false);
     } finally {
       setLoading(false);
