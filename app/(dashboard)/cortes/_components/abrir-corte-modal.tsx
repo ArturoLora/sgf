@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { DollarSign, Loader2 } from "lucide-react";
+import { OpenShiftSchema, type OpenShiftInput } from "@/types/api/shifts";
 
 interface AbrirCorteModalProps {
   onClose: () => void;
@@ -22,39 +24,35 @@ export default function AbrirCorteModal({
   onClose,
   onSuccess,
 }: AbrirCorteModalProps) {
-  const [fondoInicial, setFondoInicial] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setError,
+  } = useForm<OpenShiftInput>({
+    resolver: zodResolver(OpenShiftSchema),
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    const monto = parseFloat(fondoInicial);
-    if (isNaN(monto) || monto < 0) {
-      setError("Ingresa un monto válido");
-      return;
-    }
-
-    setLoading(true);
-
+  const onSubmit = async (data: OpenShiftInput) => {
     try {
+      const validated = OpenShiftSchema.parse(data);
+
       const res = await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ initialCash: monto }),
+        body: JSON.stringify(validated),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al abrir corte");
+        const error = await res.json();
+        throw new Error(error.error || "Error al abrir corte");
       }
 
       onSuccess();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError("root", {
+        message: err instanceof Error ? err.message : "Error desconocido",
+      });
     }
   };
 
@@ -71,17 +69,17 @@ export default function AbrirCorteModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              {error}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {errors.root && (
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+              {errors.root.message}
             </div>
           )}
 
           <div className="space-y-2">
             <Label htmlFor="fondoInicial">Fondo Inicial *</Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 $
               </span>
               <Input
@@ -90,14 +88,17 @@ export default function AbrirCorteModal({
                 step="0.01"
                 min="0"
                 placeholder="0.00"
-                value={fondoInicial}
-                onChange={(e) => setFondoInicial(e.target.value)}
+                {...register("initialCash", { valueAsNumber: true })}
                 className="pl-7"
-                required
                 autoFocus
               />
             </div>
-            <p className="text-xs text-gray-500">
+            {errors.initialCash && (
+              <p className="text-sm text-destructive">
+                {errors.initialCash.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
               Monto en efectivo con el que inicias el turno
             </p>
           </div>
@@ -107,13 +108,17 @@ export default function AbrirCorteModal({
               type="button"
               variant="outline"
               onClick={onClose}
-              disabled={loading}
+              disabled={isSubmitting}
               className="flex-1"
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1 gap-2">
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 gap-2"
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Abrir Corte
             </Button>
           </div>

@@ -3,15 +3,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Calendar, ChevronLeft, ChevronRight, User } from "lucide-react";
+import type { CorteResponse } from "@/types/api/shifts";
 
 interface CortesListaProps {
-  cortes: any[];
+  cortes: CorteResponse[];
   loading: boolean;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
   onVerDetalle: (corteId: number) => void;
-  isAdmin: boolean;
 }
 
 export default function CortesLista({
@@ -21,9 +21,8 @@ export default function CortesLista({
   totalPages,
   onPageChange,
   onVerDetalle,
-  isAdmin,
 }: CortesListaProps) {
-  const formatFecha = (fecha: string) => {
+  const formatFecha = (fecha: string | Date) => {
     return new Date(fecha).toLocaleString("es-MX", {
       day: "2-digit",
       month: "short",
@@ -33,17 +32,21 @@ export default function CortesLista({
     });
   };
 
-  const calcularDiferencia = (corte: any) => {
+  const calcularDiferencia = (corte: CorteResponse) => {
     if (!corte.closingDate) return null;
     return Number(corte.difference);
   };
 
   if (loading) {
-    return <p className="text-center text-gray-500 py-8">Cargando...</p>;
+    return (
+      <p className="text-center text-muted-foreground py-8">Cargando...</p>
+    );
   }
 
   if (!cortes || cortes.length === 0) {
-    return <p className="text-center text-gray-500 py-8">Sin resultados</p>;
+    return (
+      <p className="text-center text-muted-foreground py-8">Sin resultados</p>
+    );
   }
 
   return (
@@ -59,10 +62,11 @@ export default function CortesLista({
             <div
               key={corte.id}
               className={`border rounded-lg p-3 sm:p-4 ${
-                !estaCerrado ? "bg-blue-50 border-blue-200" : ""
-              } ${tieneDiferencia && estaCerrado ? "bg-yellow-50 border-yellow-200" : ""}`}
+                !estaCerrado
+                  ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900"
+                  : ""
+              } ${tieneDiferencia && estaCerrado ? "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900" : ""}`}
             >
-              {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -74,21 +78,21 @@ export default function CortesLista({
                         Cerrado
                       </Badge>
                     ) : (
-                      <Badge className="bg-blue-600 text-white shrink-0">
+                      <Badge className="bg-blue-600 dark:bg-blue-700 text-white shrink-0">
                         Abierto
                       </Badge>
                     )}
                     {tieneDiferencia && (
                       <Badge
                         variant="outline"
-                        className="bg-yellow-50 text-yellow-700 border-yellow-200 shrink-0"
+                        className="bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-500 border-yellow-200 dark:border-yellow-800 shrink-0"
                       >
                         Con diferencia
                       </Badge>
                     )}
                   </div>
 
-                  <div className="space-y-1 text-xs sm:text-sm text-gray-600">
+                  <div className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <User className="h-3 w-3 shrink-0" />
                       <span className="truncate">
@@ -103,7 +107,7 @@ export default function CortesLista({
                       </span>
                     </div>
 
-                    {estaCerrado && (
+                    {estaCerrado && corte.closingDate && (
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3 shrink-0" />
                         <span className="truncate">
@@ -114,18 +118,19 @@ export default function CortesLista({
                   </div>
                 </div>
 
-                {/* Totales */}
                 <div className="text-left sm:text-right shrink-0">
                   <p className="text-xl sm:text-2xl font-bold">
                     ${Number(corte.totalSales).toFixed(2)}
                   </p>
-                  <p className="text-xs sm:text-sm text-gray-500">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Fondo: ${Number(corte.initialCash).toFixed(2)}
                   </p>
                   {tieneDiferencia && (
                     <p
                       className={`text-xs sm:text-sm font-medium ${
-                        diferencia! > 0 ? "text-green-600" : "text-red-600"
+                        diferencia! > 0
+                          ? "text-green-600 dark:text-green-500"
+                          : "text-red-600 dark:text-red-500"
                       }`}
                     >
                       Dif: ${Math.abs(diferencia!).toFixed(2)}{" "}
@@ -135,21 +140,20 @@ export default function CortesLista({
                 </div>
               </div>
 
-              {/* Resumen */}
               {estaCerrado && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-50 rounded p-2 sm:p-3 border-t text-xs sm:text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-muted/50 rounded p-2 sm:p-3 border-t text-xs sm:text-sm">
                   <div>
-                    <p className="text-gray-600">Tickets</p>
+                    <p className="text-muted-foreground">Tickets</p>
                     <p className="font-medium">{corte.ticketCount}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Efectivo</p>
+                    <p className="text-muted-foreground">Efectivo</p>
                     <p className="font-medium">
                       ${Number(corte.cashAmount).toFixed(2)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Tarjetas</p>
+                    <p className="text-muted-foreground">Tarjetas</p>
                     <p className="font-medium">
                       $
                       {(
@@ -159,15 +163,14 @@ export default function CortesLista({
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Retiros</p>
-                    <p className="font-medium text-red-600">
+                    <p className="text-muted-foreground">Retiros</p>
+                    <p className="font-medium text-red-600 dark:text-red-500">
                       ${Number(corte.totalWithdrawals).toFixed(2)}
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Acciones */}
               <div className="flex gap-2 mt-3 pt-3 border-t">
                 <Button
                   size="sm"
@@ -184,10 +187,9 @@ export default function CortesLista({
         })}
       </div>
 
-      {/* Paginación */}
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
-          <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+          <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
             Página {currentPage} de {totalPages}
           </p>
           <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">

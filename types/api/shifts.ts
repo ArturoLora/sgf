@@ -15,12 +15,17 @@ export const ShiftsQuerySchema = z.object({
   perPage: z.string().optional(),
 });
 
+export const OpenShiftSchema = z.object({
+  initialCash: z.number().min(0, "El fondo inicial debe ser mayor o igual a 0"),
+  notes: z.string().optional(),
+});
+
 export const CloseShiftSchema = z.object({
   shiftId: z.number(),
-  cashAmount: z.number().optional(),
-  debitCardAmount: z.number().optional(),
-  creditCardAmount: z.number().optional(),
-  totalWithdrawals: z.number().optional(),
+  cashAmount: z.number().min(0).optional(),
+  debitCardAmount: z.number().min(0).optional(),
+  creditCardAmount: z.number().min(0).optional(),
+  totalWithdrawals: z.number().min(0).optional(),
   withdrawalsConcept: z.string().optional(),
   difference: z.number().optional(),
   notes: z.string().optional(),
@@ -29,6 +34,7 @@ export const CloseShiftSchema = z.object({
 // ==================== INFERRED TYPES ====================
 
 export type ShiftsQueryInput = z.infer<typeof ShiftsQuerySchema>;
+export type OpenShiftInput = z.infer<typeof OpenShiftSchema>;
 export type CloseShiftInput = z.infer<typeof CloseShiftSchema>;
 
 // ==================== QUERY PARAMS ====================

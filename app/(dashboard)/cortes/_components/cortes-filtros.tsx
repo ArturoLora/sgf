@@ -44,7 +44,7 @@ export default function CortesFiltros({
     ordenarPor: "fecha_desc",
   });
 
-  const handleChange = (key: keyof FiltrosCorte, value: any) => {
+  const handleChange = (key: keyof FiltrosCorte, value: string) => {
     const nuevosFiltros = { ...filtros, [key]: value };
     setFiltros(nuevosFiltros);
   };
@@ -112,10 +112,9 @@ export default function CortesFiltros({
   return (
     <Card>
       <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {/* Búsqueda y Acciones */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por folio..."
               value={filtros.busqueda}
@@ -136,7 +135,7 @@ export default function CortesFiltros({
             <Button
               onClick={aplicarFiltros}
               disabled={loading}
-              className="gap-2 flex-1 sm:flex-initial sm:min-w-[100px]"
+              className="gap-2 flex-1 sm:flex-initial sm:min-w-25"
             >
               {loading ? "Buscando..." : "Buscar"}
             </Button>
@@ -153,7 +152,6 @@ export default function CortesFiltros({
           </div>
         </div>
 
-        {/* Filtros Rápidos de Fecha */}
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -193,7 +191,6 @@ export default function CortesFiltros({
           )}
         </div>
 
-        {/* Filtros Avanzados */}
         {mostrarFiltros && (
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pt-3 sm:pt-4 border-t">
             <div className="space-y-2">
@@ -238,7 +235,9 @@ export default function CortesFiltros({
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filtros.estado}
-                onValueChange={(value: any) => handleChange("estado", value)}
+                onValueChange={(value: "todos" | "abiertos" | "cerrados") =>
+                  handleChange("estado", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -255,9 +254,13 @@ export default function CortesFiltros({
               <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filtros.ordenarPor}
-                onValueChange={(value: any) =>
-                  handleChange("ordenarPor", value)
-                }
+                onValueChange={(
+                  value:
+                    | "fecha_desc"
+                    | "fecha_asc"
+                    | "folio_desc"
+                    | "folio_asc",
+                ) => handleChange("ordenarPor", value)}
               >
                 <SelectTrigger>
                   <SelectValue />

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,10 +15,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CloseShiftSchema, type CloseShiftInput } from "@/types/api/shifts";
+import type { ResumenCorteResponse, CorteResponse } from "@/types/api/shifts";
 
 interface CerrarCorteModalProps {
-  corte: any;
+  corte: CorteResponse;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -26,24 +29,56 @@ export default function CerrarCorteModal({
   onClose,
   onSuccess,
 }: CerrarCorteModalProps) {
-  const [resumen, setResumen] = useState<any>(null);
+  const [resumen, setResumen] = useState<ResumenCorteResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Campos del formulario
-  const [efectivoReal, setEfectivoReal] = useState("");
-  const [tarjetaDebito, setTarjetaDebito] = useState("");
-  const [tarjetaCredito, setTarjetaCredito] = useState("");
-  const [retiros, setRetiros] = useState("");
-  const [conceptoRetiros, setConceptoRetiros] = useState("");
-  const [notas, setNotas] = useState("");
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { isSubmitting },
+  } = useForm<CloseShiftInput>({
+    resolver: zodResolver(CloseShiftSchema),
+    defaultValues: {
+      shiftId: corte.id,
+      cashAmount: 0,
+      debitCardAmount: 0,
+      creditCardAmount: 0,
+      totalWithdrawals: 0,
+      withdrawalsConcept: "",
+      notes: "",
+      difference: 0,
+    },
+  });
 
-  useEffect(() => {
-    cargarResumen();
-  }, []);
+  const watchedValues = watch();
 
-  const cargarResumen = async () => {
+  const calcularDiferencia = useCallback(() => {
+    if (!resumen) return 0;
+
+    const efectivo = Number(watchedValues.cashAmount) || 0;
+    const debito = Number(watchedValues.debitCardAmount) || 0;
+    const credito = Number(watchedValues.creditCardAmount) || 0;
+    const retiros = Number(watchedValues.totalWithdrawals) || 0;
+
+    const totalReal = efectivo + debito + credito - retiros;
+    const totalEsperado =
+      Number(resumen.initialCash) +
+      Number(resumen.totalSales) -
+      Number(resumen.totalWithdrawals || 0);
+
+    return Number((totalReal - totalEsperado).toFixed(2));
+  }, [
+    resumen,
+    watchedValues.cashAmount,
+    watchedValues.debitCardAmount,
+    watchedValues.creditCardAmount,
+    watchedValues.totalWithdrawals,
+  ]);
+
+  const cargarResumen = useCallback(async () => {
     try {
       const res = await fetch(`/api/shifts/${corte.id}/summary`);
       if (!res.ok) throw new Error("Error al cargar resumen");
@@ -51,75 +86,51 @@ export default function CerrarCorteModal({
       const data = await res.json();
       setResumen(data);
 
-      // Pre-llenar con valores esperados
-      setTarjetaDebito(data.debitCardAmount || "0");
-      setTarjetaCredito(data.creditCardAmount || "0");
-      setRetiros(data.totalWithdrawals || "0");
+      setValue("debitCardAmount", Number(data.debitCardAmount) || 0);
+      setValue("creditCardAmount", Number(data.creditCardAmount) || 0);
+      setValue("totalWithdrawals", Number(data.totalWithdrawals) || 0);
 
-      // Calcular efectivo esperado
       const efectivoEsperado =
         Number(data.initialCash) +
         Number(data.cashAmount) -
         Number(data.totalWithdrawals || 0);
-      setEfectivoReal(efectivoEsperado.toFixed(2));
-    } catch (err: any) {
-      setError(err.message);
+      setValue("cashAmount", Number(efectivoEsperado.toFixed(2)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
-  };
+  }, [corte.id, setValue]);
 
-  const calcularDiferencia = () => {
-    if (!resumen) return 0;
+  useEffect(() => {
+    cargarResumen();
+  }, [cargarResumen]);
 
-    const efectivo = parseFloat(efectivoReal) || 0;
-    const debito = parseFloat(tarjetaDebito) || 0;
-    const credito = parseFloat(tarjetaCredito) || 0;
-    const retirosValue = parseFloat(retiros) || 0;
+  useEffect(() => {
+    if (resumen) {
+      const diferencia = calcularDiferencia();
+      setValue("difference", diferencia);
+    }
+  }, [resumen, calcularDiferencia, setValue]);
 
-    const totalReal = efectivo + debito + credito - retirosValue;
-    const totalEsperado =
-      Number(resumen.initialCash) +
-      Number(resumen.totalSales) -
-      Number(resumen.totalWithdrawals || 0);
-
-    return totalReal - totalEsperado;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    const diferencia = calcularDiferencia();
-
-    setSubmitting(true);
-
+  const onSubmit = async (data: CloseShiftInput) => {
     try {
+      const validated = CloseShiftSchema.parse(data);
+
       const res = await fetch("/api/shifts/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          shiftId: corte.id,
-          cashAmount: parseFloat(efectivoReal),
-          debitCardAmount: parseFloat(tarjetaDebito),
-          creditCardAmount: parseFloat(tarjetaCredito),
-          totalWithdrawals: parseFloat(retiros),
-          withdrawalsConcept: conceptoRetiros || undefined,
-          difference: diferencia,
-          notes: notas || undefined,
-        }),
+        body: JSON.stringify(validated),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al cerrar corte");
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al cerrar corte");
       }
 
       onSuccess();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
     }
   };
 
@@ -129,7 +140,7 @@ export default function CerrarCorteModal({
         <DialogContent className="sm:max-w-2xl">
           <DialogTitle className="sr-only">Cargando...</DialogTitle>
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         </DialogContent>
       </Dialog>
@@ -152,36 +163,35 @@ export default function CerrarCorteModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
-          {/* Resumen del Corte */}
           {resumen && (
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2 border">
+            <div className="bg-muted/50 rounded-lg p-4 space-y-2 border">
               <h3 className="font-semibold text-sm">Resumen del Turno</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <div>
-                  <p className="text-gray-600">Fondo Inicial</p>
+                  <p className="text-muted-foreground">Fondo Inicial</p>
                   <p className="font-medium">
                     ${Number(resumen.initialCash).toFixed(2)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Tickets</p>
+                  <p className="text-muted-foreground">Tickets</p>
                   <p className="font-medium">{resumen.ticketCount}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Ventas Totales</p>
+                  <p className="text-muted-foreground">Ventas Totales</p>
                   <p className="font-medium">
                     ${Number(resumen.totalSales).toFixed(2)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Efectivo Esperado</p>
+                  <p className="text-muted-foreground">Efectivo Esperado</p>
                   <p className="font-medium">
                     $
                     {(
@@ -193,122 +203,115 @@ export default function CerrarCorteModal({
             </div>
           )}
 
-          {/* Arqueo de Caja */}
           <div className="space-y-3">
             <h3 className="font-semibold text-sm">Arqueo de Caja</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="efectivoReal">Efectivo en Caja *</Label>
+                <Label htmlFor="cashAmount">Efectivo en Caja *</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     $
                   </span>
                   <Input
-                    id="efectivoReal"
+                    id="cashAmount"
                     type="number"
                     step="0.01"
                     min="0"
-                    value={efectivoReal}
-                    onChange={(e) => setEfectivoReal(e.target.value)}
-                    className="pl-7"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tarjetaDebito">Tarjeta Débito</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                    $
-                  </span>
-                  <Input
-                    id="tarjetaDebito"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={tarjetaDebito}
-                    onChange={(e) => setTarjetaDebito(e.target.value)}
+                    {...register("cashAmount", { valueAsNumber: true })}
                     className="pl-7"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="tarjetaCredito">Tarjeta Crédito</Label>
+                <Label htmlFor="debitCardAmount">Tarjeta Débito</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     $
                   </span>
                   <Input
-                    id="tarjetaCredito"
+                    id="debitCardAmount"
                     type="number"
                     step="0.01"
                     min="0"
-                    value={tarjetaCredito}
-                    onChange={(e) => setTarjetaCredito(e.target.value)}
+                    {...register("debitCardAmount", { valueAsNumber: true })}
                     className="pl-7"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="retiros">Retiros</Label>
+                <Label htmlFor="creditCardAmount">Tarjeta Crédito</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     $
                   </span>
                   <Input
-                    id="retiros"
+                    id="creditCardAmount"
                     type="number"
                     step="0.01"
                     min="0"
-                    value={retiros}
-                    onChange={(e) => setRetiros(e.target.value)}
+                    {...register("creditCardAmount", { valueAsNumber: true })}
+                    className="pl-7"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="totalWithdrawals">Retiros</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    $
+                  </span>
+                  <Input
+                    id="totalWithdrawals"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    {...register("totalWithdrawals", { valueAsNumber: true })}
                     className="pl-7"
                   />
                 </div>
               </div>
             </div>
 
-            {parseFloat(retiros) > 0 && (
+            {Number(watchedValues.totalWithdrawals) > 0 && (
               <div className="space-y-2">
-                <Label htmlFor="conceptoRetiros">Concepto de Retiros</Label>
+                <Label htmlFor="withdrawalsConcept">Concepto de Retiros</Label>
                 <Input
-                  id="conceptoRetiros"
+                  id="withdrawalsConcept"
                   placeholder="Ej: Pago de proveedores, gastos varios..."
-                  value={conceptoRetiros}
-                  onChange={(e) => setConceptoRetiros(e.target.value)}
+                  {...register("withdrawalsConcept")}
                 />
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="notas">Notas (Opcional)</Label>
+              <Label htmlFor="notes">Notas (Opcional)</Label>
               <Textarea
-                id="notas"
+                id="notes"
                 placeholder="Observaciones del cierre..."
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
+                {...register("notes")}
                 rows={2}
               />
             </div>
           </div>
 
-          {/* Diferencia */}
           {tieneDiferencia && (
             <div
               className={`rounded-lg p-4 border ${
                 diferencia > 0
-                  ? "bg-green-50 border-green-200"
-                  : "bg-red-50 border-red-200"
+                  ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
+                  : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
               }`}
             >
               <div className="flex items-center gap-2">
                 <AlertCircle
                   className={`h-5 w-5 ${
-                    diferencia > 0 ? "text-green-600" : "text-red-600"
+                    diferencia > 0
+                      ? "text-green-600 dark:text-green-500"
+                      : "text-red-600 dark:text-red-500"
                   }`}
                 />
                 <div>
@@ -316,7 +319,7 @@ export default function CerrarCorteModal({
                     {diferencia > 0 ? "Sobrante" : "Faltante"}: $
                     {Math.abs(diferencia).toFixed(2)}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {diferencia > 0
                       ? "Hay más dinero del esperado"
                       : "Falta dinero en el arqueo"}
@@ -331,18 +334,18 @@ export default function CerrarCorteModal({
               type="button"
               variant="outline"
               onClick={onClose}
-              disabled={submitting}
+              disabled={isSubmitting}
               className="flex-1"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={submitting}
+              disabled={isSubmitting}
               className="flex-1 gap-2"
               variant={tieneDiferencia ? "destructive" : "default"}
             >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {tieneDiferencia ? "Cerrar con Diferencia" : "Cerrar Corte"}
             </Button>
           </div>
