@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import InventarioFiltros, {
+import {
+  InventarioFiltros,
   type FiltrosInventario,
 } from "./inventario-filtros";
-import InventarioTabla from "./inventario-tabla";
-import InventarioStats from "./inventario-stats";
+import { InventarioTabla } from "./inventario-tabla";
+import { InventarioStats } from "./inventario-stats";
 
 interface Producto {
   id: number;
@@ -26,9 +27,7 @@ interface InventarioManagerProps {
 
 const ITEMS_POR_PAGINA = 15;
 
-export default function InventarioManager({
-  productos,
-}: InventarioManagerProps) {
+export function InventarioManager({ productos }: InventarioManagerProps) {
   const [filtros, setFiltros] = useState<FiltrosInventario>({
     busqueda: "",
     ubicacion: "todos",
@@ -74,7 +73,8 @@ export default function InventarioManager({
 
     // Ordenamiento
     resultado.sort((a, b) => {
-      let valorA: any, valorB: any;
+      let valorA: number | string;
+      let valorB: number | string;
 
       switch (filtros.ordenarPor) {
         case "stockGym":
@@ -144,17 +144,32 @@ export default function InventarioManager({
     inicio + ITEMS_POR_PAGINA,
   );
 
-  const handleCambiarFiltros = (nuevosFiltros: FiltrosInventario) => {
-    setFiltros(nuevosFiltros);
-    setPaginaActual(1);
-  };
+  const handleCambiarFiltros = useCallback(
+    (nuevosFiltros: FiltrosInventario) => {
+      setFiltros(nuevosFiltros);
+      setPaginaActual(1);
+    },
+    [],
+  );
+
+  const handlePaginaAnterior = useCallback(() => {
+    setPaginaActual((p) => Math.max(1, p - 1));
+  }, []);
+
+  const handlePaginaSiguiente = useCallback(() => {
+    setPaginaActual((p) => Math.min(totalPaginas, p + 1));
+  }, [totalPaginas]);
+
+  const handleCambiarPagina = useCallback((pagina: number) => {
+    setPaginaActual(pagina);
+  }, []);
 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Inventario</h1>
-        <p className="text-sm sm:text-base text-gray-500">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Control de existencias y movimientos
         </p>
       </div>
@@ -173,7 +188,7 @@ export default function InventarioManager({
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-base sm:text-lg">
             <span>Existencias</span>
-            <span className="text-xs sm:text-sm font-normal text-gray-500">
+            <span className="text-xs sm:text-sm font-normal text-muted-foreground">
               {productosFiltrados.length} productos
             </span>
           </CardTitle>
@@ -183,8 +198,8 @@ export default function InventarioManager({
 
           {/* Paginación */}
           {totalPaginas > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
-              <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-border">
+              <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
                 Mostrando {inicio + 1}-
                 {Math.min(inicio + ITEMS_POR_PAGINA, productosFiltrados.length)}{" "}
                 de {productosFiltrados.length}
@@ -193,7 +208,7 @@ export default function InventarioManager({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                  onClick={handlePaginaAnterior}
                   disabled={paginaActual === 1}
                   className="gap-1"
                 >
@@ -204,7 +219,7 @@ export default function InventarioManager({
                 {/* Números de página - solo desktop */}
                 <div className="hidden sm:flex items-center gap-1">
                   {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-                    let pageNum;
+                    let pageNum: number;
                     if (totalPaginas <= 5) {
                       pageNum = i + 1;
                     } else if (paginaActual <= 3) {
@@ -222,7 +237,7 @@ export default function InventarioManager({
                           paginaActual === pageNum ? "default" : "outline"
                         }
                         size="sm"
-                        onClick={() => setPaginaActual(pageNum)}
+                        onClick={() => handleCambiarPagina(pageNum)}
                         className="w-9"
                       >
                         {pageNum}
@@ -232,16 +247,14 @@ export default function InventarioManager({
                 </div>
 
                 {/* Indicador mobile */}
-                <div className="sm:hidden px-3 py-1 bg-gray-100 rounded text-sm">
+                <div className="sm:hidden px-3 py-1 bg-muted rounded text-sm">
                   {paginaActual} / {totalPaginas}
                 </div>
 
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    setPaginaActual((p) => Math.min(totalPaginas, p + 1))
-                  }
+                  onClick={handlePaginaSiguiente}
                   disabled={paginaActual === totalPaginas}
                   className="gap-1"
                 >

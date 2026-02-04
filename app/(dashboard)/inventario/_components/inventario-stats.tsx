@@ -12,10 +12,9 @@ interface InventarioStatsProps {
   stockTotalBodega: number;
 }
 
-export default function InventarioStats({
+export function InventarioStats({
   totalProductos,
   stockBajo,
-  sinStock,
   valorTotal,
   stockTotalGym,
   stockTotalBodega,
@@ -25,9 +24,9 @@ export default function InventarioStats({
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <Package className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 shrink-0" />
+            <Package className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Total Productos
               </p>
               <p className="text-xl sm:text-2xl font-bold">{totalProductos}</p>
@@ -39,12 +38,12 @@ export default function InventarioStats({
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 shrink-0" />
+            <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 dark:text-orange-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Stock Bajo
               </p>
-              <p className="text-xl sm:text-2xl font-bold text-orange-600">
+              <p className="text-xl sm:text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {stockBajo}
               </p>
             </div>
@@ -55,15 +54,15 @@ export default function InventarioStats({
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 shrink-0" />
+            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 dark:text-green-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Stock Total
               </p>
               <p className="text-xl sm:text-2xl font-bold">
                 {stockTotalGym + stockTotalBodega}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-muted-foreground truncate">
                 G:{stockTotalGym} B:{stockTotalBodega}
               </p>
             </div>
@@ -74,9 +73,9 @@ export default function InventarioStats({
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 shrink-0" />
+            <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 dark:text-purple-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Valor Total
               </p>
               <p className="text-xl sm:text-2xl font-bold truncate">

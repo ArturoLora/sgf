@@ -1,4 +1,3 @@
-// app/(dashboard)/inventario/kardex/[id]/page.tsx
 import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/lib/require-role";
 import { ProductsService } from "@/services";
@@ -8,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Package, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import KardexLista from "./kardex-lista";
+import { KardexLista } from "../_components/kardex-lista";
+import type { KardexMovimientoResponse } from "@/types/api/inventory";
 
 async function getProducto(id: number) {
   try {
@@ -18,7 +18,7 @@ async function getProducto(id: number) {
   }
 }
 
-async function getMovimientos(id: number) {
+async function getMovimientos(id: number): Promise<KardexMovimientoResponse[]> {
   const movements = await prisma.inventoryMovement.findMany({
     where: { productId: id },
     include: {
@@ -38,7 +38,7 @@ async function getMovimientos(id: number) {
     take: 100,
   });
 
-  return serializeDecimal(movements);
+  return serializeDecimal(movements) as KardexMovimientoResponse[];
 }
 
 export default async function KardexPage({
@@ -75,7 +75,7 @@ export default async function KardexPage({
           <h1 className="text-2xl sm:text-3xl font-bold truncate">
             Kardex - {producto.name}
           </h1>
-          <p className="text-sm sm:text-base text-gray-500">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Historial completo de movimientos
           </p>
         </div>
@@ -92,9 +92,9 @@ export default async function KardexPage({
         <Card>
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center gap-2 sm:gap-3">
-              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 shrink-0" />
+              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400 shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-gray-600 truncate">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   Stock Gym
                 </p>
                 <p className="text-xl sm:text-2xl font-bold">
@@ -108,9 +108,9 @@ export default async function KardexPage({
         <Card>
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center gap-2 sm:gap-3">
-              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 shrink-0" />
+              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 dark:text-purple-400 shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-gray-600 truncate">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   Stock Bodega
                 </p>
                 <p className="text-xl sm:text-2xl font-bold">
@@ -124,9 +124,9 @@ export default async function KardexPage({
         <Card>
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center gap-2 sm:gap-3">
-              <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 shrink-0" />
+              <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 dark:text-green-400 shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-gray-600 truncate">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   Stock Total
                 </p>
                 <p className="text-xl sm:text-2xl font-bold">{stockTotal}</p>
@@ -138,13 +138,13 @@ export default async function KardexPage({
         <Card>
           <CardContent className="pt-4 sm:pt-6">
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Precio / Valor
               </p>
               <p className="text-xl sm:text-2xl font-bold truncate">
                 ${Number(producto.salePrice).toFixed(2)}
               </p>
-              <p className="text-xs text-purple-600 mt-1 truncate">
+              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 truncate">
                 Total: ${valorTotal.toFixed(2)}
               </p>
             </div>

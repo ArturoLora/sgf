@@ -27,13 +27,13 @@ interface InventarioFiltrosProps {
   onCambiarFiltros: (filtros: FiltrosInventario) => void;
 }
 
-export default function InventarioFiltros({
+export function InventarioFiltros({
   filtros,
   onCambiarFiltros,
 }: InventarioFiltrosProps) {
   const [mostrarAvanzados, setMostrarAvanzados] = useState(false);
 
-  const handleChange = (key: keyof FiltrosInventario, value: any) => {
+  const handleChange = (key: keyof FiltrosInventario, value: string) => {
     onCambiarFiltros({ ...filtros, [key]: value });
   };
 
@@ -58,7 +58,7 @@ export default function InventarioFiltros({
         {/* Búsqueda y botones principales */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar producto..."
               value={filtros.busqueda}
@@ -90,12 +90,14 @@ export default function InventarioFiltros({
 
         {/* Filtros avanzados */}
         {mostrarAvanzados && (
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 pt-3 sm:pt-4 border-t">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 pt-3 sm:pt-4 border-t border-border">
             <div className="space-y-2">
               <Label className="text-sm">Ubicación</Label>
               <Select
                 value={filtros.ubicacion}
-                onValueChange={(value: any) => handleChange("ubicacion", value)}
+                onValueChange={(value: FiltrosInventario["ubicacion"]) =>
+                  handleChange("ubicacion", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -112,7 +114,9 @@ export default function InventarioFiltros({
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filtros.estado}
-                onValueChange={(value: any) => handleChange("estado", value)}
+                onValueChange={(value: FiltrosInventario["estado"]) =>
+                  handleChange("estado", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -130,7 +134,7 @@ export default function InventarioFiltros({
               <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filtros.ordenarPor}
-                onValueChange={(value: any) =>
+                onValueChange={(value: FiltrosInventario["ordenarPor"]) =>
                   handleChange("ordenarPor", value)
                 }
               >
@@ -151,7 +155,9 @@ export default function InventarioFiltros({
               <Label className="text-sm">Orden</Label>
               <Select
                 value={filtros.orden}
-                onValueChange={(value: any) => handleChange("orden", value)}
+                onValueChange={(value: FiltrosInventario["orden"]) =>
+                  handleChange("orden", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />

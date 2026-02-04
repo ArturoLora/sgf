@@ -1,7 +1,6 @@
-// app/(dashboard)/inventario/page.tsx
 import { requireAuth } from "@/lib/require-role";
 import { ProductsService } from "@/services";
-import InventarioManager from "./inventario-manager";
+import { InventarioManager } from "./_components/inventario-manager";
 
 export default async function InventarioPage() {
   await requireAuth();

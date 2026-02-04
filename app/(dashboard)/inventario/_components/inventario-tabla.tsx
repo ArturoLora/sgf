@@ -19,7 +19,7 @@ interface InventarioTablaProps {
   productos: Producto[];
 }
 
-export default function InventarioTabla({ productos }: InventarioTablaProps) {
+export function InventarioTabla({ productos }: InventarioTablaProps) {
   const getEstadoStock = (actual: number, minimo: number) => {
     if (actual === 0) {
       return {
@@ -31,20 +31,22 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
       return {
         variant: "outline" as const,
         texto: "Bajo",
-        className: "bg-orange-50 text-orange-700 border-orange-200",
+        className:
+          "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
       };
     }
     return {
       variant: "default" as const,
       texto: "OK",
-      className: "bg-green-50 text-green-700 border-green-200",
+      className:
+        "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
     };
   };
 
   if (productos.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No hay productos que coincidan</p>
+        <p className="text-muted-foreground">No hay productos que coincidan</p>
       </div>
     );
   }
@@ -55,7 +57,7 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b bg-gray-50">
+            <tr className="border-b border-border bg-muted">
               <th className="text-left p-3 font-semibold text-sm">Producto</th>
               <th className="text-center p-3 font-semibold text-sm">
                 Stock Gym
@@ -86,7 +88,10 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
               const valorTotal = Number(producto.salePrice) * stockTotal;
 
               return (
-                <tr key={producto.id} className="border-b hover:bg-gray-50">
+                <tr
+                  key={producto.id}
+                  className="border-b border-border hover:bg-muted"
+                >
                   <td className="p-3">
                     <p className="font-medium">{producto.name}</p>
                   </td>
@@ -95,9 +100,9 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
                       <span
                         className={`font-semibold ${
                           producto.gymStock === 0
-                            ? "text-red-600"
+                            ? "text-red-600 dark:text-red-400"
                             : producto.gymStock < producto.minStock
-                              ? "text-orange-600"
+                              ? "text-orange-600 dark:text-orange-400"
                               : ""
                         }`}
                       >
@@ -116,9 +121,9 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
                       <span
                         className={`font-semibold ${
                           producto.warehouseStock === 0
-                            ? "text-red-600"
+                            ? "text-red-600 dark:text-red-400"
                             : producto.warehouseStock < producto.minStock
-                              ? "text-orange-600"
+                              ? "text-orange-600 dark:text-orange-400"
                               : ""
                         }`}
                       >
@@ -141,12 +146,12 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
                     </span>
                   </td>
                   <td className="p-3 text-right">
-                    <span className="font-bold text-purple-600">
+                    <span className="font-bold text-purple-600 dark:text-purple-400">
                       ${valorTotal.toFixed(2)}
                     </span>
                   </td>
                   <td className="p-3 text-center">
-                    <span className="text-gray-500 text-sm">
+                    <span className="text-muted-foreground text-sm">
                       {producto.minStock}
                     </span>
                   </td>
@@ -182,7 +187,7 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
           return (
             <div
               key={producto.id}
-              className="border rounded-lg p-3 space-y-3 bg-white"
+              className="border border-border rounded-lg p-3 space-y-3 bg-card"
             >
               {/* Header */}
               <div className="flex items-start justify-between gap-2">
@@ -190,27 +195,27 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
                   <h3 className="font-semibold text-sm truncate">
                     {producto.name}
                   </h3>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Precio: ${Number(producto.salePrice).toFixed(2)}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-lg font-bold">{stockTotal}</p>
-                  <p className="text-xs text-gray-500">Total</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
                 </div>
               </div>
 
               {/* Stocks */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="bg-gray-50 rounded p-2">
-                  <p className="text-xs text-gray-600 mb-1">Gym</p>
+                <div className="bg-muted rounded p-2">
+                  <p className="text-xs text-muted-foreground mb-1">Gym</p>
                   <div className="flex items-center justify-between">
                     <span
                       className={`font-semibold ${
                         producto.gymStock === 0
-                          ? "text-red-600"
+                          ? "text-red-600 dark:text-red-400"
                           : producto.gymStock < producto.minStock
-                            ? "text-orange-600"
+                            ? "text-orange-600 dark:text-orange-400"
                             : ""
                       }`}
                     >
@@ -225,15 +230,15 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded p-2">
-                  <p className="text-xs text-gray-600 mb-1">Bodega</p>
+                <div className="bg-muted rounded p-2">
+                  <p className="text-xs text-muted-foreground mb-1">Bodega</p>
                   <div className="flex items-center justify-between">
                     <span
                       className={`font-semibold ${
                         producto.warehouseStock === 0
-                          ? "text-red-600"
+                          ? "text-red-600 dark:text-red-400"
                           : producto.warehouseStock < producto.minStock
-                            ? "text-orange-600"
+                            ? "text-orange-600 dark:text-orange-400"
                             : ""
                       }`}
                     >
@@ -250,10 +255,10 @@ export default function InventarioTabla({ productos }: InventarioTablaProps) {
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t">
+              <div className="flex items-center justify-between pt-2 border-t border-border">
                 <div>
-                  <p className="text-xs text-gray-500">Valor Total</p>
-                  <p className="font-bold text-purple-600">
+                  <p className="text-xs text-muted-foreground">Valor Total</p>
+                  <p className="font-bold text-purple-600 dark:text-purple-400">
                     ${valorTotal.toFixed(2)}
                   </p>
                 </div>

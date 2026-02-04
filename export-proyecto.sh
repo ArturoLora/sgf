@@ -1,22 +1,21 @@
 #!/bin/bash
 
-output="./fe4-socios-$(date +%Y%m%d_%H%M%S).txt"
+output_file="./fe5-inventario-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "=== FE4 SOCIOS EXPORT ===" > "$output"
+echo "=== FRONTEND INVENTARIO ===" > "$output_file"
 
-add() {
-  if [ -f "$1" ]; then
-    echo -e "\n\n===== FILE: $1 =====\n" >> "$output"
-    cat "$1" >> "$output"
-  fi
-}
-
-# frontend socios
-find "app/(dashboard)/socios" -type f \( -name "*.tsx" -o -name "*.md" \) | while read f; do
-  add "$f"
+find "app/(dashboard)/inventario" -type f \
+  \( -name "*.ts" -o -name "*.tsx" -o -name "*.md" \) \
+  | sort | while read -r file; do
+    echo -e "\n\n===== FILE: $file =====\n" >> "$output_file"
+    sed 's/\t/  /g' "$file" >> "$output_file"
 done
 
-# backend domain source of truth
-add "types/api/members.ts"
+echo -e "\n\n=== BACKEND INVENTORY SCHEMAS ===\n" >> "$output_file"
 
-echo "Export completo: $output"
+for file in types/api/inventory.ts; do
+  echo -e "\n\n===== FILE: $file =====\n" >> "$output_file"
+  sed 's/\t/  /g' "$file" >> "$output_file"
+done
+
+echo "Export completo: $output_file"

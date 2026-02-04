@@ -2,30 +2,13 @@
 
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Calendar } from "lucide-react";
-
-interface Movimiento {
-  id: number;
-  type: string;
-  location: string;
-  quantity: number;
-  ticket?: string | null;
-  total?: number | null;
-  notes?: string | null;
-  date: string;
-  user: {
-    name: string;
-  };
-  member?: {
-    memberNumber: string;
-    name: string | null;
-  } | null;
-}
+import type { KardexMovimientoResponse } from "@/types/api/inventory";
 
 interface KardexListaProps {
-  movimientos: Movimiento[];
+  movimientos: KardexMovimientoResponse[];
 }
 
-export default function KardexLista({ movimientos }: KardexListaProps) {
+export function KardexLista({ movimientos }: KardexListaProps) {
   const getTipoInfo = (tipo: string) => {
     switch (tipo) {
       case "SALE":
@@ -45,7 +28,7 @@ export default function KardexLista({ movimientos }: KardexListaProps) {
     }
   };
 
-  const formatFecha = (fecha: string) => {
+  const formatFecha = (fecha: Date) => {
     return new Date(fecha).toLocaleString("es-MX", {
       day: "2-digit",
       month: "short",
@@ -58,7 +41,7 @@ export default function KardexLista({ movimientos }: KardexListaProps) {
   if (movimientos.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No hay movimientos registrados</p>
+        <p className="text-muted-foreground">No hay movimientos registrados</p>
       </div>
     );
   }
@@ -71,13 +54,13 @@ export default function KardexLista({ movimientos }: KardexListaProps) {
         return (
           <div
             key={mov.id}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-lg border hover:bg-gray-50"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-lg border border-border hover:bg-muted"
           >
             {/* Info izquierda */}
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={tipoInfo.variant}>{tipoInfo.texto}</Badge>
-                <span className="text-xs sm:text-sm text-gray-600">
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   {mov.location === "WAREHOUSE" ? "Bodega" : "Gym"}
                 </span>
                 {mov.ticket && (
@@ -87,7 +70,7 @@ export default function KardexLista({ movimientos }: KardexListaProps) {
                 )}
               </div>
 
-              <div className="space-y-1 text-xs sm:text-sm text-gray-600">
+              <div className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-3 w-3 shrink-0" />
                   <span className="truncate">{formatFecha(mov.date)}</span>
@@ -101,9 +84,7 @@ export default function KardexLista({ movimientos }: KardexListaProps) {
                     {mov.member.name || mov.member.memberNumber}
                   </p>
                 )}
-                {mov.notes && (
-                  <p className="text-gray-500 italic truncate">{mov.notes}</p>
-                )}
+                {mov.notes && <p className="italic truncate">{mov.notes}</p>}
               </div>
             </div>
 
@@ -111,13 +92,15 @@ export default function KardexLista({ movimientos }: KardexListaProps) {
             <div className="flex items-center gap-3 sm:gap-4 self-end sm:self-auto">
               <div className="flex items-center gap-2">
                 {mov.quantity > 0 ? (
-                  <TrendingUp className="h-5 w-5 text-green-600 shrink-0" />
+                  <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
                 ) : (
-                  <TrendingDown className="h-5 w-5 text-red-600 shrink-0" />
+                  <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
                 )}
                 <span
                   className={`text-xl sm:text-2xl font-bold ${
-                    mov.quantity > 0 ? "text-green-600" : "text-red-600"
+                    mov.quantity > 0
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
                   }`}
                 >
                   {mov.quantity > 0 ? "+" : ""}
@@ -126,7 +109,7 @@ export default function KardexLista({ movimientos }: KardexListaProps) {
               </div>
               {mov.total && (
                 <div className="text-right">
-                  <p className="text-xs text-gray-500">Total</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
                   <p className="text-sm sm:text-base font-medium">
                     ${Number(mov.total).toFixed(2)}
                   </p>
