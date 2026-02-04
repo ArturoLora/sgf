@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,50 +15,64 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Loader2 } from "lucide-react";
+import { CreateTransferInputSchema } from "@/types/api/inventory";
+import type { ProductoResponse } from "@/types/api/products";
+import type { Ubicacion } from "@/types/models/movimiento-inventario";
 
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
+interface TransferFormData {
+  productId: number;
+  quantity: number;
+  destination: string;
+  notes?: string;
 }
 
-interface EntradaModalProps {
+interface TraspasoModalProps {
   productId: number;
   onClose: () => void;
   onSuccess: (mensaje: string) => void;
   onError: (error: string) => void;
 }
 
-export default function EntradaModal({
+export default function TraspasoModal({
   productId,
   onClose,
   onSuccess,
   onError,
-}: EntradaModalProps) {
-  const router = useRouter();
+}: TraspasoModalProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+  const [from, setFrom] = useState<Ubicacion>("WAREHOUSE" as Ubicacion);
 
-  const [formData, setFormData] = useState({
-    location: "WAREHOUSE" as "WAREHOUSE" | "GYM",
-    quantity: "",
-    notes: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<TransferFormData>({
+    resolver: zodResolver(CreateTransferInputSchema),
+    defaultValues: {
+      productId,
+      destination: "GYM",
+      quantity: 0,
+      notes: "",
+    },
   });
+
+  const destination = watch("destination") as Ubicacion;
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         const response = await fetch(`/api/products/${productId}`);
         if (!response.ok) throw new Error("Error al cargar producto");
-        const data = await response.json();
+        const data: ProductoResponse = await response.json();
         setProduct(data);
-      } catch (err: any) {
-        onError(err.message || "Error al cargar producto");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
         onClose();
       } finally {
         setLoading(false);
@@ -67,40 +82,44 @@ export default function EntradaModal({
     fetchProduct();
   }, [productId, onClose, onError]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFromChange = (value: string) => {
+    const newFrom = value as Ubicacion;
+    setFrom(newFrom);
+    setValue("destination", newFrom === "WAREHOUSE" ? "GYM" : "WAREHOUSE");
+  };
 
+  const onSubmit = async (data: TransferFormData) => {
     if (!product) return;
 
-    const quantity = parseInt(formData.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      onError("La cantidad debe ser mayor a 0");
+    const availableStock =
+      from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+
+    if (data.quantity > availableStock) {
+      onError(`Stock insuficiente. Disponible: ${availableStock}`);
       return;
     }
 
     setSubmitting(true);
     try {
-      const response = await fetch("/api/inventory/entry", {
+      const response = await fetch("/api/inventory/transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: product.id,
-          location: formData.location,
-          quantity,
-          notes: formData.notes || undefined,
-        }),
+        body: JSON.stringify(data),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al registrar entrada");
+        throw new Error(result.error || "Error al realizar traspaso");
       }
 
-      const locationName = formData.location === "WAREHOUSE" ? "Bodega" : "Gym";
-      onSuccess(`Entrada registrada: ${quantity} unidades en ${locationName}`);
-    } catch (err: any) {
-      onError(err.message || "Error al registrar entrada");
+      onSuccess(
+        `Traspaso realizado: ${data.quantity} unidades de ${product.name}`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al realizar traspaso";
+      onError(message);
     } finally {
       setSubmitting(false);
     }
@@ -120,18 +139,16 @@ export default function EntradaModal({
 
   if (!product) return null;
 
-  const currentStock =
-    formData.location === "WAREHOUSE"
-      ? product.warehouseStock
-      : product.gymStock;
+  const availableStock =
+    from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
-        <CardHeader className="border-b bg-white rounded-t-xl shrink-0">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg">
-              Entrada de Stock
+              Traspaso de Stock
             </CardTitle>
             <Button
               variant="ghost"
@@ -145,30 +162,28 @@ export default function EntradaModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
-          <div className="p-3 bg-gray-50 rounded-lg">
+          <div className="p-3 bg-muted rounded-lg">
             <p className="font-semibold text-sm sm:text-base">{product.name}</p>
             <div className="grid grid-cols-2 gap-2 mt-2 text-xs sm:text-sm">
               <div>
-                <span className="text-gray-600">Bodega:</span>
+                <span className="text-muted-foreground">Bodega:</span>
                 <span className="ml-2 font-medium">
                   {product.warehouseStock}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Gym:</span>
+                <span className="text-muted-foreground">Gym:</span>
                 <span className="ml-2 font-medium">{product.gymStock}</span>
               </div>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label>Ubicación *</Label>
+              <Label>Desde</Label>
               <Select
-                value={formData.location}
-                onValueChange={(value: "WAREHOUSE" | "GYM") =>
-                  setFormData({ ...formData, location: value })
-                }
+                value={from}
+                onValueChange={handleFromChange}
                 disabled={submitting}
               >
                 <SelectTrigger>
@@ -179,32 +194,38 @@ export default function EntradaModal({
                   <SelectItem value="GYM">Gym</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500">
-                Stock actual: {currentStock}
+              <p className="text-xs text-muted-foreground">
+                Stock disponible: {availableStock}
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Hacia</Label>
+              <Input
+                value={destination === "WAREHOUSE" ? "Bodega" : "Gym"}
+                disabled
+                className="bg-muted"
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Cantidad *</Label>
               <Input
                 type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, quantity: e.target.value })
-                }
+                {...register("quantity", { valueAsNumber: true })}
                 disabled={submitting}
-                required
               />
+              {errors.quantity && (
+                <p className="text-xs text-destructive">
+                  {errors.quantity.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label>Notas</Label>
               <Input
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
+                {...register("notes")}
                 disabled={submitting}
                 placeholder="Opcional"
               />
@@ -227,7 +248,7 @@ export default function EntradaModal({
                     Procesando...
                   </>
                 ) : (
-                  "Registrar Entrada"
+                  "Realizar Traspaso"
                 )}
               </Button>
             </div>

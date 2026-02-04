@@ -4,25 +4,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  X,
-  Loader2,
-  Edit,
-  ArrowLeftRight,
-  Plus,
-  Minus,
-  Package,
-} from "lucide-react";
-
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
+import { X, Loader2, Edit, ArrowLeftRight, Plus, Package } from "lucide-react";
+import type { ProductoResponse } from "@/types/api/products";
 
 interface InventoryMovement {
   id: number;
@@ -56,7 +39,7 @@ export default function DetalleProductoModal({
   onEntry,
 }: DetalleProductoModalProps) {
   const [loading, setLoading] = useState(true);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
 
   useEffect(() => {
@@ -69,11 +52,11 @@ export default function DetalleProductoModal({
 
         if (!productRes.ok) throw new Error("Error al cargar producto");
 
-        const productData = await productRes.json();
+        const productData: ProductoResponse = await productRes.json();
         setProduct(productData);
 
         if (movementsRes.ok) {
-          const movementsData = await movementsRes.json();
+          const movementsData: InventoryMovement[] = await movementsRes.json();
           setMovements(movementsData);
         }
       } catch (err) {
@@ -112,13 +95,19 @@ export default function DetalleProductoModal({
   const getMovementIcon = (type: string) => {
     switch (type) {
       case "ENTRY":
-        return <Package className="h-4 w-4 text-green-600" />;
+        return (
+          <Package className="h-4 w-4 text-green-600 dark:text-green-400" />
+        );
       case "TRANSFER":
-        return <ArrowLeftRight className="h-4 w-4 text-blue-600" />;
+        return (
+          <ArrowLeftRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        );
       case "ADJUSTMENT":
-        return <Plus className="h-4 w-4 text-orange-600" />;
+        return (
+          <Plus className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+        );
       default:
-        return <Minus className="h-4 w-4 text-gray-600" />;
+        return <Package className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -140,7 +129,7 @@ export default function DetalleProductoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <CardHeader className="border-b bg-white rounded-t-xl shrink-0">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg">
               Detalle del Producto
@@ -165,7 +154,7 @@ export default function DetalleProductoModal({
                 {isMembership && (
                   <Badge
                     variant="outline"
-                    className="mt-1 bg-blue-50 text-blue-700 border-blue-200"
+                    className="mt-1 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
                   >
                     Membresía
                   </Badge>
@@ -179,8 +168,8 @@ export default function DetalleProductoModal({
             {!isMembership && (
               <>
                 {isLowStock && (
-                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <p className="text-sm text-orange-800 font-medium">
+                  <div className="p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
+                    <p className="text-sm text-orange-800 dark:text-orange-300 font-medium">
                       ⚠️ Stock bajo mínimo ({product.minStock} unidades)
                     </p>
                   </div>
@@ -192,7 +181,7 @@ export default function DetalleProductoModal({
                       <div className="text-2xl font-bold">
                         {product.gymStock}
                       </div>
-                      <p className="text-xs text-gray-500">Stock Gym</p>
+                      <p className="text-xs text-muted-foreground">Stock Gym</p>
                     </CardContent>
                   </Card>
                   <Card>
@@ -200,13 +189,15 @@ export default function DetalleProductoModal({
                       <div className="text-2xl font-bold">
                         {product.warehouseStock}
                       </div>
-                      <p className="text-xs text-gray-500">Stock Bodega</p>
+                      <p className="text-xs text-muted-foreground">
+                        Stock Bodega
+                      </p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="pt-4 sm:pt-6">
                       <div className="text-2xl font-bold">{totalStock}</div>
-                      <p className="text-xs text-gray-500">Total</p>
+                      <p className="text-xs text-muted-foreground">Total</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -266,7 +257,7 @@ export default function DetalleProductoModal({
               </h4>
 
               {movements.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   No hay movimientos registrados
                 </p>
               ) : (
@@ -274,7 +265,7 @@ export default function DetalleProductoModal({
                   {movements.map((movement) => (
                     <div
                       key={movement.id}
-                      className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      className="p-3 border rounded-lg hover:bg-muted transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <div className="mt-0.5">
@@ -285,7 +276,7 @@ export default function DetalleProductoModal({
                             <p className="font-medium text-sm">
                               {getMovementLabel(movement)}
                             </p>
-                            <p className="text-xs text-gray-500 shrink-0">
+                            <p className="text-xs text-muted-foreground shrink-0">
                               {new Date(movement.createdAt).toLocaleDateString(
                                 "es-MX",
                                 {
@@ -298,7 +289,7 @@ export default function DetalleProductoModal({
                               )}
                             </p>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-muted-foreground mt-1">
                             Cantidad:{" "}
                             <span className="font-medium">
                               {movement.quantity > 0 ? "+" : ""}
@@ -306,12 +297,12 @@ export default function DetalleProductoModal({
                             </span>
                           </p>
                           {movement.notes && (
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               {movement.notes}
                             </p>
                           )}
                           {movement.createdBy && (
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               Por: {movement.createdBy.name}
                             </p>
                           )}

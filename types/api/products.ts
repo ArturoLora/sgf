@@ -10,15 +10,23 @@ export const ProductsQuerySchema = z.object({
 });
 
 export const CreateProductInputSchema = z.object({
-  name: z.string(),
-  salePrice: z.number(),
-  minStock: z.number().optional(),
+  name: z.string().min(1, "El nombre es requerido"),
+  salePrice: z.number().positive("El precio debe ser mayor a 0"),
+  minStock: z
+    .number()
+    .int()
+    .min(0, "El stock mínimo no puede ser negativo")
+    .optional(),
 });
 
 export const UpdateProductInputSchema = z.object({
-  name: z.string().optional(),
-  salePrice: z.number().optional(),
-  minStock: z.number().optional(),
+  name: z.string().min(1, "El nombre es requerido").optional(),
+  salePrice: z.number().positive("El precio debe ser mayor a 0").optional(),
+  minStock: z
+    .number()
+    .int()
+    .min(0, "El stock mínimo no puede ser negativo")
+    .optional(),
   isActive: z.boolean().optional(),
 });
 

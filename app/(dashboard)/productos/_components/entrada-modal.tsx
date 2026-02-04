@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,51 +15,63 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Loader2 } from "lucide-react";
+import { CreateEntryInputSchema } from "@/types/api/inventory";
+import type { ProductoResponse } from "@/types/api/products";
+import type { Ubicacion } from "@/types/models/movimiento-inventario";
 
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
+interface EntryFormData {
+  productId: number;
+  quantity: number;
+  location: string;
+  notes?: string;
 }
 
-interface TraspasoModalProps {
+interface EntradaModalProps {
   productId: number;
   onClose: () => void;
   onSuccess: (mensaje: string) => void;
   onError: (error: string) => void;
 }
 
-export default function TraspasoModal({
+export default function EntradaModal({
   productId,
   onClose,
   onSuccess,
   onError,
-}: TraspasoModalProps) {
-  const router = useRouter();
+}: EntradaModalProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
 
-  const [formData, setFormData] = useState({
-    from: "WAREHOUSE" as "WAREHOUSE" | "GYM",
-    to: "GYM" as "WAREHOUSE" | "GYM",
-    quantity: "",
-    notes: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<EntryFormData>({
+    resolver: zodResolver(CreateEntryInputSchema),
+    defaultValues: {
+      productId,
+      location: "WAREHOUSE",
+      quantity: 0,
+      notes: "",
+    },
   });
+
+  const location = watch("location") as Ubicacion;
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         const response = await fetch(`/api/products/${productId}`);
         if (!response.ok) throw new Error("Error al cargar producto");
-        const data = await response.json();
+        const data: ProductoResponse = await response.json();
         setProduct(data);
-      } catch (err: any) {
-        onError(err.message || "Error al cargar producto");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
         onClose();
       } finally {
         setLoading(false);
@@ -68,59 +81,34 @@ export default function TraspasoModal({
     fetchProduct();
   }, [productId, onClose, onError]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const onSubmit = async (data: EntryFormData) => {
     if (!product) return;
-
-    const quantity = parseInt(formData.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      onError("La cantidad debe ser mayor a 0");
-      return;
-    }
-
-    const availableStock =
-      formData.from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
-
-    if (quantity > availableStock) {
-      onError(`Stock insuficiente. Disponible: ${availableStock}`);
-      return;
-    }
 
     setSubmitting(true);
     try {
-      const response = await fetch("/api/inventory/transfer", {
+      const response = await fetch("/api/inventory/entry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: product.id,
-          from: formData.from,
-          to: formData.to,
-          quantity,
-          notes: formData.notes || undefined,
-        }),
+        body: JSON.stringify(data),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al realizar traspaso");
+        throw new Error(result.error || "Error al registrar entrada");
       }
 
-      onSuccess(`Traspaso realizado: ${quantity} unidades de ${product.name}`);
-    } catch (err: any) {
-      onError(err.message || "Error al realizar traspaso");
+      const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
+      onSuccess(
+        `Entrada registrada: ${data.quantity} unidades en ${locationName}`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al registrar entrada";
+      onError(message);
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleFromChange = (value: "WAREHOUSE" | "GYM") => {
-    setFormData({
-      ...formData,
-      from: value,
-      to: value === "WAREHOUSE" ? "GYM" : "WAREHOUSE",
-    });
   };
 
   if (loading) {
@@ -137,16 +125,16 @@ export default function TraspasoModal({
 
   if (!product) return null;
 
-  const availableStock =
-    formData.from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+  const currentStock =
+    location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
-        <CardHeader className="border-b bg-white rounded-t-xl shrink-0">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg">
-              Traspaso de Stock
+              Entrada de Stock
             </CardTitle>
             <Button
               variant="ghost"
@@ -160,28 +148,28 @@ export default function TraspasoModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
-          <div className="p-3 bg-gray-50 rounded-lg">
+          <div className="p-3 bg-muted rounded-lg">
             <p className="font-semibold text-sm sm:text-base">{product.name}</p>
             <div className="grid grid-cols-2 gap-2 mt-2 text-xs sm:text-sm">
               <div>
-                <span className="text-gray-600">Bodega:</span>
+                <span className="text-muted-foreground">Bodega:</span>
                 <span className="ml-2 font-medium">
                   {product.warehouseStock}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Gym:</span>
+                <span className="text-muted-foreground">Gym:</span>
                 <span className="ml-2 font-medium">{product.gymStock}</span>
               </div>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label>Desde</Label>
+              <Label>Ubicación *</Label>
               <Select
-                value={formData.from}
-                onValueChange={handleFromChange}
+                value={location}
+                onValueChange={(value: string) => setValue("location", value)}
                 disabled={submitting}
               >
                 <SelectTrigger>
@@ -192,42 +180,29 @@ export default function TraspasoModal({
                   <SelectItem value="GYM">Gym</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500">
-                Stock disponible: {availableStock}
+              <p className="text-xs text-muted-foreground">
+                Stock actual: {currentStock}
               </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Hacia</Label>
-              <Input
-                value={formData.to === "WAREHOUSE" ? "Bodega" : "Gym"}
-                disabled
-                className="bg-gray-50"
-              />
             </div>
 
             <div className="space-y-2">
               <Label>Cantidad *</Label>
               <Input
                 type="number"
-                min="1"
-                max={availableStock}
-                value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, quantity: e.target.value })
-                }
+                {...register("quantity", { valueAsNumber: true })}
                 disabled={submitting}
-                required
               />
+              {errors.quantity && (
+                <p className="text-xs text-destructive">
+                  {errors.quantity.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label>Notas</Label>
               <Input
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
+                {...register("notes")}
                 disabled={submitting}
                 placeholder="Opcional"
               />
@@ -250,7 +225,7 @@ export default function TraspasoModal({
                     Procesando...
                   </>
                 ) : (
-                  "Realizar Traspaso"
+                  "Registrar Entrada"
                 )}
               </Button>
             </div>

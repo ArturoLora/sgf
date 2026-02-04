@@ -14,26 +14,30 @@ Gestión completa de productos del gimnasio con control de inventario.
 
 ```
 productos/
-├── page.tsx                    # Server Component - data fetching
-├── productos-manager.tsx       # Client - orquestación UI & estado
-├── productos-stats.tsx         # Server - estadísticas
-├── productos-filtros.tsx       # Client - filtros & búsqueda
-├── productos-tabla.tsx         # Client - tabla responsive
-└── modals/                     # Client - modales de operaciones
-    ├── crear-producto-modal.tsx
-    ├── editar-producto-modal.tsx
-    ├── detalle-producto-modal.tsx
-    ├── traspaso-modal.tsx
-    ├── ajuste-modal.tsx
-    └── entrada-modal.tsx
+├── page.tsx                    # Server Component - composición
+├── loading.tsx                 # Loading state con skeleton
+├── _components/                # Client components
+│   ├── productos-skeleton.tsx
+│   ├── productos-manager.tsx   # Orquestación UI & estado
+│   ├── productos-stats.tsx     # Server - estadísticas
+│   ├── productos-filtros.tsx   # Filtros & búsqueda
+│   ├── productos-tabla.tsx     # Tabla responsive
+│   ├── crear-producto-modal.tsx
+│   ├── editar-producto-modal.tsx
+│   ├── detalle-producto-modal.tsx
+│   ├── traspaso-modal.tsx
+│   ├── ajuste-modal.tsx
+│   └── entrada-modal.tsx
+└── README.md
 ```
 
 ## Flujo de datos
 
 ### Server responsibilities
 
-- `page.tsx`: Fetches products via ProductsService
+- `page.tsx`: Composición y fetch vía ProductsService
 - `productos-stats.tsx`: Calcula estadísticas (server-side)
+- `loading.tsx`: Skeleton durante carga
 
 ### Client responsibilities
 
@@ -41,6 +45,51 @@ productos/
 - `productos-filtros.tsx`: UI de filtros
 - `productos-tabla.tsx`: Renderizado de tabla
 - `modals/*`: Operaciones (fetch a APIs)
+
+## Stack técnico
+
+### Formularios
+
+- **react-hook-form**: Manejo de forms
+- **@hookform/resolvers/zod**: Validación con Zod
+- **Schemas backend**: Importados desde `types/api/products.ts`
+
+Todos los modals usan:
+
+```tsx
+const {
+  register,
+  handleSubmit,
+  formState: { errors },
+} = useForm({
+  resolver: zodResolver(SchemaFromBackend),
+});
+```
+
+### Validación
+
+- NO schemas locales
+- NO helpers frontend
+- Toda validación de dominio viene desde `types/api/products.ts`
+- Schemas disponibles:
+  - `CreateProductInputSchema`
+  - `UpdateProductInputSchema`
+  - `InventoryEntryInputSchema`
+  - `InventoryTransferInputSchema`
+  - `InventoryAdjustmentInputSchema`
+
+### Dark Mode
+
+- Tokens shadcn exclusivamente
+- `bg-background`, `text-foreground`, `text-muted-foreground`
+- `border-border`, `bg-muted`, `text-destructive`
+- NO colores hardcodeados
+
+### Loading States
+
+- `ProductosSkeleton` para carga inicial
+- `Loader2` en modals durante fetch
+- Estados disabled en forms durante submit
 
 ## Patrón responsive
 
@@ -75,6 +124,9 @@ productos/
 5. **Modales lazy**: Solo se montan cuando se abren
 6. **Dominio en inglés**: Backend usa nombres como `warehouseStock`, `salePrice`
 7. **UI en español**: Props como `onClose`, `mensaje`, `productId`
+8. **RHF + Zod**: Todos los forms con validación backend
+9. **TypeScript estricto**: No `any`, no `!`, no `eslint-disable`
+10. **Skeleton loading**: UX mejorada durante carga
 
 ## Features
 
@@ -82,8 +134,29 @@ productos/
 - ✅ Filtros múltiples (estado, ordenamiento)
 - ✅ Paginación
 - ✅ Alertas de stock bajo
-- ✅ CRUD completo
+- ✅ CRUD completo con RHF + Zod
 - ✅ Operaciones de inventario (traspaso, ajuste, entrada)
 - ✅ Vista detallada con historial
 - ✅ Distinción membresías/productos físicos
 - ✅ Responsive completo
+- ✅ Dark mode support
+- ✅ Loading states
+
+## Hooks & Performance
+
+- `useMemo` para filtrado/ordenamiento
+- `useCallback` para handlers (con deps correctas)
+- `useForm` con `zodResolver` para validación
+- `useEffect` con deps array completo
+- No re-renders innecesarios
+
+## Errores comunes evitados
+
+- ❌ Schemas locales duplicados
+- ❌ Validación manual en frontend
+- ❌ Colores hardcodeados
+- ❌ `any` types
+- ❌ Non-null assertions
+- ❌ Lógica de dominio en page.tsx
+- ❌ Variables no usadas
+- ❌ Deps incorrectas en hooks

@@ -1,35 +1,43 @@
 #!/bin/bash
-# FE2 - Cortes frontend + backend schemas export
 
-output_file="./fe2-cortes-$(date +%Y%m%d_%H%M%S).txt"
+output_file="./fe3-productos-$(date +%Y%m%d_%H%M%S).txt"
 
-add_file_content() {
-  local file="$1"
-  if [ -f "$file" ]; then
-    echo -e "\n=== ${file} ===\n" >> "$output_file"
-    cat "$file" >> "$output_file"
-    echo -e "\n" >> "$output_file"
+add_file() {
+  if [ -f "$1" ]; then
+    echo -e "\n=== $1 ===\n" >> "$output_file"
+    cat "$1" >> "$output_file"
   fi
 }
 
-echo "NACHO GYM - FE2 CORTES EXPORT $(date +%Y%m%d_%H%M%S)" > "$output_file"
+echo "FE3 PRODUCTOS FRONTEND EXPORT" > "$output_file"
 
-# ================= FRONTEND CORTES =================
+# Productos frontend
+add_file "app/(dashboard)/productos/page.tsx"
+add_file "app/(dashboard)/productos/loading.tsx"
 
-for f in app/\(dashboard\)/cortes/*.tsx; do
-  add_file_content "$f"
-done
+find "app/(dashboard)/productos" -type f -name "*.tsx" > /tmp/productos_files.txt
 
-if [ -d "app/(dashboard)/cortes/modals" ]; then
-  for f in app/\(dashboard\)/cortes/modals/*.tsx; do
-    add_file_content "$f"
-  done
-fi
+while read file; do
+  add_file "$file"
+done < /tmp/productos_files.txt
 
-add_file_content "app/(dashboard)/cortes/README.md"
+add_file "app/(dashboard)/productos/README.md"
 
-# ================= BACKEND SCHEMAS =================
+# Backend types
+add_file "types/api/products.ts"
 
-add_file_content "types/api/shifts.ts"
+# shadcn ui (needed for props + darkmode)
+add_file "components/ui/button.tsx"
+add_file "components/ui/input.tsx"
+add_file "components/ui/select.tsx"
+add_file "components/ui/card.tsx"
+add_file "components/ui/skeleton.tsx"
+add_file "components/ui/badge.tsx"
+add_file "components/ui/dialog.tsx"
 
-echo -e "\n✅ Export generado: ${output_file} ($(du -h "$output_file" | cut -f1))"
+
+echo -e "\nDONE" >> "$output_file"
+
+rm /tmp/productos_files.txt
+
+echo "Export generado: $output_file"

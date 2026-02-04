@@ -32,17 +32,20 @@ export default function ProductosTabla({
   isMembership,
 }: ProductosTablaProps) {
   const getStockStatus = (current: number, min: number) => {
-    if (current === 0) return { color: "destructive", text: "Sin stock" };
+    if (current === 0)
+      return { color: "destructive" as const, text: "Sin stock" };
     if (current < min)
       return {
-        color: "outline",
+        color: "outline" as const,
         text: "Bajo",
-        className: "bg-orange-50 text-orange-700 border-orange-200",
+        className:
+          "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
       };
     return {
-      color: "default",
+      color: "default" as const,
       text: "OK",
-      className: "bg-green-50 text-green-700 border-green-200",
+      className:
+        "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
     };
   };
 
@@ -59,7 +62,7 @@ export default function ProductosTabla({
         return (
           <div
             key={product.id}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border p-3 sm:p-4 hover:bg-gray-50 transition-colors"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border p-3 sm:p-4 hover:bg-muted transition-colors"
           >
             <div className="flex-1 min-w-0 w-full sm:w-auto">
               <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -74,7 +77,7 @@ export default function ProductosTabla({
                 {isMembershipProduct && (
                   <Badge
                     variant="outline"
-                    className="bg-blue-50 text-blue-700 border-blue-200 shrink-0"
+                    className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shrink-0"
                   >
                     Membresía
                   </Badge>
@@ -88,8 +91,8 @@ export default function ProductosTabla({
                   )}
               </div>
 
-              <div className="text-xs sm:text-sm text-gray-600 space-y-1">
-                <p className="font-medium text-base sm:text-lg">
+              <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
+                <p className="font-medium text-base sm:text-lg text-foreground">
                   ${Number(product.salePrice).toFixed(2)}
                 </p>
                 {!isMembershipProduct && (
@@ -100,14 +103,14 @@ export default function ProductosTabla({
                         className={
                           gymStatus.text === "Bajo" ||
                           gymStatus.text === "Sin stock"
-                            ? "text-red-600 font-semibold"
+                            ? "text-destructive font-semibold"
                             : ""
                         }
                       >
                         {product.gymStock}
                       </span>
                       <Badge
-                        variant={gymStatus.color as any}
+                        variant={gymStatus.color}
                         className={gymStatus.className}
                       >
                         {gymStatus.text}
@@ -119,20 +122,20 @@ export default function ProductosTabla({
                         className={
                           warehouseStatus.text === "Bajo" ||
                           warehouseStatus.text === "Sin stock"
-                            ? "text-red-600 font-semibold"
+                            ? "text-destructive font-semibold"
                             : ""
                         }
                       >
                         {product.warehouseStock}
                       </span>
                       <Badge
-                        variant={warehouseStatus.color as any}
+                        variant={warehouseStatus.color}
                         className={warehouseStatus.className}
                       >
                         {warehouseStatus.text}
                       </Badge>
                     </div>
-                    <div className="text-gray-400 text-xs">
+                    <div className="text-muted-foreground text-xs">
                       Min: {product.minStock}
                     </div>
                   </div>

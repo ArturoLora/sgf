@@ -34,7 +34,7 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
     order: "asc",
   });
 
-  const handleChange = (key: keyof ProductFilters, value: any) => {
+  const handleChange = (key: keyof ProductFilters, value: string) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     onFilter(newFilters);
@@ -59,7 +59,7 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
         {/* Quick search */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar producto..."
               value={filters.search}
@@ -96,7 +96,9 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filters.status}
-                onValueChange={(value: any) => handleChange("status", value)}
+                onValueChange={(value: ProductFilters["status"]) =>
+                  handleChange("status", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -114,7 +116,9 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filters.orderBy}
-                onValueChange={(value: any) => handleChange("orderBy", value)}
+                onValueChange={(value: ProductFilters["orderBy"]) =>
+                  handleChange("orderBy", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -132,7 +136,9 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Label className="text-sm">Orden</Label>
               <Select
                 value={filters.order}
-                onValueChange={(value: any) => handleChange("order", value)}
+                onValueChange={(value: ProductFilters["order"]) =>
+                  handleChange("order", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />

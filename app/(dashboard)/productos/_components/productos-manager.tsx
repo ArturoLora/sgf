@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, X, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import ProductosFiltros from "./productos-filtros";
 import ProductosTabla from "./productos-tabla";
-import CrearProductoModal from "./modals/crear-producto-modal";
-import EditarProductoModal from "./modals/editar-producto-modal";
-import DetalleProductoModal from "./modals/detalle-producto-modal";
-import TraspasoModal from "./modals/traspaso-modal";
-import AjusteModal from "./modals/ajuste-modal";
-import EntradaModal from "./modals/entrada-modal";
+import CrearProductoModal from "./crear-producto-modal";
+import EditarProductoModal from "./editar-producto-modal";
+import DetalleProductoModal from "./detalle-producto-modal";
+import TraspasoModal from "./traspaso-modal";
+import AjusteModal from "./ajuste-modal";
+import EntradaModal from "./entrada-modal";
 
 interface Product {
   id: number;
@@ -93,7 +93,8 @@ export default function ProductosManager({
 
     // Sort
     result.sort((a, b) => {
-      let valueA: any, valueB: any;
+      let valueA: string | number;
+      let valueB: string | number;
 
       switch (filters.orderBy) {
         case "name":
@@ -133,36 +134,44 @@ export default function ProductosManager({
     startIndex + ITEMS_PER_PAGE,
   );
 
-  const handleFilter = (newFilters: ProductFilters) => {
+  const handleFilter = useCallback((newFilters: ProductFilters) => {
     setFilters(newFilters);
     setCurrentPage(1);
-  };
+  }, []);
 
-  const handleSuccess = (message: string) => {
-    setSuccess(message);
-    router.refresh();
-    setTimeout(() => setSuccess(""), 3000);
-  };
-
-  const lowStockProducts = initialProducts.filter(
-    (p) =>
-      p.isActive && (p.gymStock < p.minStock || p.warehouseStock < p.minStock),
+  const handleSuccess = useCallback(
+    (message: string) => {
+      setSuccess(message);
+      router.refresh();
+      setTimeout(() => setSuccess(""), 3000);
+    },
+    [router],
   );
 
-  const isMembership = (product: Product) => {
+  const lowStockProducts = useMemo(
+    () =>
+      initialProducts.filter(
+        (p) =>
+          p.isActive &&
+          (p.gymStock < p.minStock || p.warehouseStock < p.minStock),
+      ),
+    [initialProducts],
+  );
+
+  const isMembership = useCallback((product: Product) => {
     return (
       product.name.includes("EFECTIVO") ||
       product.name === "VISITA" ||
       product.name.includes("MENSUALIDAD") ||
       product.name.includes("SEMANA")
     );
-  };
+  }, []);
 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Messages */}
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex items-center justify-between">
+        <div className="rounded-lg bg-destructive/10 dark:bg-destructive/20 p-3 text-sm text-destructive flex items-center justify-between">
           <span>{error}</span>
           <Button variant="ghost" size="sm" onClick={() => setError("")}>
             <X className="h-4 w-4" />
@@ -171,17 +180,17 @@ export default function ProductosManager({
       )}
 
       {success && (
-        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-600 font-medium">
+        <div className="rounded-lg bg-green-50 dark:bg-green-950 p-3 text-sm text-green-600 dark:text-green-300 font-medium">
           {success}
         </div>
       )}
 
       {/* Low stock alert */}
       {lowStockProducts.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
+        <Card className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               {lowStockProducts.length} producto
               {lowStockProducts.length === 1 ? "" : "s"} con stock bajo
             </CardTitle>
@@ -192,14 +201,14 @@ export default function ProductosManager({
                 <Badge
                   key={product.id}
                   variant="outline"
-                  className="bg-white cursor-pointer hover:bg-orange-100"
+                  className="bg-background cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900"
                   onClick={() => setDetailProductId(product.id)}
                 >
                   {product.name}
                 </Badge>
               ))}
               {lowStockProducts.length > 5 && (
-                <Badge variant="outline" className="bg-white">
+                <Badge variant="outline" className="bg-background">
                   +{lowStockProducts.length - 5} más
                 </Badge>
               )}
@@ -217,7 +226,7 @@ export default function ProductosManager({
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <CardTitle className="text-base sm:text-lg">
               Productos
-              <span className="text-sm font-normal text-gray-500 ml-2">
+              <span className="text-sm font-normal text-muted-foreground ml-2">
                 ({filteredProducts.length} resultados)
               </span>
             </CardTitle>
@@ -233,7 +242,7 @@ export default function ProductosManager({
         <CardContent>
           {filteredProducts.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 No hay productos que coincidan con los filtros
               </p>
             </div>
@@ -251,7 +260,7 @@ export default function ProductosManager({
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
-                  <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+                  <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
                     Mostrando {startIndex + 1}-
                     {Math.min(
                       startIndex + ITEMS_PER_PAGE,
@@ -274,7 +283,7 @@ export default function ProductosManager({
                       {Array.from(
                         { length: Math.min(5, totalPages) },
                         (_, i) => {
-                          let pageNum;
+                          let pageNum: number;
                           if (totalPages <= 5) {
                             pageNum = i + 1;
                           } else if (currentPage <= 3) {

@@ -35,23 +35,23 @@ export default function ProductosStats({ products }: ProductosStatsProps) {
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="text-xl sm:text-2xl font-bold">{totalProducts}</div>
-          <p className="text-xs text-gray-500">Total de productos</p>
+          <p className="text-xs text-muted-foreground">Total de productos</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="text-xl sm:text-2xl font-bold">{activeProducts}</div>
-          <p className="text-xs text-gray-500">Activos</p>
+          <p className="text-xs text-muted-foreground">Activos</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="pt-4 sm:pt-6">
-          <div className="text-xl sm:text-2xl font-bold text-red-600">
+          <div className="text-xl sm:text-2xl font-bold text-destructive">
             {lowStockProducts}
           </div>
-          <p className="text-xs text-gray-500">Stock bajo</p>
+          <p className="text-xs text-muted-foreground">Stock bajo</p>
         </CardContent>
       </Card>
 
@@ -60,7 +60,9 @@ export default function ProductosStats({ products }: ProductosStatsProps) {
           <div className="text-xl sm:text-2xl font-bold">
             ${inventoryValue.toFixed(2)}
           </div>
-          <p className="text-xs text-gray-500">Valor total inventario</p>
+          <p className="text-xs text-muted-foreground">
+            Valor total inventario
+          </p>
         </CardContent>
       </Card>
     </div>

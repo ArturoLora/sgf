@@ -1,23 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { X, Loader2 } from "lucide-react";
-
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
+import {
+  UpdateProductInputSchema,
+  type UpdateProductInputRaw,
+  type ProductoResponse,
+} from "@/types/api/products";
 
 interface EditarProductoModalProps {
   productId: number;
@@ -32,17 +28,21 @@ export default function EditarProductoModal({
   onSuccess,
   onError,
 }: EditarProductoModalProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    salePrice: "",
-    minStock: "",
-    isActive: true,
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<UpdateProductInputRaw>({
+    resolver: zodResolver(UpdateProductInputSchema),
   });
+
+  const isActive = watch("isActive");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -50,16 +50,16 @@ export default function EditarProductoModal({
         const response = await fetch(`/api/products/${productId}`);
         if (!response.ok) throw new Error("Error al cargar producto");
 
-        const data = await response.json();
+        const data: ProductoResponse = await response.json();
         setProduct(data);
-        setFormData({
-          name: data.name,
-          salePrice: data.salePrice.toString(),
-          minStock: data.minStock.toString(),
-          isActive: data.isActive,
-        });
-      } catch (err: any) {
-        onError(err.message || "Error al cargar producto");
+        setValue("name", data.name);
+        setValue("salePrice", data.salePrice);
+        setValue("minStock", data.minStock);
+        setValue("isActive", data.isActive);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
         onClose();
       } finally {
         setLoading(false);
@@ -67,48 +67,30 @@ export default function EditarProductoModal({
     };
 
     fetchProduct();
-  }, [productId, onClose, onError]);
+  }, [productId, onClose, onError, setValue]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const onSubmit = async (data: UpdateProductInputRaw) => {
     if (!product) return;
-
-    const salePrice = parseFloat(formData.salePrice);
-    const minStock = parseInt(formData.minStock);
-
-    if (isNaN(salePrice) || salePrice <= 0) {
-      onError("El precio debe ser mayor a 0");
-      return;
-    }
-
-    if (isNaN(minStock) || minStock < 0) {
-      onError("El stock mínimo no puede ser negativo");
-      return;
-    }
 
     setSubmitting(true);
     try {
       const response = await fetch(`/api/products/${product.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          salePrice,
-          minStock,
-          isActive: formData.isActive,
-        }),
+        body: JSON.stringify(data),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al actualizar producto");
+        throw new Error(result.error || "Error al actualizar producto");
       }
 
-      onSuccess(`Producto actualizado: ${formData.name}`);
-    } catch (err: any) {
-      onError(err.message || "Error al actualizar producto");
+      onSuccess(`Producto actualizado: ${data.name}`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al actualizar producto";
+      onError(message);
     } finally {
       setSubmitting(false);
     }
@@ -137,7 +119,7 @@ export default function EditarProductoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
-        <CardHeader className="border-b bg-white rounded-t-xl shrink-0">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg">
               Editar Producto
@@ -155,33 +137,31 @@ export default function EditarProductoModal({
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
           {!isMembership && (
-            <div className="p-3 bg-gray-50 rounded-lg">
+            <div className="p-3 bg-muted rounded-lg">
               <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
                 <div>
-                  <span className="text-gray-600">Stock Bodega:</span>
+                  <span className="text-muted-foreground">Stock Bodega:</span>
                   <span className="ml-2 font-medium">
                     {product.warehouseStock}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600">Stock Gym:</span>
+                  <span className="text-muted-foreground">Stock Gym:</span>
                   <span className="ml-2 font-medium">{product.gymStock}</span>
                 </div>
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label>Nombre *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                disabled={submitting}
-                required
-              />
+              <Input {...register("name")} disabled={submitting} />
+              {errors.name && (
+                <p className="text-xs text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
 
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
@@ -190,14 +170,14 @@ export default function EditarProductoModal({
                 <Input
                   type="number"
                   step="0.01"
-                  min="0.01"
-                  value={formData.salePrice}
-                  onChange={(e) =>
-                    setFormData({ ...formData, salePrice: e.target.value })
-                  }
+                  {...register("salePrice", { valueAsNumber: true })}
                   disabled={submitting}
-                  required
                 />
+                {errors.salePrice && (
+                  <p className="text-xs text-destructive">
+                    {errors.salePrice.message}
+                  </p>
+                )}
               </div>
 
               {!isMembership && (
@@ -205,14 +185,14 @@ export default function EditarProductoModal({
                   <Label>Stock Mínimo *</Label>
                   <Input
                     type="number"
-                    min="0"
-                    value={formData.minStock}
-                    onChange={(e) =>
-                      setFormData({ ...formData, minStock: e.target.value })
-                    }
+                    {...register("minStock", { valueAsNumber: true })}
                     disabled={submitting}
-                    required
                   />
+                  {errors.minStock && (
+                    <p className="text-xs text-destructive">
+                      {errors.minStock.message}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -220,14 +200,14 @@ export default function EditarProductoModal({
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div className="space-y-0.5">
                 <Label>Estado</Label>
-                <p className="text-xs text-gray-500">
-                  {formData.isActive ? "Activo" : "Inactivo"}
+                <p className="text-xs text-muted-foreground">
+                  {isActive ? "Activo" : "Inactivo"}
                 </p>
               </div>
               <Switch
-                checked={formData.isActive}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isActive: checked })
+                checked={isActive}
+                onCheckedChange={(checked: boolean) =>
+                  setValue("isActive", checked)
                 }
                 disabled={submitting}
               />

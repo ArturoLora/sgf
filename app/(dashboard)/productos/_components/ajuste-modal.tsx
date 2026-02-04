@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,15 +15,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Loader2, Plus, Minus } from "lucide-react";
+import { CreateAdjustmentInputSchema } from "@/types/api/inventory";
+import type { ProductoResponse } from "@/types/api/products";
+import type { Ubicacion } from "@/types/models/movimiento-inventario";
 
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
+interface AdjustmentFormData {
+  productId: number;
+  quantity: number;
+  location: string;
+  notes: string;
 }
 
 interface AjusteModalProps {
@@ -38,27 +39,40 @@ export default function AjusteModal({
   onSuccess,
   onError,
 }: AjusteModalProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+  const [type, setType] = useState<"INCREASE" | "DECREASE">("INCREASE");
 
-  const [formData, setFormData] = useState({
-    location: "WAREHOUSE" as "WAREHOUSE" | "GYM",
-    type: "INCREASE" as "INCREASE" | "DECREASE",
-    quantity: "",
-    notes: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<AdjustmentFormData>({
+    resolver: zodResolver(CreateAdjustmentInputSchema),
+    defaultValues: {
+      productId,
+      location: "WAREHOUSE",
+      quantity: 0,
+      notes: "",
+    },
   });
+
+  const location = watch("location") as Ubicacion;
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         const response = await fetch(`/api/products/${productId}`);
         if (!response.ok) throw new Error("Error al cargar producto");
-        const data = await response.json();
+        const data: ProductoResponse = await response.json();
         setProduct(data);
-      } catch (err: any) {
-        onError(err.message || "Error al cargar producto");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
         onClose();
       } finally {
         setLoading(false);
@@ -68,55 +82,56 @@ export default function AjusteModal({
     fetchProduct();
   }, [productId, onClose, onError]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const onSubmit = async (data: AdjustmentFormData) => {
     if (!product) return;
 
-    const quantity = parseInt(formData.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      onError("La cantidad debe ser mayor a 0");
-      return;
-    }
-
     const currentStock =
-      formData.location === "WAREHOUSE"
-        ? product.warehouseStock
-        : product.gymStock;
+      data.location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+    const numericQuantity = Number(data.quantity);
 
-    if (formData.type === "DECREASE" && quantity > currentStock) {
+    if (type === "DECREASE" && numericQuantity > currentStock) {
       onError(`Stock insuficiente. Disponible: ${currentStock}`);
       return;
     }
 
+    if (!data.notes || data.notes.trim() === "") {
+      onError("Las notas son requeridas para ajustes");
+      return;
+    }
+
+    const adjustedQuantity =
+      type === "INCREASE" ? numericQuantity : -numericQuantity;
+
+    const payload: AdjustmentFormData = {
+      productId: data.productId,
+      location: data.location,
+      quantity: adjustedQuantity,
+      notes: data.notes,
+    };
+
     setSubmitting(true);
     try {
-      const adjustedQuantity =
-        formData.type === "INCREASE" ? quantity : -quantity;
-
       const response = await fetch("/api/inventory/adjustment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: product.id,
-          location: formData.location,
-          quantity: adjustedQuantity,
-          notes: formData.notes || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al realizar ajuste");
+        throw new Error(result.error || "Error al realizar ajuste");
       }
 
-      const typeLabel =
-        formData.type === "INCREASE" ? "Incremento" : "Decremento";
-      const locationName = formData.location === "WAREHOUSE" ? "Bodega" : "Gym";
-      onSuccess(`${typeLabel} de ${quantity} unidades en ${locationName}`);
-    } catch (err: any) {
-      onError(err.message || "Error al realizar ajuste");
+      const typeLabel = type === "INCREASE" ? "Incremento" : "Decremento";
+      const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
+      onSuccess(
+        `${typeLabel} de ${numericQuantity} unidades en ${locationName}`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al realizar ajuste";
+      onError(message);
     } finally {
       setSubmitting(false);
     }
@@ -137,14 +152,12 @@ export default function AjusteModal({
   if (!product) return null;
 
   const currentStock =
-    formData.location === "WAREHOUSE"
-      ? product.warehouseStock
-      : product.gymStock;
+    location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
-        <CardHeader className="border-b bg-white rounded-t-xl shrink-0">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg">
               Ajuste de Inventario
@@ -161,31 +174,29 @@ export default function AjusteModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
-          <div className="p-3 bg-gray-50 rounded-lg">
+          <div className="p-3 bg-muted rounded-lg">
             <p className="font-semibold text-sm sm:text-base">{product.name}</p>
             <div className="grid grid-cols-2 gap-2 mt-2 text-xs sm:text-sm">
               <div>
-                <span className="text-gray-600">Bodega:</span>
+                <span className="text-muted-foreground">Bodega:</span>
                 <span className="ml-2 font-medium">
                   {product.warehouseStock}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Gym:</span>
+                <span className="text-muted-foreground">Gym:</span>
                 <span className="ml-2 font-medium">{product.gymStock}</span>
               </div>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Ubicación *</Label>
                 <Select
-                  value={formData.location}
-                  onValueChange={(value: "WAREHOUSE" | "GYM") =>
-                    setFormData({ ...formData, location: value })
-                  }
+                  value={location}
+                  onValueChange={(value: string) => setValue("location", value)}
                   disabled={submitting}
                 >
                   <SelectTrigger>
@@ -196,7 +207,7 @@ export default function AjusteModal({
                     <SelectItem value="GYM">Gym</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Stock actual: {currentStock}
                 </p>
               </div>
@@ -204,9 +215,9 @@ export default function AjusteModal({
               <div className="space-y-2">
                 <Label>Tipo de Ajuste *</Label>
                 <Select
-                  value={formData.type}
+                  value={type}
                   onValueChange={(value: "INCREASE" | "DECREASE") =>
-                    setFormData({ ...formData, type: value })
+                    setType(value)
                   }
                   disabled={submitting}
                 >
@@ -216,13 +227,13 @@ export default function AjusteModal({
                   <SelectContent>
                     <SelectItem value="INCREASE">
                       <div className="flex items-center gap-2">
-                        <Plus className="h-4 w-4 text-green-600" />
+                        <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />
                         Incrementar
                       </div>
                     </SelectItem>
                     <SelectItem value="DECREASE">
                       <div className="flex items-center gap-2">
-                        <Minus className="h-4 w-4 text-red-600" />
+                        <Minus className="h-4 w-4 text-destructive" />
                         Decrementar
                       </div>
                     </SelectItem>
@@ -236,16 +247,16 @@ export default function AjusteModal({
               <Input
                 type="number"
                 min="1"
-                max={formData.type === "DECREASE" ? currentStock : undefined}
-                value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, quantity: e.target.value })
-                }
+                {...register("quantity", { valueAsNumber: true })}
                 disabled={submitting}
-                required
               />
-              {formData.type === "DECREASE" && (
-                <p className="text-xs text-red-600">
+              {errors.quantity && (
+                <p className="text-xs text-destructive">
+                  {errors.quantity.message}
+                </p>
+              )}
+              {type === "DECREASE" && (
+                <p className="text-xs text-destructive">
                   Máximo disponible: {currentStock}
                 </p>
               )}
@@ -254,15 +265,16 @@ export default function AjusteModal({
             <div className="space-y-2">
               <Label>Notas *</Label>
               <Input
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
+                {...register("notes")}
                 disabled={submitting}
                 placeholder="Motivo del ajuste"
-                required
               />
-              <p className="text-xs text-gray-500">
+              {errors.notes && (
+                <p className="text-xs text-destructive">
+                  {errors.notes.message}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
                 Describe el motivo del ajuste (requerido)
               </p>
             </div>

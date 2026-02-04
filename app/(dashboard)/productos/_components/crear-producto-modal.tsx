@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X, Loader2 } from "lucide-react";
+import {
+  CreateProductInputSchema,
+  type CreateProductInputRaw,
+} from "@/types/api/products";
 
 interface CrearProductoModalProps {
   onClose: () => void;
@@ -19,52 +24,41 @@ export default function CrearProductoModal({
   onSuccess,
   onError,
 }: CrearProductoModalProps) {
-  const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    salePrice: "",
-    minStock: "5",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CreateProductInputRaw>({
+    resolver: zodResolver(CreateProductInputSchema),
+    defaultValues: {
+      name: "",
+      salePrice: 0,
+      minStock: 5,
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const salePrice = parseFloat(formData.salePrice);
-    const minStock = parseInt(formData.minStock);
-
-    if (isNaN(salePrice) || salePrice <= 0) {
-      onError("El precio debe ser mayor a 0");
-      return;
-    }
-
-    if (isNaN(minStock) || minStock < 0) {
-      onError("El stock mínimo no puede ser negativo");
-      return;
-    }
-
+  const onSubmit = async (data: CreateProductInputRaw) => {
     setSubmitting(true);
     try {
       const response = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          salePrice,
-          minStock,
-        }),
+        body: JSON.stringify(data),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al crear producto");
+        throw new Error(result.error || "Error al crear producto");
       }
 
-      onSuccess(`Producto creado: ${formData.name}`);
-    } catch (err: any) {
-      onError(err.message || "Error al crear producto");
+      onSuccess(`Producto creado: ${data.name}`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al crear producto";
+      onError(message);
     } finally {
       setSubmitting(false);
     }
@@ -73,7 +67,7 @@ export default function CrearProductoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
-        <CardHeader className="border-b bg-white rounded-t-xl shrink-0">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg">
               Nuevo Producto
@@ -90,18 +84,19 @@ export default function CrearProductoModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label>Nombre *</Label>
               <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                {...register("name")}
                 disabled={submitting}
                 placeholder="Ej: Proteína Whey 2kg"
-                required
               />
+              {errors.name && (
+                <p className="text-xs text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
 
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
@@ -110,36 +105,37 @@ export default function CrearProductoModal({
                 <Input
                   type="number"
                   step="0.01"
-                  min="0.01"
-                  value={formData.salePrice}
-                  onChange={(e) =>
-                    setFormData({ ...formData, salePrice: e.target.value })
-                  }
+                  {...register("salePrice", { valueAsNumber: true })}
                   disabled={submitting}
                   placeholder="0.00"
-                  required
                 />
+                {errors.salePrice && (
+                  <p className="text-xs text-destructive">
+                    {errors.salePrice.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>Stock Mínimo *</Label>
                 <Input
                   type="number"
-                  min="0"
-                  value={formData.minStock}
-                  onChange={(e) =>
-                    setFormData({ ...formData, minStock: e.target.value })
-                  }
+                  {...register("minStock", { valueAsNumber: true })}
                   disabled={submitting}
-                  required
                 />
+                {errors.minStock && (
+                  <p className="text-xs text-destructive">
+                    {errors.minStock.message}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs sm:text-sm text-blue-800">
-                💡 El producto se creará con 0 unidades en stock. Usa "Entrada
-                de Stock" después de crearlo para agregar inventario.
+            <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-300">
+                💡 El producto se creará con 0 unidades en stock. Usa
+                &quot;Entrada de Stock&quot; después de crearlo para agregar
+                inventario.
               </p>
             </div>
 
