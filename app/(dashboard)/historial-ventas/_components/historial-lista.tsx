@@ -3,24 +3,26 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Receipt, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import type { TicketVentaAgrupado } from "@/types/api/sales";
 
 interface HistorialListaProps {
-  tickets: any[];
+  tickets: TicketVentaAgrupado[];
   loading: boolean;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
 }
 
-export default function HistorialLista({
+export function HistorialLista({
   tickets,
   loading,
   currentPage,
   totalPages,
   onPageChange,
 }: HistorialListaProps) {
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("es-MX", {
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    return dateObj.toLocaleString("es-MX", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -29,12 +31,21 @@ export default function HistorialLista({
     });
   };
 
+  const formatPaymentMethod = (method?: string) => {
+    if (!method) return "";
+    return method.replace(/_/g, " ");
+  };
+
   if (loading) {
-    return <p className="text-center text-gray-500 py-8">Cargando...</p>;
+    return (
+      <p className="text-center text-muted-foreground py-8">Cargando...</p>
+    );
   }
 
   if (tickets.length === 0) {
-    return <p className="text-center text-gray-500 py-8">Sin resultados</p>;
+    return (
+      <p className="text-center text-muted-foreground py-8">Sin resultados</p>
+    );
   }
 
   return (
@@ -44,14 +55,16 @@ export default function HistorialLista({
           <div
             key={ticket.ticket}
             className={`border rounded-lg p-3 sm:p-4 ${
-              ticket.isCancelled ? "bg-red-50 border-red-200" : ""
+              ticket.isCancelled
+                ? "bg-destructive/10 border-destructive/50"
+                : "bg-card"
             }`}
           >
             {/* Header - responsive layout */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <Receipt className="h-4 w-4 shrink-0" />
+                  <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <strong className="text-sm sm:text-base truncate">
                     #{ticket.ticket}
                   </strong>
@@ -65,22 +78,24 @@ export default function HistorialLista({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-1">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-1">
                   <Calendar className="h-3 w-3 shrink-0" />
                   <span className="truncate">{formatDate(ticket.date)}</span>
                 </div>
 
-                <div className="space-y-0.5 text-xs sm:text-sm text-gray-600">
+                <div className="space-y-0.5 text-xs sm:text-sm text-muted-foreground">
                   <p className="truncate">
                     Cajero:{" "}
-                    <span className="font-medium">{ticket.cashier}</span>
+                    <span className="font-medium text-foreground">
+                      {ticket.cashier}
+                    </span>
                   </p>
 
                   {ticket.paymentMethod && (
                     <p className="truncate">
                       Pago:{" "}
-                      <span className="font-medium">
-                        {ticket.paymentMethod.replace(/_/g, " ")}
+                      <span className="font-medium text-foreground">
+                        {formatPaymentMethod(ticket.paymentMethod)}
                       </span>
                     </p>
                   )}
@@ -88,7 +103,7 @@ export default function HistorialLista({
                   {ticket.member && (
                     <p className="truncate">
                       Cliente:{" "}
-                      <span className="font-medium">
+                      <span className="font-medium text-foreground">
                         {ticket.member.name || ticket.member.memberNumber}
                       </span>
                     </p>
@@ -105,14 +120,14 @@ export default function HistorialLista({
             </div>
 
             {/* Items - responsive list */}
-            <div className="space-y-1 bg-gray-50 rounded p-2 sm:p-3 border-t">
-              {ticket.items.map((item: any) => (
+            <div className="space-y-1 bg-muted rounded p-2 sm:p-3 border-t border-border">
+              {ticket.items.map((item) => (
                 <div
                   key={item.id}
                   className="flex justify-between items-start gap-2 text-xs sm:text-sm"
                 >
-                  <span className="text-gray-700 flex-1 min-w-0">
-                    <span className="font-medium">
+                  <span className="text-muted-foreground flex-1 min-w-0">
+                    <span className="font-medium text-foreground">
                       {Math.abs(item.quantity)}x
                     </span>{" "}
                     <span className="truncate inline-block max-w-full">
@@ -131,8 +146,8 @@ export default function HistorialLista({
 
       {/* Pagination - responsive */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
-          <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-border">
+          <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
             Página {currentPage} de {totalPages}
           </p>
           <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">

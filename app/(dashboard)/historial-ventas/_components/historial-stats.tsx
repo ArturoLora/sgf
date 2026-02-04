@@ -2,16 +2,23 @@
 
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import type { TicketVentaAgrupado } from "@/types/api/sales";
 
 interface HistorialStatsProps {
-  tickets: any[];
+  tickets: TicketVentaAgrupado[];
 }
 
-export default function HistorialStats({ tickets }: HistorialStatsProps) {
+export function HistorialStats({ tickets }: HistorialStatsProps) {
   const stats = useMemo(() => {
-    const totalValue = tickets.reduce((s, t) => s + Number(t.total), 0);
-    const cancelled = tickets.filter((t) => t.isCancelled).length;
-    const totalItems = tickets.reduce((s, t) => s + t.items.length, 0);
+    const totalValue = tickets.reduce(
+      (sum, ticket) => sum + Number(ticket.total),
+      0,
+    );
+    const cancelled = tickets.filter((ticket) => ticket.isCancelled).length;
+    const totalItems = tickets.reduce(
+      (sum, ticket) => sum + ticket.items.length,
+      0,
+    );
 
     return {
       totalValue,
@@ -28,7 +35,7 @@ export default function HistorialStats({ tickets }: HistorialStatsProps) {
           <div className="text-xl sm:text-2xl font-bold">
             ${stats.totalValue.toFixed(2)}
           </div>
-          <p className="text-xs text-gray-500">Total en ventas</p>
+          <p className="text-xs text-muted-foreground">Total en ventas</p>
         </CardContent>
       </Card>
 
@@ -37,7 +44,7 @@ export default function HistorialStats({ tickets }: HistorialStatsProps) {
           <div className="text-xl sm:text-2xl font-bold">
             {stats.uniqueTickets}
           </div>
-          <p className="text-xs text-gray-500">Tickets</p>
+          <p className="text-xs text-muted-foreground">Tickets</p>
         </CardContent>
       </Card>
 
@@ -46,16 +53,16 @@ export default function HistorialStats({ tickets }: HistorialStatsProps) {
           <div className="text-xl sm:text-2xl font-bold">
             {stats.totalItems}
           </div>
-          <p className="text-xs text-gray-500">Items</p>
+          <p className="text-xs text-muted-foreground">Items</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="pt-4 sm:pt-6">
-          <div className="text-xl sm:text-2xl font-bold text-red-600">
+          <div className="text-xl sm:text-2xl font-bold text-destructive">
             {stats.cancelled}
           </div>
-          <p className="text-xs text-gray-500">Canceladas</p>
+          <p className="text-xs text-muted-foreground">Canceladas</p>
         </CardContent>
       </Card>
     </div>

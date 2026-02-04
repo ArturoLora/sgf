@@ -7,9 +7,35 @@ export const TicketParamsSchema = z.object({
   ticket: z.string(),
 });
 
+// Schema para filtros de historial de ventas
+export const HistorialVentasFiltersSchema = z.object({
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  cashier: z.string().optional(),
+  product: z.string().optional(),
+  member: z.string().optional(),
+  paymentMethod: z.string().optional(),
+  productType: z.enum(["todos", "membresias", "productos"]).optional(),
+  orderBy: z
+    .enum([
+      "date_desc",
+      "date_asc",
+      "total_desc",
+      "total_asc",
+      "ticket_desc",
+      "ticket_asc",
+    ])
+    .optional(),
+  onlyActive: z.boolean().optional(),
+});
+
 // ==================== INFERRED TYPES ====================
 
 export type TicketParamsInput = z.infer<typeof TicketParamsSchema>;
+export type HistorialVentasFilters = z.infer<
+  typeof HistorialVentasFiltersSchema
+>;
 
 // ==================== QUERY PARAMS ====================
 
@@ -86,4 +112,22 @@ export interface DetalleTicketResponse {
   notes?: string;
   total: number;
   items: ItemVentaTicket[];
+}
+
+// ==================== HELPER TYPES ====================
+
+export interface CashierOption {
+  id: string;
+  name: string;
+}
+
+export interface ProductOption {
+  id: number;
+  name: string;
+}
+
+export interface MemberOption {
+  id: number;
+  memberNumber: string;
+  name: string | null;
 }

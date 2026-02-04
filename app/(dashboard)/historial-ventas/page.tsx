@@ -1,9 +1,13 @@
-// app/(dashboard)/historial-ventas/page.tsx
 import { requireAdmin } from "@/lib/require-role";
-import HistorialVentasManager from "./historial-ventas-manager";
+import { HistorialVentasManager } from "./_components/historial-ventas-manager";
 import { prisma } from "@/lib/db";
+import type {
+  CashierOption,
+  ProductOption,
+  MemberOption,
+} from "@/types/api/sales";
 
-async function getCashiers() {
+async function getCashiers(): Promise<CashierOption[]> {
   const users = await prisma.user.findMany({
     where: { isActive: true },
     select: { id: true, name: true },
@@ -12,7 +16,7 @@ async function getCashiers() {
   return users;
 }
 
-async function getProducts() {
+async function getProducts(): Promise<ProductOption[]> {
   const products = await prisma.product.findMany({
     where: { isActive: true },
     select: { id: true, name: true },
@@ -21,7 +25,7 @@ async function getProducts() {
   return products;
 }
 
-async function getMembers() {
+async function getMembers(): Promise<MemberOption[]> {
   const members = await prisma.member.findMany({
     where: { isActive: true },
     select: { id: true, memberNumber: true, name: true },

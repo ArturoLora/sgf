@@ -1,21 +1,26 @@
 #!/bin/bash
 
-output_file="./fe5-inventario-$(date +%Y%m%d_%H%M%S).txt"
+output="./fe6-historial-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "=== FRONTEND INVENTARIO ===" > "$output_file"
+HISTORIAL_PATH="app/(dashboard)/historial-ventas"
 
-find "app/(dashboard)/inventario" -type f \
-  \( -name "*.ts" -o -name "*.tsx" -o -name "*.md" \) \
-  | sort | while read -r file; do
-    echo -e "\n\n===== FILE: $file =====\n" >> "$output_file"
-    sed 's/\t/  /g' "$file" >> "$output_file"
+echo "### HISTORIAL FRONTEND AUDIT ###" > "$output"
+
+echo -e "\n--- TREE ---\n" >> "$output"
+tree "$HISTORIAL_PATH" >> "$output"
+
+echo -e "\n--- FILES ---\n" >> "$output"
+
+find "$HISTORIAL_PATH" -type f \( -name "*.tsx" -o -name "*.md" \) | while read file; do
+  echo -e "\n===============================" >> "$output"
+  echo "FILE: $file" >> "$output"
+  echo "===============================" >> "$output"
+  sed -n '1,400p' "$file" >> "$output"
 done
 
-echo -e "\n\n=== BACKEND INVENTORY SCHEMAS ===\n" >> "$output_file"
+echo -e "\n--- BACKEND TYPES (sales + inventory) ---\n" >> "$output"
 
-for file in types/api/inventory.ts; do
-  echo -e "\n\n===== FILE: $file =====\n" >> "$output_file"
-  sed 's/\t/  /g' "$file" >> "$output_file"
-done
+sed -n '1,400p' types/api/sales.ts >> "$output"
+sed -n '1,400p' types/api/inventory.ts >> "$output"
 
-echo "Export completo: $output_file"
+echo -e "\nDONE → $output"
