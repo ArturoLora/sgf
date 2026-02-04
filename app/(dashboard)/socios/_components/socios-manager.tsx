@@ -4,49 +4,37 @@ import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
-import SociosStats from "./socios-stats";
-import SociosFiltros from "./socios-filtros";
-import SociosLista from "./socios-lista";
-import CrearSocioModal from "./modals/crear-socio-modal";
-import EditarSocioModal from "./modals/editar-socio-modal";
-import DetalleSocioModal from "./modals/detalle-socio-modal";
-import RenovarMembresiaModal from "./modals/renovar-membresia-modal";
-
-interface Member {
-  id: number;
-  memberNumber: string;
-  name: string | null;
-  phone: string | null;
-  email: string | null;
-  birthDate: string | null;
-  membershipType: string | null;
-  membershipDescription: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  totalVisits: number;
-  lastVisit: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import { SociosStats } from "./socios-stats";
+import { SociosFiltrosComponent } from "./socios-filtros";
+import type { SociosFiltros } from "./socios-filtros";
+import { SociosLista } from "./socios-lista";
+import { CrearSocioModal } from "./crear-socio-modal";
+import { EditarSocioModal } from "./editar-socio-modal";
+import { DetalleSocioModal } from "./detalle-socio-modal";
+import { RenovarMembresiaModal } from "./renovar-membresia-modal";
+import type { SocioResponse } from "@/types/api/members";
 
 interface SociosManagerProps {
-  initialMembers: Member[];
+  initialMembers: SocioResponse[];
 }
 
 const ITEMS_POR_PAGINA = 15;
 
-export default function SociosManager({ initialMembers }: SociosManagerProps) {
-  const [members, setMembers] = useState<Member[]>(initialMembers);
+export function SociosManager({ initialMembers }: SociosManagerProps) {
+  const [members, setMembers] = useState<SocioResponse[]>(initialMembers);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [paginaActual, setPaginaActual] = useState(1);
 
   // Modales
   const [modalCrear, setModalCrear] = useState(false);
-  const [memberEditar, setMemberEditar] = useState<Member | null>(null);
-  const [memberDetalle, setMemberDetalle] = useState<Member | null>(null);
-  const [memberRenovar, setMemberRenovar] = useState<Member | null>(null);
+  const [memberEditar, setMemberEditar] = useState<SocioResponse | null>(null);
+  const [memberDetalle, setMemberDetalle] = useState<SocioResponse | null>(
+    null,
+  );
+  const [memberRenovar, setMemberRenovar] = useState<SocioResponse | null>(
+    null,
+  );
 
   // Filtros
   const [filtros, setFiltros] = useState<SociosFiltros>({
@@ -106,7 +94,8 @@ export default function SociosManager({ initialMembers }: SociosManagerProps) {
           return !m.membershipType || !m.endDate;
         }
         if (!m.endDate) return false;
-        const end = new Date(m.endDate);
+        const end =
+          typeof m.endDate === "string" ? new Date(m.endDate) : m.endDate;
         if (filtros.vigencia === "vigentes") {
           return end >= today;
         }
@@ -123,7 +112,8 @@ export default function SociosManager({ initialMembers }: SociosManagerProps) {
 
     // Ordenamiento
     resultado.sort((a, b) => {
-      let valorA: any, valorB: any;
+      let valorA: string | number;
+      let valorB: string | number;
 
       switch (filtros.ordenarPor) {
         case "nombre":
@@ -131,8 +121,14 @@ export default function SociosManager({ initialMembers }: SociosManagerProps) {
           valorB = b.name || "";
           break;
         case "fecha_registro":
-          valorA = new Date(a.createdAt).getTime();
-          valorB = new Date(b.createdAt).getTime();
+          valorA =
+            typeof a.createdAt === "string"
+              ? new Date(a.createdAt).getTime()
+              : a.createdAt.getTime();
+          valorB =
+            typeof b.createdAt === "string"
+              ? new Date(b.createdAt).getTime()
+              : b.createdAt.getTime();
           break;
         case "visitas":
           valorA = a.totalVisits;
@@ -159,22 +155,34 @@ export default function SociosManager({ initialMembers }: SociosManagerProps) {
     inicio + ITEMS_POR_PAGINA,
   );
 
-  const handleFiltrar = (nuevosFiltros: SociosFiltros) => {
+  const handleFiltrar = useCallback((nuevosFiltros: SociosFiltros) => {
     setFiltros(nuevosFiltros);
     setPaginaActual(1);
-  };
+  }, []);
 
-  const handleSuccess = () => {
+  const handleSuccess = useCallback(() => {
     recargarDatos();
     setError("");
-  };
+  }, [recargarDatos]);
+
+  const handleVerDetalle = useCallback((member: SocioResponse) => {
+    setMemberDetalle(member);
+  }, []);
+
+  const handleEditar = useCallback((member: SocioResponse) => {
+    setMemberEditar(member);
+  }, []);
+
+  const handleRenovar = useCallback((member: SocioResponse) => {
+    setMemberRenovar(member);
+  }, []);
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Socios</h1>
-          <p className="text-sm sm:text-base text-gray-500">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Gestión de membresías y clientes
           </p>
         </div>
@@ -188,7 +196,7 @@ export default function SociosManager({ initialMembers }: SociosManagerProps) {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex justify-between items-start gap-2">
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex justify-between items-start gap-2 dark:bg-red-950 dark:text-red-400">
           <span className="flex-1">{error}</span>
           <Button variant="ghost" size="sm" onClick={() => setError("")}>
             <X className="h-4 w-4" />
@@ -198,13 +206,13 @@ export default function SociosManager({ initialMembers }: SociosManagerProps) {
 
       <SociosStats members={membersFiltrados} />
 
-      <SociosFiltros onFiltrar={handleFiltrar} loading={loading} />
+      <SociosFiltrosComponent onFiltrar={handleFiltrar} />
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-base sm:text-lg">
             <span>Socios</span>
-            <span className="text-xs sm:text-sm font-normal text-gray-500">
+            <span className="text-xs sm:text-sm font-normal text-muted-foreground">
               {membersFiltrados.length} resultados
             </span>
           </CardTitle>
@@ -216,9 +224,9 @@ export default function SociosManager({ initialMembers }: SociosManagerProps) {
             currentPage={paginaActual}
             totalPages={totalPaginas}
             onPageChange={setPaginaActual}
-            onVerDetalle={setMemberDetalle}
-            onEditar={setMemberEditar}
-            onRenovar={setMemberRenovar}
+            onVerDetalle={handleVerDetalle}
+            onEditar={handleEditar}
+            onRenovar={handleRenovar}
           />
         </CardContent>
       </Card>

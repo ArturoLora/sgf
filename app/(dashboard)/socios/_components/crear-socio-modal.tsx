@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CreateMemberInputSchema } from "@/types/api/members";
+import type { CreateMemberInputRaw } from "@/types/api/members";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 interface CrearSocioModalProps {
   open: boolean;
@@ -40,47 +44,55 @@ const TIPOS_MEMBRESIA = [
   { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición" },
 ];
 
-export default function CrearSocioModal({
+export function CrearSocioModal({
   open,
   onClose,
   onSuccess,
 }: CrearSocioModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [formData, setFormData] = useState({
-    memberNumber: "",
-    name: "",
-    phone: "",
-    email: "",
-    birthDate: "",
-    membershipType: "",
-    membershipDescription: "",
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+    reset,
+  } = useForm<CreateMemberInputRaw>({
+    resolver: zodResolver(CreateMemberInputSchema),
+    defaultValues: {
+      memberNumber: "",
+      name: "",
+      phone: "",
+      email: "",
+      birthDate: "",
+      membershipType: "",
+      membershipDescription: "",
+    },
   });
 
-  const handleChange = (key: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-    setError("");
-  };
+  const membershipType = watch("membershipType");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: CreateMemberInputRaw) => {
     setLoading(true);
     setError("");
-    if (!formData.phone.trim()) {
+
+    if (!data.phone?.trim()) {
       setError("El teléfono es obligatorio");
       setLoading(false);
       return;
     }
 
     try {
-      const payload: any = {
-        memberNumber: formData.memberNumber,
-        name: formData.name || null,
-        phone: formData.phone,
-        email: formData.email || null,
-        birthDate: formData.birthDate || null,
-        membershipType: formData.membershipType || null,
-        membershipDescription: formData.membershipDescription || null,
+      const payload = {
+        memberNumber: data.memberNumber,
+        name: data.name || null,
+        phone: data.phone,
+        email: data.email || null,
+        birthDate: data.birthDate || null,
+        membershipType: data.membershipType || null,
+        membershipDescription: data.membershipDescription || null,
       };
 
       const res = await fetch("/api/members", {
@@ -90,30 +102,37 @@ export default function CrearSocioModal({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al crear socio");
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al crear socio");
       }
 
       onSuccess();
+      reset();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleClose = () => {
+    reset();
+    setError("");
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo Socio</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
                 {error}
               </div>
             )}
@@ -125,21 +144,26 @@ export default function CrearSocioModal({
                 </Label>
                 <Input
                   id="memberNumber"
-                  value={formData.memberNumber}
-                  onChange={(e) => handleChange("memberNumber", e.target.value)}
+                  {...register("memberNumber")}
                   placeholder="001"
-                  required
                 />
+                {errors.memberNumber && (
+                  <p className="text-sm text-red-500">
+                    {errors.memberNumber.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="name">Nombre Completo</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
+                  {...register("name")}
                   placeholder="Juan Pérez"
                 />
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name.message}</p>
+                )}
               </div>
             </div>
 
@@ -148,15 +172,15 @@ export default function CrearSocioModal({
                 <Label htmlFor="phone">
                   Teléfono <span className="text-red-500">*</span>
                 </Label>
-
                 <Input
                   id="phone"
                   type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
+                  {...register("phone")}
                   placeholder="3111234567"
-                  required
                 />
+                {errors.phone && (
+                  <p className="text-sm text-red-500">{errors.phone.message}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -164,28 +188,30 @@ export default function CrearSocioModal({
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
+                  {...register("email")}
                   placeholder="socio@ejemplo.com"
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
-              <Input
-                id="birthDate"
-                type="date"
-                value={formData.birthDate}
-                onChange={(e) => handleChange("birthDate", e.target.value)}
-              />
+              <Input id="birthDate" type="date" {...register("birthDate")} />
+              {errors.birthDate && (
+                <p className="text-sm text-red-500">
+                  {errors.birthDate.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="membershipType">Tipo de Membresía</Label>
               <Select
-                value={formData.membershipType}
-                onValueChange={(value) => handleChange("membershipType", value)}
+                value={membershipType || ""}
+                onValueChange={(value) => setValue("membershipType", value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar tipo" />
@@ -198,6 +224,11 @@ export default function CrearSocioModal({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.membershipType && (
+                <p className="text-sm text-red-500">
+                  {errors.membershipType.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -206,12 +237,14 @@ export default function CrearSocioModal({
               </Label>
               <Input
                 id="membershipDescription"
-                value={formData.membershipDescription}
-                onChange={(e) =>
-                  handleChange("membershipDescription", e.target.value)
-                }
+                {...register("membershipDescription")}
                 placeholder="Información adicional"
               />
+              {errors.membershipDescription && (
+                <p className="text-sm text-red-500">
+                  {errors.membershipDescription.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -219,7 +252,7 @@ export default function CrearSocioModal({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={loading}
               className="w-full sm:w-auto"
             >
@@ -227,7 +260,7 @@ export default function CrearSocioModal({
             </Button>
             <Button
               type="submit"
-              disabled={loading || !formData.memberNumber || !formData.phone}
+              disabled={loading}
               className="w-full sm:w-auto"
             >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

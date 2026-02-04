@@ -25,7 +25,6 @@ export interface SociosFiltros {
 
 interface SociosFiltrosProps {
   onFiltrar: (filtros: SociosFiltros) => void;
-  loading?: boolean;
 }
 
 const TIPOS_MEMBRESIA = [
@@ -42,10 +41,7 @@ const TIPOS_MEMBRESIA = [
   { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición" },
 ];
 
-export default function SociosFiltros({
-  onFiltrar,
-  loading = false,
-}: SociosFiltrosProps) {
+export function SociosFiltrosComponent({ onFiltrar }: SociosFiltrosProps) {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtros, setFiltros] = useState<SociosFiltros>({
     busqueda: "",
@@ -56,7 +52,7 @@ export default function SociosFiltros({
     orden: "asc",
   });
 
-  const handleChange = (key: keyof SociosFiltros, value: any) => {
+  const handleChange = (key: keyof SociosFiltros, value: string) => {
     const nuevosFiltros = { ...filtros, [key]: value };
     setFiltros(nuevosFiltros);
     onFiltrar(nuevosFiltros);
@@ -87,7 +83,7 @@ export default function SociosFiltros({
         {/* Búsqueda y acciones */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nombre, número, teléfono o email..."
               value={filtros.busqueda}
@@ -163,7 +159,9 @@ export default function SociosFiltros({
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filtros.estado}
-                onValueChange={(value: any) => handleChange("estado", value)}
+                onValueChange={(value: SociosFiltros["estado"]) =>
+                  handleChange("estado", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -180,7 +178,9 @@ export default function SociosFiltros({
               <Label className="text-sm">Vigencia</Label>
               <Select
                 value={filtros.vigencia}
-                onValueChange={(value: any) => handleChange("vigencia", value)}
+                onValueChange={(value: SociosFiltros["vigencia"]) =>
+                  handleChange("vigencia", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -219,7 +219,7 @@ export default function SociosFiltros({
               <div className="flex gap-2">
                 <Select
                   value={filtros.ordenarPor}
-                  onValueChange={(value: any) =>
+                  onValueChange={(value: SociosFiltros["ordenarPor"]) =>
                     handleChange("ordenarPor", value)
                   }
                 >
@@ -235,7 +235,9 @@ export default function SociosFiltros({
                 </Select>
                 <Select
                   value={filtros.orden}
-                  onValueChange={(value: any) => handleChange("orden", value)}
+                  onValueChange={(value: SociosFiltros["orden"]) =>
+                    handleChange("orden", value)
+                  }
                 >
                   <SelectTrigger className="w-20">
                     <SelectValue />

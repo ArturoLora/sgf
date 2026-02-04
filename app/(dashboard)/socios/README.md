@@ -14,25 +14,74 @@ Gestión completa de socios del gimnasio, incluyendo:
 
 ```
 socios/
-├── page.tsx                          # Server component - data fetching inicial
-├── socios-manager.tsx                # Client component - orquestación UI
-├── socios-filtros.tsx                # Client component - filtros y búsqueda
-├── socios-lista.tsx                  # Client component - tabla responsive
-├── socios-stats.tsx                  # Client component - estadísticas
-├── crear-socio-modal.tsx             # Client component - formulario creación
-├── editar-socio-modal.tsx            # Client component - formulario edición
-├── detalle-socio-modal.tsx           # Client component - vista detallada
-├── renovar-membresia-modal.tsx       # Client component - renovación
+├── page.tsx                          # Server component - data fetching y composición
+├── loading.tsx                       # Loading state con skeleton
+├── _components/
+│   ├── socios-manager.tsx            # Client - orquestación principal
+│   ├── socios-filtros.tsx            # Client - filtros y búsqueda
+│   ├── socios-lista.tsx              # Client - tabla responsive
+│   ├── socios-stats.tsx              # Client - estadísticas
+│   ├── socios-skeleton.tsx           # Skeleton loading component
+│   └── modals/
+│       ├── crear-socio-modal.tsx     # Modal creación con RHF + Zod
+│       ├── editar-socio-modal.tsx    # Modal edición con RHF + Zod
+│       ├── detalle-socio-modal.tsx   # Modal vista detallada
+│       └── renovar-membresia-modal.tsx # Modal renovación con RHF + Zod
 └── README.md                         # Esta documentación
 ```
+
+## Tecnologías
+
+### React Hook Form + Zod
+
+Todos los formularios usan:
+
+- `react-hook-form` para manejo de estado y validación
+- `@hookform/resolvers/zod` para integración con Zod
+- Schemas importados desde `types/api/members.ts` (fuente de verdad backend)
+
+**Ejemplo:**
+
+```typescript
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CreateMemberInputSchema } from "@/types/api/members";
+import type { CreateMemberInputRaw } from "@/types/api/members";
+
+const {
+  register,
+  handleSubmit,
+  formState: { errors },
+} = useForm<CreateMemberInputRaw>({
+  resolver: zodResolver(CreateMemberInputSchema),
+});
+```
+
+### Dark Mode
+
+Todos los componentes usan tokens de shadcn/ui:
+
+- `bg-background` / `text-foreground`
+- `text-muted-foreground`
+- `border-border`
+- `bg-muted`
+
+**NO** se usan colores hardcodeados como `bg-gray-50` o `text-gray-600`.
+
+### Loading States
+
+- `loading.tsx` importa `SociosSkeleton`
+- Skeletons reflejan la estructura real de la UI
+- Estados de carga en modales durante submit
 
 ## Flujo de Datos
 
 ### Server Side (page.tsx)
 
 1. Verificación de autenticación (`requireAuth`)
-2. Carga inicial de socios desde API
-3. Pasa datos serializados al Manager
+2. Carga inicial de socios desde base de datos
+3. Serialización de datos (manejo de Decimals)
+4. Pasa datos al Manager como props
 
 ### Client Side (socios-manager.tsx)
 
@@ -44,10 +93,10 @@ socios/
 
 ### Componentes de UI
 
+- **socios-stats**: Métricas clave calculadas con `useMemo`
 - **socios-filtros**: Búsqueda, filtros por estado/tipo, ordenamiento
-- **socios-lista**: Tabla responsive con acciones
-- **socios-stats**: Cards con métricas clave
-- **Modales**: Formularios y vistas detalladas
+- **socios-lista**: Tabla responsive con vista móvil (cards) y desktop
+- **Modales**: Formularios con validación y vistas detalladas
 
 ## Responsabilidades Server vs Client
 
@@ -58,7 +107,7 @@ socios/
 
 ### Client Components
 
-- Todo componente con interactividad
+- Todo en `_components/`
 - Estado local, eventos, hooks
 - Llamadas a API para mutaciones
 - Modales, formularios, filtros
@@ -88,11 +137,30 @@ socios/
 ### Breakpoints Clave
 
 ```typescript
-// Tailwind breakpoints usados
 sm: 640px   // tablet
 md: 768px   // tablet landscape
 lg: 1024px  // desktop
 xl: 1280px  // desktop grande
+```
+
+## Validación de Formularios
+
+### Fuente de Verdad
+
+`types/api/members.ts` contiene todos los schemas Zod:
+
+- `CreateMemberInputSchema` - Creación de socios
+- `UpdateMemberInputSchema` - Edición de socios
+- `RenewMemberInputSchema` - Renovación de membresías
+
+**NO** crear schemas locales en componentes frontend.
+
+### Tipos TypeScript
+
+```typescript
+import type { CreateMemberInputRaw } from "@/types/api/members";
+import type { UpdateMemberInputRaw } from "@/types/api/members";
+import type { RenewMemberInputRaw } from "@/types/api/members";
 ```
 
 ## Decisiones Importantes
@@ -117,14 +185,7 @@ xl: 1280px  // desktop grande
 - Paginación del lado cliente (datos pre-cargados)
 - Filtrado reactivo sin llamadas API
 
-### 4. Validaciones
-
-- Formato de número de socio
-- Validación de fechas
-- Tipos de membresía desde enum
-- Teléfono/email opcionales
-
-### 5. Estados de Membresía
+### 4. Estados de Membresía
 
 - Activa: `endDate >= hoy`
 - Vencida: `endDate < hoy`
@@ -162,6 +223,27 @@ enum MembershipType {
 - Productos de membresía asociados a tipos
 - Transacciones registradas con `memberId`
 
+## Calidad de Código
+
+### TypeScript
+
+- Sin `any` types
+- Sin `eslint-disable`
+- Sin non-null assertions (`!`)
+- Tipos correctamente inferidos de schemas backend
+
+### React Hooks
+
+- `useMemo` para cálculos pesados (filtrado, ordenamiento)
+- `useCallback` para funciones pasadas como props
+- Dependencias correctamente especificadas
+
+### Manejo de Errores
+
+- Try-catch en todas las llamadas API
+- Estados de error locales en modales
+- Mensajes de error descriptivos
+
 ## Mejoras Futuras Potenciales
 
 - [ ] Exportar listado a Excel
@@ -170,3 +252,5 @@ enum MembershipType {
 - [ ] Histórico de membresías pasadas
 - [ ] Check-in con QR
 - [ ] Portal de socio (autogestión)
+- [ ] Búsqueda por rango de fechas
+- [ ] Reportes de renovación

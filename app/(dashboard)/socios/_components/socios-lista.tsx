@@ -12,36 +12,20 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-
-interface Member {
-  id: number;
-  memberNumber: string;
-  name: string | null;
-  phone: string | null;
-  email: string | null;
-  birthDate: string | null;
-  membershipType: string | null;
-  membershipDescription: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  totalVisits: number;
-  lastVisit: string | null;
-  isActive: boolean;
-  createdAt: string;
-}
+import type { SocioResponse } from "@/types/api/members";
 
 interface SociosListaProps {
-  members: Member[];
+  members: SocioResponse[];
   loading: boolean;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  onVerDetalle: (member: Member) => void;
-  onEditar: (member: Member) => void;
-  onRenovar: (member: Member) => void;
+  onVerDetalle: (member: SocioResponse) => void;
+  onEditar: (member: SocioResponse) => void;
+  onRenovar: (member: SocioResponse) => void;
 }
 
-export default function SociosLista({
+export function SociosLista({
   members,
   loading,
   currentPage,
@@ -51,7 +35,7 @@ export default function SociosLista({
   onEditar,
   onRenovar,
 }: SociosListaProps) {
-  const formatDate = (date: string | null) => {
+  const formatDate = (date: string | Date | null | undefined) => {
     if (!date) return "-";
     return new Date(date).toLocaleDateString("es-MX", {
       day: "2-digit",
@@ -60,10 +44,10 @@ export default function SociosLista({
     });
   };
 
-  const getVigenciaBadge = (endDate: string | null) => {
+  const getVigenciaBadge = (endDate: string | Date | null | undefined) => {
     if (!endDate) {
       return (
-        <Badge variant="outline" className="bg-gray-50">
+        <Badge variant="outline" className="bg-muted">
           Sin membresía
         </Badge>
       );
@@ -71,11 +55,11 @@ export default function SociosLista({
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
+    const end = typeof endDate === "string" ? new Date(endDate) : endDate;
 
     if (end >= today) {
       return (
-        <Badge className="bg-green-50 text-green-700 border-green-200">
+        <Badge className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
           Vigente
         </Badge>
       );
@@ -84,7 +68,7 @@ export default function SociosLista({
     return (
       <Badge
         variant="destructive"
-        className="bg-red-50 text-red-700 border-red-200"
+        className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
       >
         Vencida
       </Badge>
@@ -112,12 +96,16 @@ export default function SociosLista({
   };
 
   if (loading) {
-    return <p className="text-center text-gray-500 py-8">Cargando...</p>;
+    return (
+      <p className="text-center text-muted-foreground py-8">Cargando...</p>
+    );
   }
 
   if (members.length === 0) {
     return (
-      <p className="text-center text-gray-500 py-8">No se encontraron socios</p>
+      <p className="text-center text-muted-foreground py-8">
+        No se encontraron socios
+      </p>
     );
   }
 
@@ -129,7 +117,7 @@ export default function SociosLista({
           <div
             key={member.id}
             className={`border rounded-lg p-3 ${
-              !member.isActive ? "bg-gray-50 opacity-60" : ""
+              !member.isActive ? "bg-muted opacity-60" : ""
             }`}
           >
             <div className="flex items-start justify-between mb-3">
@@ -146,7 +134,7 @@ export default function SociosLista({
               </div>
             </div>
 
-            <div className="space-y-2 text-xs text-gray-600 mb-3">
+            <div className="space-y-2 text-xs text-muted-foreground mb-3">
               {member.phone && (
                 <div className="flex items-center gap-2">
                   <Phone className="h-3 w-3 shrink-0" />
@@ -164,7 +152,7 @@ export default function SociosLista({
                 <span>Visitas: {member.totalVisits}</span>
               </div>
               {member.membershipType && (
-                <p className="text-gray-500">
+                <p className="text-muted-foreground">
                   {getTipoMembresiaLabel(member.membershipType)}
                 </p>
               )}
@@ -208,7 +196,7 @@ export default function SociosLista({
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b bg-gray-50">
+            <tr className="border-b bg-muted">
               <th className="text-left p-3 font-semibold text-sm">Número</th>
               <th className="text-left p-3 font-semibold text-sm">Nombre</th>
               <th className="text-left p-3 font-semibold text-sm">Contacto</th>
@@ -226,7 +214,7 @@ export default function SociosLista({
             {members.map((member) => (
               <tr
                 key={member.id}
-                className={`border-b hover:bg-gray-50 ${
+                className={`border-b hover:bg-muted/50 ${
                   !member.isActive ? "opacity-60" : ""
                 }`}
               >
@@ -238,7 +226,7 @@ export default function SociosLista({
                 <td className="p-3">
                   <p className="font-medium">{member.name || "Sin nombre"}</p>
                   {member.birthDate && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {formatDate(member.birthDate)}
                     </p>
                   )}
@@ -246,23 +234,24 @@ export default function SociosLista({
                 <td className="p-3">
                   {member.phone && (
                     <p className="text-sm flex items-center gap-1">
-                      <Phone className="h-3 w-3 text-gray-400" />
+                      <Phone className="h-3 w-3 text-muted-foreground" />
                       {member.phone}
                     </p>
                   )}
                   {member.email && (
-                    <p className="text-xs text-gray-500 flex items-center gap-1">
-                      <Mail className="h-3 w-3 text-gray-400" />
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="h-3 w-3 text-muted-foreground" />
                       {member.email}
                     </p>
                   )}
                 </td>
                 <td className="p-3">
                   <p className="text-sm font-medium">
-                    {getTipoMembresiaLabel(member.membershipType)}
+                    {getTipoMembresiaLabel(member.membershipType ?? null)}
                   </p>
+
                   {member.endDate && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Vence: {formatDate(member.endDate)}
                     </p>
                   )}
@@ -273,7 +262,7 @@ export default function SociosLista({
                 <td className="p-3 text-center">
                   <span className="font-semibold">{member.totalVisits}</span>
                   {member.lastVisit && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Última: {formatDate(member.lastVisit)}
                     </p>
                   )}
@@ -317,7 +306,7 @@ export default function SociosLista({
       {/* Paginación */}
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
-          <p className="text-xs sm:text-sm text-gray-600 order-2 sm:order-1">
+          <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
             Página {currentPage} de {totalPages}
           </p>
           <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">

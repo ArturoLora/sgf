@@ -1,15 +1,15 @@
 import { requireAuth } from "@/lib/require-role";
-import SociosManager from "./socios-manager";
+import { SociosManager } from "./_components/socios-manager";
 import { prisma } from "@/lib/db";
 import { serializeDecimal } from "@/services/utils";
+import type { SocioResponse } from "@/types/api/members";
 
-// Server component - data fetching inicial
-async function getMembers() {
+async function getMembers(): Promise<SocioResponse[]> {
   const members = await prisma.member.findMany({
     orderBy: [{ isActive: "desc" }, { memberNumber: "asc" }],
   });
 
-  return serializeDecimal(members);
+  return serializeDecimal(members) as SocioResponse[];
 }
 
 export default async function SociosPage() {

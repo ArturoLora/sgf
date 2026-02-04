@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { RenewMemberInputSchema } from "@/types/api/members";
+import type { RenewMemberInputRaw } from "@/types/api/members";
 import {
   Dialog,
   DialogContent,
@@ -19,17 +22,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Calendar, AlertCircle } from "lucide-react";
-
-interface Member {
-  id: number;
-  memberNumber: string;
-  name: string | null;
-  membershipType: string | null;
-  endDate: string | null;
-}
+import { useState, useEffect, useCallback } from "react";
+import type { SocioResponse } from "@/types/api/members";
 
 interface RenovarMembresiaModalProps {
-  member: Member | null;
+  member: SocioResponse | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -48,59 +45,77 @@ const TIPOS_MEMBRESIA = [
   { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición", dias: 1 },
 ];
 
-export default function RenovarMembresiaModal({
+export function RenovarMembresiaModal({
   member,
   onClose,
   onSuccess,
 }: RenovarMembresiaModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [membershipType, setMembershipType] = useState("");
   const [nuevaFechaFin, setNuevaFechaFin] = useState<string>("");
 
+  const { handleSubmit, setValue, watch, reset } = useForm<RenewMemberInputRaw>(
+    {
+      resolver: zodResolver(RenewMemberInputSchema),
+      defaultValues: {
+        memberId: member?.id || 0,
+        membershipType: member?.membershipType || "",
+      },
+    },
+  );
+
+  const membershipType = watch("membershipType");
+
+  const calcularNuevaFecha = useCallback(
+    (tipo: string) => {
+      const tipoInfo = TIPOS_MEMBRESIA.find((t) => t.value === tipo);
+      if (!tipoInfo) return;
+
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      let fechaInicio = hoy;
+      if (member?.endDate) {
+        const fechaFinActual =
+          typeof member.endDate === "string"
+            ? new Date(member.endDate)
+            : member.endDate;
+        if (fechaFinActual >= hoy) {
+          fechaInicio = fechaFinActual;
+        }
+      }
+
+      const fechaFin = new Date(fechaInicio);
+      fechaFin.setDate(fechaFin.getDate() + tipoInfo.dias);
+
+      setNuevaFechaFin(
+        fechaFin.toLocaleDateString("es-MX", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        }),
+      );
+    },
+    [member?.endDate],
+  );
+
   useEffect(() => {
-    if (member?.membershipType) {
-      setMembershipType(member.membershipType);
-      calcularNuevaFecha(member.membershipType);
-    }
-  }, [member]);
-
-  const calcularNuevaFecha = (tipo: string) => {
-    const tipoInfo = TIPOS_MEMBRESIA.find((t) => t.value === tipo);
-    if (!tipoInfo) return;
-
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    // Si la membresía actual está vigente, partir de la fecha de fin actual
-    let fechaInicio = hoy;
-    if (member?.endDate) {
-      const fechaFinActual = new Date(member.endDate);
-      if (fechaFinActual >= hoy) {
-        fechaInicio = fechaFinActual;
+    if (member) {
+      setValue("memberId", member.id);
+      setValue("membershipType", member.membershipType || "");
+      if (member.membershipType) {
+        calcularNuevaFecha(member.membershipType);
       }
     }
-
-    const fechaFin = new Date(fechaInicio);
-    fechaFin.setDate(fechaFin.getDate() + tipoInfo.dias);
-
-    setNuevaFechaFin(
-      fechaFin.toLocaleDateString("es-MX", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }),
-    );
-  };
+  }, [member, setValue, calcularNuevaFecha]);
 
   const handleTipoChange = (tipo: string) => {
-    setMembershipType(tipo);
+    setValue("membershipType", tipo);
     calcularNuevaFecha(tipo);
     setError("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: RenewMemberInputRaw) => {
     if (!member) return;
 
     setLoading(true);
@@ -111,52 +126,66 @@ export default function RenovarMembresiaModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          memberId: member.id,
-          membershipType,
+          memberId: data.memberId,
+          membershipType: data.membershipType,
+          membershipDescription: data.membershipDescription,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al renovar membresía");
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al renovar membresía");
       }
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleClose = () => {
+    reset();
+    setError("");
+    setNuevaFechaFin("");
+    onClose();
+  };
+
   if (!member) return null;
 
-  const esVencida = member.endDate && new Date(member.endDate) < new Date();
+  const esVencida =
+    member.endDate &&
+    (typeof member.endDate === "string"
+      ? new Date(member.endDate) < new Date()
+      : member.endDate < new Date());
 
   return (
-    <Dialog open={!!member} onOpenChange={onClose}>
+    <Dialog open={!!member} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Renovar Membresía</DialogTitle>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {member.name || member.memberNumber}
           </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 py-4">
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex gap-2">
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex gap-2 dark:bg-red-950 dark:text-red-400">
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
             {/* Estado actual */}
-            <div className="rounded-lg bg-gray-50 p-3 space-y-2">
+            <div className="rounded-lg bg-muted p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Membresía actual:</span>
+                <span className="text-sm text-muted-foreground">
+                  Membresía actual:
+                </span>
                 <Badge variant={esVencida ? "destructive" : "default"}>
                   {member.membershipType
                     ? TIPOS_MEMBRESIA.find(
@@ -167,9 +196,12 @@ export default function RenovarMembresiaModal({
               </div>
               {member.endDate && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Vence:</span>
+                  <span className="text-sm text-muted-foreground">Vence:</span>
                   <span className="text-sm font-medium">
-                    {new Date(member.endDate).toLocaleDateString("es-MX")}
+                    {(typeof member.endDate === "string"
+                      ? new Date(member.endDate)
+                      : member.endDate
+                    ).toLocaleDateString("es-MX")}
                   </span>
                 </div>
               )}
@@ -181,9 +213,8 @@ export default function RenovarMembresiaModal({
                 Nuevo Tipo de Membresía <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={membershipType}
+                value={membershipType || ""}
                 onValueChange={handleTipoChange}
-                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar tipo" />
@@ -200,12 +231,12 @@ export default function RenovarMembresiaModal({
 
             {/* Nueva fecha de fin */}
             {nuevaFechaFin && (
-              <div className="rounded-lg bg-blue-50 p-3 space-y-2">
-                <div className="flex items-center gap-2 text-blue-900">
+              <div className="rounded-lg bg-blue-50 p-3 space-y-2 dark:bg-blue-950">
+                <div className="flex items-center gap-2 text-blue-900 dark:text-blue-400">
                   <Calendar className="h-4 w-4" />
                   <span className="font-medium text-sm">Nueva vigencia</span>
                 </div>
-                <p className="text-sm text-blue-700">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
                   La membresía será válida hasta el{" "}
                   <span className="font-semibold">{nuevaFechaFin}</span>
                 </p>
@@ -217,7 +248,7 @@ export default function RenovarMembresiaModal({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={loading}
               className="w-full sm:w-auto"
             >

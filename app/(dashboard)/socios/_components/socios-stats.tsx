@@ -3,22 +3,13 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, UserCheck, UserX, TrendingUp } from "lucide-react";
-
-interface Member {
-  id: number;
-  memberNumber: string;
-  name: string | null;
-  membershipType: string | null;
-  endDate: string | null;
-  isActive: boolean;
-  totalVisits: number;
-}
+import type { SocioResponse } from "@/types/api/members";
 
 interface SociosStatsProps {
-  members: Member[];
+  members: SocioResponse[];
 }
 
-export default function SociosStats({ members }: SociosStatsProps) {
+export function SociosStats({ members }: SociosStatsProps) {
   const stats = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -27,12 +18,16 @@ export default function SociosStats({ members }: SociosStatsProps) {
 
     const conMembresia = members.filter((m) => {
       if (!m.endDate) return false;
-      return new Date(m.endDate) >= today;
+      const endDate =
+        typeof m.endDate === "string" ? new Date(m.endDate) : m.endDate;
+      return endDate >= today;
     }).length;
 
     const vencidos = members.filter((m) => {
       if (!m.endDate) return false;
-      return new Date(m.endDate) < today;
+      const endDate =
+        typeof m.endDate === "string" ? new Date(m.endDate) : m.endDate;
+      return endDate < today;
     }).length;
 
     const totalVisitas = members.reduce((sum, m) => sum + m.totalVisits, 0);
@@ -51,9 +46,9 @@ export default function SociosStats({ members }: SociosStatsProps) {
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 shrink-0" />
+            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Total Socios
               </p>
               <p className="text-xl sm:text-2xl font-bold">{stats.total}</p>
@@ -65,12 +60,12 @@ export default function SociosStats({ members }: SociosStatsProps) {
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <UserCheck className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 shrink-0" />
+            <UserCheck className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 dark:text-green-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Vigentes
               </p>
-              <p className="text-xl sm:text-2xl font-bold text-green-600">
+              <p className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
                 {stats.conMembresia}
               </p>
             </div>
@@ -81,12 +76,12 @@ export default function SociosStats({ members }: SociosStatsProps) {
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <UserX className="h-6 w-6 sm:h-8 sm:w-8 text-red-600 shrink-0" />
+            <UserX className="h-6 w-6 sm:h-8 sm:w-8 text-red-600 dark:text-red-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Vencidos
               </p>
-              <p className="text-xl sm:text-2xl font-bold text-red-600">
+              <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400">
                 {stats.vencidos}
               </p>
             </div>
@@ -97,12 +92,12 @@ export default function SociosStats({ members }: SociosStatsProps) {
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex items-center gap-2 sm:gap-3">
-            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 shrink-0" />
+            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 dark:text-purple-400 shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Visitas
               </p>
-              <p className="text-xl sm:text-2xl font-bold text-purple-600">
+              <p className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {stats.totalVisitas}
               </p>
             </div>
