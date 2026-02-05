@@ -1,28 +1,27 @@
 #!/bin/bash
 
-output="./api-routes-export-$(date +%Y%m%d_%H%M%S).txt"
+output="./phase1-sales-$(date +%Y%m%d_%H%M%S).txt"
 
-FILES=(
-  "app/api/inventory/sale/route.ts"
-  "app/api/inventory/entry/route.ts"
-  "app/api/inventory/adjustment/route.ts"
-  "app/api/inventory/transfer/route.ts"
-  "app/api/members/route.ts"
-  "app/api/members/renew/route.ts"
-  "app/api/shifts/route.ts"
+echo "### PHASE 1 - SALES DOMAIN EXTRACTION" > $output
+
+folders=(
+  "app/api/sales"
+  "services"
+  "types/api/sales.ts"
 )
 
-echo "### API ROUTES EXPORT ###" > "$output"
-echo "" >> "$output"
+for dir in "${folders[@]}"; do
+  echo -e "\n\n===== $dir =====\n" >> $output
 
-for file in "${FILES[@]}"; do
-  if [ -f "$file" ]; then
-    echo "===== $file =====" >> "$output"
-    cat "$file" >> "$output"
-    echo -e "\n\n" >> "$output"
+  if [ -f "$dir" ]; then
+    echo -e "\n--- FILE: $dir ---\n" >> $output
+    sed 's/\t/  /g' "$dir" >> $output
   else
-    echo "MISSING: $file" >> "$output"
+    find "$dir" -type f -name "*.ts" | while read file; do
+      echo -e "\n--- FILE: $file ---\n" >> $output
+      sed 's/\t/  /g' "$file" >> $output
+    done
   fi
 done
 
-echo "Export listo: $output"
+echo "Phase 1 export terminado → $output"
