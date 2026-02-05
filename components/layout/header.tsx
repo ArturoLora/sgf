@@ -4,6 +4,7 @@ import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu } from "lucide-react";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 interface HeaderProps {
   user: {
@@ -23,7 +24,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="flex h-14 sm:h-16 items-center justify-between border-b bg-white px-3 sm:px-6">
+    <header className="flex h-14 sm:h-16 items-center justify-between border-b bg-card px-3 sm:px-6">
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <Button
           variant="ghost"
@@ -36,26 +37,29 @@ export function Header({ user, onMenuClick }: HeaderProps) {
         </Button>
 
         <div className="min-w-0">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+          <h2 className="text-base sm:text-lg font-semibold text-foreground truncate">
             {user.name}
           </h2>
           {user.role && (
-            <span className="hidden sm:inline-flex mt-0.5 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+            <span className="hidden sm:inline-flex mt-0.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
               {user.role}
             </span>
           )}
         </div>
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleLogout}
-        className="gap-2 shrink-0 h-9"
-      >
-        <LogOut className="h-4 w-4" />
-        <span className="hidden sm:inline">Salir</span>
-      </Button>
+      <div className="flex items-center gap-2 shrink-0">
+        <ThemeToggle />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          className="gap-2 h-9"
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="hidden sm:inline">Salir</span>
+        </Button>
+      </div>
     </header>
   );
 }

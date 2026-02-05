@@ -1,4 +1,4 @@
-import DashboardSkeleton from "./dashboard-skeleton";
+import DashboardSkeleton from "./_components/dashboard-skeleton";
 
 export default function Loading() {
   return <DashboardSkeleton />;

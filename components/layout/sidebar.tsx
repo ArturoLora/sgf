@@ -26,8 +26,8 @@ function MobileNavContent() {
             className={cn(
               "flex items-center gap-4 rounded-xl px-4 py-4 text-base font-medium transition-all active:scale-95",
               isActive
-                ? "bg-gray-900 text-white shadow-sm"
-                : "text-gray-700 hover:bg-gray-100",
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-foreground hover:bg-muted",
             )}
           >
             <item.icon className="h-6 w-6 shrink-0" />
@@ -43,9 +43,9 @@ function DesktopSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="hidden lg:flex w-64 flex-col border-r bg-white">
+    <div className="hidden lg:flex w-64 flex-col border-r bg-card">
       <div className="flex h-16 items-center border-b px-6">
-        <h1 className="text-xl font-bold text-gray-900">Nacho Gym</h1>
+        <h1 className="text-xl font-bold text-foreground">Nacho Gym</h1>
       </div>
       <nav className="flex-1 space-y-0.5 p-3">
         {dashboardRoutes.map((item) => {
@@ -57,8 +57,8 @@ function DesktopSidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <item.icon className="h-5 w-5 shrink-0" />

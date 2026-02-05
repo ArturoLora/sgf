@@ -1,26 +1,23 @@
 #!/bin/bash
 
-output="./fe6-historial-$(date +%Y%m%d_%H%M%S).txt"
+output="./fe8-theme-$(date +%Y%m%d_%H%M%S).txt"
 
-HISTORIAL_PATH="app/(dashboard)/historial-ventas"
+echo "=== TREE ===" > "$output"
+tree "app/(dashboard)" -L 3 >> "$output"
 
-echo "### HISTORIAL FRONTEND AUDIT ###" > "$output"
+echo "\n=== DASHBOARD LAYOUT / UI ===" >> "$output"
+cat "app/(dashboard)/layout.tsx" >> "$output" 2>/dev/null
+cat "app/(dashboard)/layout-client.tsx" >> "$output" 2>/dev/null
 
-echo -e "\n--- TREE ---\n" >> "$output"
-tree "$HISTORIAL_PATH" >> "$output"
+echo "\n=== HEADER / SIDEBAR ===" >> "$output"
+cat components/layout/header.tsx >> "$output" 2>/dev/null
+cat components/layout/sidebar.tsx >> "$output" 2>/dev/null
 
-echo -e "\n--- FILES ---\n" >> "$output"
+echo "\n=== GLOBALS ===" >> "$output"
+cat app/globals.css >> "$output" 2>/dev/null
 
-find "$HISTORIAL_PATH" -type f \( -name "*.tsx" -o -name "*.md" \) | while read file; do
-  echo -e "\n===============================" >> "$output"
-  echo "FILE: $file" >> "$output"
-  echo "===============================" >> "$output"
-  sed -n '1,400p' "$file" >> "$output"
-done
+echo "\n=== TAILWIND CONFIG ===" >> "$output"
+cat components.json >> "$output" 2>/dev/null
 
-echo -e "\n--- BACKEND TYPES (sales + inventory) ---\n" >> "$output"
-
-sed -n '1,400p' types/api/sales.ts >> "$output"
-sed -n '1,400p' types/api/inventory.ts >> "$output"
-
-echo -e "\nDONE → $output"
+echo "\n=== DONE ==="
+echo "Archivo generado: $output"

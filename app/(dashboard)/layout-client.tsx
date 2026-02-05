@@ -20,7 +20,7 @@ export function DashboardLayoutClient({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header user={user} onMenuClick={() => setMobileMenuOpen(true)} />
