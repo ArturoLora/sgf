@@ -6,6 +6,7 @@ import {
   mapLocation,
   mapPaymentMethod,
 } from "./enum-mappers";
+import { isMembershipProduct } from "./membership-helpers";
 import {
   MovementsQuerySchema,
   CancelledSalesQuerySchema,
@@ -133,13 +134,7 @@ async function validateStock(
     throw new Error("Producto no encontrado");
   }
 
-  const isMembership =
-    product.name.includes("EFECTIVO") ||
-    product.name.includes("VISITA") ||
-    product.name.includes("MENSUALIDAD") ||
-    product.name.includes("SEMANA") ||
-    product.name.includes("TRIMESTRE") ||
-    product.name.includes("ANUAL");
+  const isMembership = isMembershipProduct(product.name);
 
   if (!isMembership) {
     const currentStock =
@@ -201,13 +196,7 @@ export async function createSale(
   const surcharge = data.surcharge || 0;
   const total = subtotal - discount + surcharge;
 
-  const isMembership =
-    product.name.includes("EFECTIVO") ||
-    product.name.includes("VISITA") ||
-    product.name.includes("MENSUALIDAD") ||
-    product.name.includes("SEMANA") ||
-    product.name.includes("TRIMESTRE") ||
-    product.name.includes("ANUAL");
+  const isMembership = isMembershipProduct(product.name);
 
   const inventoryMovement = await prisma.$transaction(async (tx) => {
     const movement = await tx.inventoryMovement.create({

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { SalesService } from "@/services";
+import * as SalesService from "@/services/sales.service";
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -9,13 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  try {
-    const products = await SalesService.getSaleProducts();
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error("[sales/products]", error);
-    const message =
-      error instanceof Error ? error.message : "Error desconocido";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  const products = await SalesService.getSaleProducts();
+
+  return NextResponse.json(products);
 }

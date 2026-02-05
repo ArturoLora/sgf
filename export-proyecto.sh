@@ -1,27 +1,29 @@
 #!/bin/bash
 
-output="./phase1-sales-$(date +%Y%m%d_%H%M%S).txt"
+output="./phase2-membership-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "### PHASE 1 - SALES DOMAIN EXTRACTION" > $output
+echo "### PHASE 2 - MEMBERSHIP LOGIC CENTRALIZATION" > $output
 
 folders=(
-  "app/api/sales"
-  "services"
-  "types/api/sales.ts"
+  "services/products.service.ts"
+  "services/inventory.service.ts"
+  "services/members.service.ts"
+  "app/api/sales/products"
+  "types"
 )
 
-for dir in "${folders[@]}"; do
-  echo -e "\n\n===== $dir =====\n" >> $output
+for path in "${folders[@]}"; do
+  echo -e "\n\n===== $path =====\n" >> $output
 
-  if [ -f "$dir" ]; then
-    echo -e "\n--- FILE: $dir ---\n" >> $output
-    sed 's/\t/  /g' "$dir" >> $output
+  if [ -f "$path" ]; then
+    echo -e "\n--- FILE: $path ---\n" >> $output
+    sed 's/\t/  /g' "$path" >> $output
   else
-    find "$dir" -type f -name "*.ts" | while read file; do
+    find "$path" -type f -name "*.ts" | while read file; do
       echo -e "\n--- FILE: $file ---\n" >> $output
       sed 's/\t/  /g' "$file" >> $output
     done
   fi
 done
 
-echo "Phase 1 export terminado → $output"
+echo "Phase 2 export terminado → $output"

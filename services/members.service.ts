@@ -11,6 +11,7 @@ import {
   parseBooleanQuery,
   calculateMembershipDates,
 } from "./utils";
+import { getMembershipProductKeyword } from "./membership-helpers";
 import {
   MembersQuerySchema,
   CreateMemberInputSchema,
@@ -309,20 +310,12 @@ export async function createMember(
   });
 
   if (data.membershipType && userId) {
-    const keywordMap: Record<string, string> = {
-      MONTH_STUDENT: "MENSUALIDAD ESTUDIANTE",
-      MONTH_GENERAL: "MENSUALIDAD GENERAL",
-      WEEK: "SEMANA",
-      VISIT: "VISITA",
-      QUARTER_STUDENT: "TRIMESTRE ESTUDIANTE",
-      QUARTER_GENERAL: "TRIMESTRE GENERAL",
-      ANNUAL_STUDENT: "ANUAL ESTUDIANTE",
-      ANNUAL_GENERAL: "ANUAL GENERAL",
-      PROMOTION: "PROMOCION",
-      REBIRTH: "RENACER",
-    };
+    const prismaType = parseMembershipType(data.membershipType);
+    if (!prismaType) {
+      return serializeMember(member);
+    }
 
-    const keyword = keywordMap[data.membershipType] || data.membershipType;
+    const keyword = getMembershipProductKeyword(prismaType);
 
     const product = await prisma.product.findFirst({
       where: {
@@ -521,20 +514,7 @@ export async function renewMembership(
     data.startDate ? parseISODate(data.startDate) : undefined,
   );
 
-  const keywordMap: Record<string, string> = {
-    MONTH_STUDENT: "MENSUALIDAD ESTUDIANTE",
-    MONTH_GENERAL: "MENSUALIDAD GENERAL",
-    WEEK: "SEMANA",
-    VISIT: "VISITA",
-    QUARTER_STUDENT: "TRIMESTRE ESTUDIANTE",
-    QUARTER_GENERAL: "TRIMESTRE GENERAL",
-    ANNUAL_STUDENT: "ANUAL ESTUDIANTE",
-    ANNUAL_GENERAL: "ANUAL GENERAL",
-    PROMOTION: "PROMOCION",
-    REBIRTH: "RENACER",
-  };
-
-  const keyword = keywordMap[data.membershipType] || data.membershipType;
+  const keyword = getMembershipProductKeyword(prismaType);
 
   const product = await prisma.product.findFirst({
     where: {
