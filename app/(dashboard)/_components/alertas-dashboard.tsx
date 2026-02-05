@@ -1,24 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle } from "lucide-react";
-
-interface SocioVencido {
-  id: number;
-  name: string;
-  memberNumber: string;
-}
-
-interface ProductoBajoStock {
-  id: number;
-  name: string;
-  gymStock: number;
-  warehouseStock: number;
-  minStock: number;
-}
+import type { SocioVencidoResponse } from "@/types/api/members";
+import type { ProductoBajoStockResponse } from "@/types/api/products";
 
 interface AlertasDashboardProps {
-  sociosVencidos: SocioVencido[];
-  stockBajo: ProductoBajoStock[];
+  sociosVencidos: SocioVencidoResponse[];
+  stockBajo: ProductoBajoStockResponse[];
 }
 
 export default function AlertasDashboard({
@@ -44,10 +32,12 @@ export default function AlertasDashboard({
               {sociosVencidos.slice(0, 5).map((socio) => (
                 <div
                   key={socio.id}
-                  className="flex items-center justify-between rounded-lg bg-muted/50 border p-2.5 gap-3"
+                  className="flex items-center justify-between rounded-lg bg-muted/50 border border-border p-2.5 gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{socio.name}</p>
+                    <p className="font-medium text-sm truncate text-foreground">
+                      {socio.name || "Sin nombre"}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {socio.memberNumber}
                     </p>
@@ -83,10 +73,10 @@ export default function AlertasDashboard({
               {stockBajo.slice(0, 5).map((producto) => (
                 <div
                   key={producto.id}
-                  className="flex items-center justify-between rounded-lg bg-muted/50 border p-2.5 gap-3"
+                  className="flex items-center justify-between rounded-lg bg-muted/50 border border-border p-2.5 gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">
+                    <p className="font-medium text-sm truncate text-foreground">
                       {producto.name}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">

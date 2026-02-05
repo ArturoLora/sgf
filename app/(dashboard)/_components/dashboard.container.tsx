@@ -5,40 +5,23 @@ import CorteAlert from "./corte-alert";
 import DashboardStats from "./dashboard-stats";
 import AlertasDashboard from "./alertas-dashboard";
 import DashboardSkeleton from "./dashboard-skeleton";
+import { ShiftsService, MembersService, ReportsService } from "@/services";
+import type { CorteResponse } from "@/types/api/shifts";
+import type { SocioVencidoResponse } from "@/types/api/members";
+import type { ProductoBajoStockResponse } from "@/types/api/products";
 
-interface SocioVencido {
-  id: number;
-  name: string;
-  memberNumber: string;
-}
-
-interface ProductoBajoStock {
-  id: number;
-  name: string;
-  gymStock: number;
-  warehouseStock: number;
-  minStock: number;
-}
-
-interface CorteActivo {
-  folio: string;
-  cashier: { name: string };
-  openingDate: string;
-  ticketCount: number;
-}
-
-interface DashboardData {
-  corteActivo: CorteActivo | null;
+interface DashboardState {
+  corteActivo: CorteResponse | null;
   stats: {
     ventas: number;
     total: number;
   };
-  sociosVencidos: SocioVencido[];
-  stockBajo: ProductoBajoStock[];
+  sociosVencidos: SocioVencidoResponse[];
+  stockBajo: ProductoBajoStockResponse[];
 }
 
 export default function DashboardContainer() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [data, setData] = useState<DashboardState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,14 +29,24 @@ export default function DashboardContainer() {
     async function fetchDashboardData() {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/dashboard");
 
-        if (!response.ok) {
-          throw new Error("Error al cargar datos del dashboard");
-        }
+        const [corteActivo, sociosVencidos, stockReport, dashboard] =
+          await Promise.all([
+            ShiftsService.getActiveShift(),
+            MembersService.getExpiredMembers(),
+            ReportsService.getCurrentStockReport(),
+            ReportsService.getDashboardSummary(),
+          ]);
 
-        const result = await response.json();
-        setData(result);
+        setData({
+          corteActivo,
+          stats: {
+            ventas: dashboard.salesToday.tickets,
+            total: dashboard.salesToday.total,
+          },
+          sociosVencidos,
+          stockBajo: stockReport.lowStock,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error desconocido");
       } finally {

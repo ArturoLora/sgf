@@ -10,6 +10,7 @@ import {
 import type {
   ProductoResponse,
   ProductoConMovimientosResponse,
+  ProductoBajoStockResponse,
   StockProductoResponse,
   EstadisticasProductosResponse,
   ProductsQueryInput,
@@ -266,7 +267,9 @@ export async function getActiveProducts(): Promise<ProductoResponse[]> {
   return products.map(serializeProduct);
 }
 
-export async function getLowStockProducts(): Promise<ProductoResponse[]> {
+export async function getLowStockProducts(): Promise<
+  ProductoBajoStockResponse[]
+> {
   const products = await prisma.product.findMany({
     where: { isActive: true },
   });
@@ -275,7 +278,17 @@ export async function getLowStockProducts(): Promise<ProductoResponse[]> {
     (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
   );
 
-  return result.map(serializeProduct);
+  return result.map((p) => ({
+    id: p.id,
+    name: p.name,
+    gymStock: p.gymStock,
+    warehouseStock: p.warehouseStock,
+    minStock: p.minStock,
+    stockFaltante: {
+      gym: Math.max(0, p.minStock - p.gymStock),
+      warehouse: Math.max(0, p.minStock - p.warehouseStock),
+    },
+  }));
 }
 
 export async function getProductStock(

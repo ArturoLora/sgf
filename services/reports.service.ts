@@ -11,6 +11,7 @@ import type {
   ReportPeriodQueryInput,
   DashboardQueryInput,
 } from "@/types/api/reports";
+import { getLowStockProducts } from "./products.service";
 
 export interface ReportPeriodParams {
   startDate: Date;
@@ -187,9 +188,7 @@ export async function getCurrentStockReport(): Promise<ReporteStockActual> {
     { warehouse: 0, gym: 0, total: 0, totalValue: 0 },
   );
 
-  const lowStock = products.filter(
-    (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
-  );
+  const lowStock = await getLowStockProducts();
 
   return {
     products: products.map((p) => ({
@@ -201,13 +200,7 @@ export async function getCurrentStockReport(): Promise<ReporteStockActual> {
       salePrice: Number(p.salePrice),
     })),
     stockSummary,
-    lowStock: lowStock.map((p) => ({
-      id: p.id,
-      name: p.name,
-      warehouseStock: p.warehouseStock,
-      gymStock: p.gymStock,
-      minStock: p.minStock,
-    })),
+    lowStock,
   };
 }
 

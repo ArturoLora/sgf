@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProductoBajoStockResponse } from "./products";
 
 // ==================== ZOD SCHEMAS ====================
 
@@ -106,13 +107,7 @@ export interface ReporteStockActual {
     total: number;
     totalValue: number;
   };
-  lowStock: Array<{
-    id: number;
-    name: string;
-    warehouseStock: number;
-    gymStock: number;
-    minStock: number;
-  }>;
+  lowStock: ProductoBajoStockResponse[];
 }
 
 export interface ReporteSociosPorMembresia {

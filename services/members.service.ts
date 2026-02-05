@@ -20,6 +20,7 @@ import {
 import type {
   SocioResponse,
   SocioConHistorialResponse,
+  SocioVencidoResponse,
   VigenciaMembresiaResponse,
   MembersQueryInput,
   CreateMemberInputRaw,
@@ -600,7 +601,7 @@ export async function renewMembership(
   return serializeMember(updatedMember);
 }
 
-export async function getExpiredMembers(): Promise<SocioResponse[]> {
+export async function getExpiredMembers(): Promise<SocioVencidoResponse[]> {
   const today = new Date();
 
   const members = await prisma.member.findMany({
@@ -616,7 +617,23 @@ export async function getExpiredMembers(): Promise<SocioResponse[]> {
     orderBy: { endDate: "desc" },
   });
 
-  return members.map(serializeMember);
+  return members.map((m) => {
+    const serialized = serializeMember(m);
+    const daysExpired = m.endDate
+      ? Math.floor(
+          (today.getTime() - m.endDate.getTime()) / (1000 * 60 * 60 * 24),
+        )
+      : 0;
+
+    return {
+      id: serialized.id,
+      memberNumber: serialized.memberNumber,
+      name: serialized.name,
+      membershipType: serialized.membershipType,
+      endDate: serialized.endDate,
+      daysExpired,
+    };
+  });
 }
 
 export async function verifyMembershipValidity(

@@ -24,7 +24,9 @@ export default function DashboardStats({
           <ShoppingCart className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="pb-3">
-          <div className="text-2xl sm:text-3xl font-bold">{ventas}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-foreground">
+            {ventas}
+          </div>
           <p className="text-xs text-muted-foreground mt-0.5">tickets</p>
         </CardContent>
       </Card>
@@ -37,7 +39,7 @@ export default function DashboardStats({
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="pb-3">
-          <div className="text-2xl sm:text-3xl font-bold">
+          <div className="text-2xl sm:text-3xl font-bold text-foreground">
             ${total.toFixed(0)}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">MXN</p>
@@ -52,7 +54,9 @@ export default function DashboardStats({
           <Users className="h-4 w-4 text-orange-500 dark:text-orange-400" />
         </CardHeader>
         <CardContent className="pb-3">
-          <div className="text-2xl sm:text-3xl font-bold">{sociosVencidos}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-foreground">
+            {sociosVencidos}
+          </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             {sociosVencidos === 1 ? "socio" : "socios"}
           </p>
@@ -67,7 +71,9 @@ export default function DashboardStats({
           <TrendingDown className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
         </CardHeader>
         <CardContent className="pb-3">
-          <div className="text-2xl sm:text-3xl font-bold">{stockBajo}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-foreground">
+            {stockBajo}
+          </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             {stockBajo === 1 ? "producto" : "productos"}
           </p>

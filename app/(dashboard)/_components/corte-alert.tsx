@@ -1,25 +1,24 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+import type { CorteResponse } from "@/types/api/shifts";
 
 interface CorteAlertProps {
-  corteActivo: {
-    folio: string;
-    cashier: { name: string };
-    openingDate: string;
-    ticketCount: number;
-  } | null;
+  corteActivo: CorteResponse | null;
 }
 
 export default function CorteAlert({ corteActivo }: CorteAlertProps) {
   if (corteActivo) {
-    const openingTime = new Date(corteActivo.openingDate).toLocaleTimeString(
-      "es-MX",
-      {
-        hour: "2-digit",
-        minute: "2-digit",
-      },
-    );
+    const openingDate = corteActivo.openingDate
+      ? new Date(corteActivo.openingDate)
+      : null;
+
+    const openingTime = openingDate
+      ? openingDate.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "N/A";
 
     return (
       <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
