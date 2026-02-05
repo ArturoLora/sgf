@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, MembershipType, PaymentMethod } from "@prisma/client";
 import { auth } from "../lib/auth";
 
 const prisma = new PrismaClient();
@@ -43,8 +43,8 @@ async function main() {
       });
 
       console.log(`✅ ${userData.name} creado`);
-    } catch (e: any) {
-      if (e.message?.includes("already exists")) {
+    } catch (e) {
+      if (e instanceof Error && e.message?.includes("already exists")) {
         console.log(`ℹ️  ${userData.name} ya existe`);
       } else {
         throw e;
@@ -221,7 +221,7 @@ async function main() {
       name: "VANESSA CORTES ROMERO",
       phone: "311-555-0101",
       email: "vanessa.cortes@email.com",
-      membershipType: "MONTH_GENERAL",
+      membershipType: MembershipType.MONTH_GENERAL,
       membershipDescription: "EFECTIVO MENSUALIDAD GENERAL ENE 2026",
       startDate: new Date("2026-01-13"),
       endDate: new Date("2026-02-13"),
@@ -231,7 +231,7 @@ async function main() {
       name: "TANIA NERINA JIMENEZ PEÑA",
       phone: "311-555-0102",
       email: "tania.jimenez@email.com",
-      membershipType: "MONTH_STUDENT",
+      membershipType: MembershipType.MONTH_STUDENT,
       membershipDescription: "EFECTIVO MENSUALIDAD ESTUDIANTE ENE 2026",
       startDate: new Date("2026-01-13"),
       endDate: new Date("2026-02-13"),
@@ -240,7 +240,7 @@ async function main() {
       memberNumber: "FN687",
       name: "GOLIAT ORTIZ LOPEZ",
       phone: "311-555-0103",
-      membershipType: "WEEK",
+      membershipType: MembershipType.WEEK,
       membershipDescription: "EFECTIVO SEMANA ENE 2026",
       startDate: new Date("2026-01-13"),
       endDate: new Date("2026-01-20"),
@@ -250,7 +250,7 @@ async function main() {
       name: "PAOLA VELAZQUEZ ORNELAS",
       phone: "311-555-0104",
       email: "paola.velazquez@email.com",
-      membershipType: "MONTH_GENERAL",
+      membershipType: MembershipType.MONTH_GENERAL,
       membershipDescription: "EFECTIVO MENSUALIDAD GENERAL ENE 2026",
       startDate: new Date("2026-01-13"),
       endDate: new Date("2026-02-13"),
@@ -259,7 +259,7 @@ async function main() {
       memberNumber: "FN512",
       name: "ROBERTO MARTINEZ CRUZ",
       phone: "311-555-0105",
-      membershipType: "QUARTER_GENERAL",
+      membershipType: MembershipType.QUARTER_GENERAL,
       membershipDescription: "EFECTIVO TRIMESTRE GENERAL ENE 2026",
       startDate: new Date("2026-01-11"),
       endDate: new Date("2026-04-11"),
@@ -269,7 +269,7 @@ async function main() {
       name: "MARIA FERNANDA LOPEZ",
       phone: "311-555-0106",
       email: "mafe.lopez@email.com",
-      membershipType: "MONTH_STUDENT",
+      membershipType: MembershipType.MONTH_STUDENT,
       membershipDescription: "EFECTIVO MENSUALIDAD ESTUDIANTE ENE 2026",
       startDate: new Date("2026-01-12"),
       endDate: new Date("2026-02-12"),
@@ -278,7 +278,7 @@ async function main() {
       memberNumber: "FN723",
       name: "JORGE ALBERTO RAMIREZ",
       phone: "311-555-0107",
-      membershipType: "ANNUAL_GENERAL",
+      membershipType: MembershipType.ANNUAL_GENERAL,
       membershipDescription: "EFECTIVO ANUAL GENERAL ENE 2026",
       startDate: new Date("2026-01-10"),
       endDate: new Date("2027-01-10"),
@@ -288,7 +288,7 @@ async function main() {
       name: "DIANA PATRICIA MORALES",
       phone: "311-555-0108",
       email: "diana.morales@email.com",
-      membershipType: "MONTH_GENERAL",
+      membershipType: MembershipType.MONTH_GENERAL,
       membershipDescription: "EFECTIVO MENSUALIDAD GENERAL ENE 2026",
       startDate: new Date("2026-01-14"),
       endDate: new Date("2026-02-14"),
@@ -391,7 +391,7 @@ async function main() {
           discount: 0,
           surcharge: 0,
           total: product.salePrice,
-          paymentMethod: "CASH",
+          paymentMethod: PaymentMethod.CASH,
           shiftId: shift1.id,
           date: new Date(`2026-01-11T${venta.time}`),
           notes: `Venta a ${memberData ? memberData.name : "PUBLICO GENERAL"}`,
@@ -417,7 +417,7 @@ async function main() {
         unitPrice: agua.salePrice,
         subtotal: agua.salePrice.toNumber() * 3,
         total: agua.salePrice.toNumber() * 3,
-        paymentMethod: "CASH",
+        paymentMethod: PaymentMethod.CASH,
         shiftId: shift1.id,
         date: new Date("2026-01-11T14:00:00"),
         notes: "Venta de 3 aguas",
@@ -446,7 +446,7 @@ async function main() {
         unitPrice: gatorade.salePrice,
         subtotal: gatorade.salePrice.toNumber() * 2,
         total: gatorade.salePrice.toNumber() * 2,
-        paymentMethod: "CASH",
+        paymentMethod: PaymentMethod.CASH,
         shiftId: shift1.id,
         date: new Date("2026-01-11T14:00:00"),
         notes: "Venta de 2 gatorades",
@@ -523,7 +523,7 @@ async function main() {
           discount: 0,
           surcharge: 0,
           total: product.salePrice,
-          paymentMethod: "CASH",
+          paymentMethod: PaymentMethod.CASH,
           shiftId: shift2.id,
           date: new Date(`2026-01-12T${venta.time}`),
           notes: `Venta a ${memberData.name}`,
@@ -556,7 +556,7 @@ async function main() {
           unitPrice: product.salePrice,
           subtotal: product.salePrice.toNumber() * pv.qty,
           total: product.salePrice.toNumber() * pv.qty,
-          paymentMethod: "CASH",
+          paymentMethod: PaymentMethod.CASH,
           shiftId: shift2.id,
           date: new Date("2026-01-12T11:00:00"),
           notes: `Venta de ${pv.qty} ${pv.name}`,
@@ -665,7 +665,7 @@ async function main() {
           discount: 0,
           surcharge: 0,
           total: product.salePrice,
-          paymentMethod: "CASH",
+          paymentMethod: PaymentMethod.CASH,
           shiftId: shift3.id,
           date: new Date(`2026-01-13T${venta.time}`),
           notes: `Venta a ${memberData ? memberData.name : "PUBLICO GENERAL"}`,
@@ -691,7 +691,7 @@ async function main() {
         unitPrice: aguaCiel.salePrice,
         subtotal: aguaCiel.salePrice.toNumber() * 2,
         total: aguaCiel.salePrice.toNumber() * 2,
-        paymentMethod: "CASH",
+        paymentMethod: PaymentMethod.CASH,
         shiftId: shift3.id,
         date: new Date("2026-01-13T14:00:00"),
         notes: "Venta de 2 aguas",
@@ -740,7 +740,7 @@ async function main() {
       member: "FN801",
       product: "EFECTIVO MENSUALIDAD GENERAL",
       user: employeeCarlos.id,
-      payment: "CASH",
+      payment: PaymentMethod.CASH,
       time: "09:30:00",
     },
     {
@@ -748,7 +748,7 @@ async function main() {
       member: null,
       product: "VISITA",
       user: employeeAndrew.id,
-      payment: "CASH",
+      payment: PaymentMethod.CASH,
       time: "10:15:00",
     },
     {
@@ -756,7 +756,7 @@ async function main() {
       member: null,
       product: "VISITA",
       user: employeeCarlos.id,
-      payment: "CASH",
+      payment: PaymentMethod.CASH,
       time: "11:00:00",
     },
   ];
@@ -788,7 +788,7 @@ async function main() {
           discount: 0,
           surcharge: 0,
           total: product.salePrice,
-          paymentMethod: venta.payment as any,
+          paymentMethod: venta.payment,
           shiftId: shift4.id,
           date: new Date(`2026-01-14T${venta.time}`),
           notes: `Venta a ${memberData ? memberData.name : "PUBLICO GENERAL"}`,
@@ -803,10 +803,15 @@ async function main() {
       name: "PROTEINA WHEY 1KG",
       qty: 1,
       ticket: "5789",
-      payment: "DEBIT_CARD",
+      payment: PaymentMethod.DEBIT_CARD,
     },
-    { name: "RED BULL", qty: 2, ticket: "5790", payment: "CASH" },
-    { name: "BARRA PROTEINA", qty: 3, ticket: "5791", payment: "CASH" },
+    { name: "RED BULL", qty: 2, ticket: "5790", payment: PaymentMethod.CASH },
+    {
+      name: "BARRA PROTEINA",
+      qty: 3,
+      ticket: "5791",
+      payment: PaymentMethod.CASH,
+    },
   ];
 
   for (const pv of productosVenta4) {
@@ -826,7 +831,7 @@ async function main() {
           unitPrice: product.salePrice,
           subtotal: product.salePrice.toNumber() * pv.qty,
           total: product.salePrice.toNumber() * pv.qty,
-          paymentMethod: pv.payment as any,
+          paymentMethod: pv.payment,
           shiftId: shift4.id,
           date: new Date("2026-01-14T13:00:00"),
           notes: `Venta de ${pv.qty} ${pv.name}`,

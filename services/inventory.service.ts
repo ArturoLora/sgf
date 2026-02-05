@@ -11,62 +11,23 @@ import {
   CancelledSalesQuerySchema,
 } from "@/types/api/inventory";
 import type {
+  CrearVentaRequest,
+  CrearEntradaRequest,
+  CrearTraspasoRequest,
+  CrearAjusteRequest,
+  CancelarVentaRequest,
+  MovimientoInventarioResponse,
+  MovementsQueryInput,
+  CancelledSalesQueryInput,
   VentaCreada,
   EntradaCreada,
   TraspasoCreado,
   AjusteCreado,
   VentaCancelada,
-  MovimientoInventarioResponse,
-  MovementsQueryInput,
-  CancelledSalesQueryInput,
 } from "@/types/api/inventory";
 import type { DetalleTicketResponse, ItemVentaTicket } from "@/types/api/sales";
 
-// ==================== INPUT TYPES ====================
-
-export interface CreateSaleInput {
-  productId: number;
-  quantity: number;
-  memberId?: number;
-  userId: string;
-  unitPrice?: number;
-  discount?: number;
-  surcharge?: number;
-  paymentMethod: PaymentMethod;
-  ticket: string;
-  shiftId?: number;
-  notes?: string;
-}
-
-export interface CreateEntryInput {
-  productId: number;
-  quantity: number;
-  location: Location;
-  userId: string;
-  notes?: string;
-}
-
-export interface CreateTransferInput {
-  productId: number;
-  quantity: number;
-  destination: Location;
-  userId: string;
-  notes?: string;
-}
-
-export interface CreateAdjustmentInput {
-  productId: number;
-  quantity: number;
-  location: Location;
-  userId: string;
-  notes: string;
-}
-
-export interface CancelSaleInput {
-  inventoryId: number;
-  userId: string;
-  cancellationReason: string;
-}
+// ==================== INTERNAL TYPES ====================
 
 export interface GetMovementsByDateParams {
   startDate: Date;
@@ -228,14 +189,17 @@ export function parseProductIdParam(id: string): number {
 
 // ==================== SALE SERVICES ====================
 
-export async function createSale(data: CreateSaleInput): Promise<VentaCreada> {
+export async function createSale(
+  data: CrearVentaRequest,
+  userId: string,
+): Promise<VentaCreada> {
   const product = await validateStock(data.productId, data.quantity, "GYM");
 
-  const unitPrice = data.unitPrice || product.salePrice;
-  const subtotal = Number(unitPrice) * data.quantity;
+  const unitPrice = data.unitPrice || Number(product.salePrice);
+  const subtotal = unitPrice * data.quantity;
   const discount = data.discount || 0;
   const surcharge = data.surcharge || 0;
-  const total = subtotal - Number(discount) + Number(surcharge);
+  const total = subtotal - discount + surcharge;
 
   const isMembership =
     product.name.includes("EFECTIVO") ||
@@ -254,7 +218,7 @@ export async function createSale(data: CreateSaleInput): Promise<VentaCreada> {
         quantity: -data.quantity,
         ticket: data.ticket,
         memberId: data.memberId,
-        userId: data.userId,
+        userId,
         unitPrice,
         subtotal,
         discount,
@@ -319,7 +283,7 @@ export async function createSale(data: CreateSaleInput): Promise<VentaCreada> {
 }
 
 export async function cancelSale(
-  data: CancelSaleInput,
+  data: CancelarVentaRequest,
 ): Promise<VentaCancelada> {
   const sale = await prisma.inventoryMovement.findUnique({
     where: { id: data.inventoryId },
@@ -452,7 +416,8 @@ export async function getTicketDetail(
 // ==================== ENTRY SERVICES ====================
 
 export async function createEntry(
-  data: CreateEntryInput,
+  data: CrearEntradaRequest,
+  userId: string,
 ): Promise<EntradaCreada> {
   const product = await prisma.product.findUnique({
     where: { id: data.productId },
@@ -472,7 +437,7 @@ export async function createEntry(
         type,
         location: data.location,
         quantity: data.quantity,
-        userId: data.userId,
+        userId,
         notes: data.notes,
       },
       include: {
@@ -503,7 +468,8 @@ export async function createEntry(
 // ==================== TRANSFER SERVICES ====================
 
 export async function createTransfer(
-  data: CreateTransferInput,
+  data: CrearTraspasoRequest,
+  userId: string,
 ): Promise<TraspasoCreado> {
   const origin: Location = data.destination === "GYM" ? "WAREHOUSE" : "GYM";
 
@@ -519,7 +485,7 @@ export async function createTransfer(
         type,
         location: data.destination,
         quantity: data.quantity,
-        userId: data.userId,
+        userId,
         notes:
           data.notes ||
           `Traspaso de ${data.quantity} unidades de ${origin} a ${data.destination}`,
@@ -557,7 +523,8 @@ export async function createTransfer(
 // ==================== ADJUSTMENT SERVICES ====================
 
 export async function createAdjustment(
-  data: CreateAdjustmentInput,
+  data: CrearAjusteRequest,
+  userId: string,
 ): Promise<AjusteCreado> {
   const product = await prisma.product.findUnique({
     where: { id: data.productId },
@@ -584,7 +551,7 @@ export async function createAdjustment(
         type: "ADJUSTMENT",
         location: data.location,
         quantity: data.quantity,
-        userId: data.userId,
+        userId,
         notes: data.notes,
       },
       include: {

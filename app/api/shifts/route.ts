@@ -14,10 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const shift = await ShiftsService.openShift({
-      ...body,
-      cashierId: session.user.id,
-    });
+    const shift = await ShiftsService.openShift(body, session.user.id);
 
     return NextResponse.json(shift, { status: 201 });
   } catch (error) {

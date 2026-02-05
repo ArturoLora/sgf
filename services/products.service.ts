@@ -1,4 +1,3 @@
-// services/products.service.ts
 import { prisma } from "@/lib/db";
 import { Location } from "@prisma/client";
 import { mapLocation } from "./enum-mappers";
@@ -16,6 +15,8 @@ import type {
   ProductsQueryInput,
   CreateProductInputRaw,
   UpdateProductInputRaw,
+  CrearProductoRequest,
+  ActualizarProductoRequest,
 } from "@/types/api/products";
 import type { ProductoVentaResponse } from "@/types/api/sales";
 
@@ -43,19 +44,6 @@ function serializeProduct(product: {
   };
 }
 
-export interface CreateProductInput {
-  name: string;
-  salePrice: number;
-  minStock?: number;
-}
-
-export interface UpdateProductInput {
-  name?: string;
-  salePrice?: number;
-  minStock?: number;
-  isActive?: boolean;
-}
-
 export interface SearchProductsParams {
   search?: string;
   isActive?: boolean;
@@ -64,9 +52,6 @@ export interface SearchProductsParams {
 
 // ==================== PARSING HELPERS ====================
 
-/**
- * Parse and validate products query parameters
- */
 export function parseProductsQuery(
   raw: ProductsQueryInput,
 ): SearchProductsParams {
@@ -79,12 +64,9 @@ export function parseProductsQuery(
   };
 }
 
-/**
- * Parse and validate create product input
- */
 export function parseCreateProductInput(
   raw: CreateProductInputRaw,
-): CreateProductInput {
+): CrearProductoRequest {
   const validated = CreateProductInputSchema.parse(raw);
 
   return {
@@ -94,12 +76,9 @@ export function parseCreateProductInput(
   };
 }
 
-/**
- * Parse and validate update product input
- */
 export function parseUpdateProductInput(
   raw: UpdateProductInputRaw,
-): UpdateProductInput {
+): ActualizarProductoRequest {
   const validated = UpdateProductInputSchema.parse(raw);
 
   return {
@@ -110,9 +89,6 @@ export function parseUpdateProductInput(
   };
 }
 
-/**
- * Parse and validate product ID from URL param
- */
 export function parseProductId(id: string): number {
   return parseIntParam(id, "ID de producto");
 }
@@ -211,7 +187,7 @@ export async function getProductById(
 }
 
 export async function createProduct(
-  data: CreateProductInput,
+  data: CrearProductoRequest,
 ): Promise<ProductoResponse> {
   const existingProduct = await prisma.product.findUnique({
     where: { name: data.name },
@@ -234,7 +210,7 @@ export async function createProduct(
 
 export async function updateProduct(
   id: number,
-  data: UpdateProductInput,
+  data: ActualizarProductoRequest,
 ): Promise<ProductoResponse> {
   const product = await prisma.product.findUnique({
     where: { id },

@@ -11,11 +11,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const serviceInput = MembersService.parseRenewMemberInput(
-      body,
+    const serviceInput = MembersService.parseRenewMemberInput(body);
+    const member = await MembersService.renewMembership(
+      serviceInput,
       session.user.id,
     );
-    const member = await MembersService.renewMembership(serviceInput);
     return NextResponse.json(member);
   } catch (error) {
     const message =

@@ -1,23 +1,28 @@
 #!/bin/bash
 
-output="./fe8-theme-$(date +%Y%m%d_%H%M%S).txt"
+output="./api-routes-export-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "=== TREE ===" > "$output"
-tree "app/(dashboard)" -L 3 >> "$output"
+FILES=(
+  "app/api/inventory/sale/route.ts"
+  "app/api/inventory/entry/route.ts"
+  "app/api/inventory/adjustment/route.ts"
+  "app/api/inventory/transfer/route.ts"
+  "app/api/members/route.ts"
+  "app/api/members/renew/route.ts"
+  "app/api/shifts/route.ts"
+)
 
-echo "\n=== DASHBOARD LAYOUT / UI ===" >> "$output"
-cat "app/(dashboard)/layout.tsx" >> "$output" 2>/dev/null
-cat "app/(dashboard)/layout-client.tsx" >> "$output" 2>/dev/null
+echo "### API ROUTES EXPORT ###" > "$output"
+echo "" >> "$output"
 
-echo "\n=== HEADER / SIDEBAR ===" >> "$output"
-cat components/layout/header.tsx >> "$output" 2>/dev/null
-cat components/layout/sidebar.tsx >> "$output" 2>/dev/null
+for file in "${FILES[@]}"; do
+  if [ -f "$file" ]; then
+    echo "===== $file =====" >> "$output"
+    cat "$file" >> "$output"
+    echo -e "\n\n" >> "$output"
+  else
+    echo "MISSING: $file" >> "$output"
+  fi
+done
 
-echo "\n=== GLOBALS ===" >> "$output"
-cat app/globals.css >> "$output" 2>/dev/null
-
-echo "\n=== TAILWIND CONFIG ===" >> "$output"
-cat components.json >> "$output" 2>/dev/null
-
-echo "\n=== DONE ==="
-echo "Archivo generado: $output"
+echo "Export listo: $output"

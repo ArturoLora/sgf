@@ -1,4 +1,3 @@
-// services/shifts.service.ts
 import { prisma } from "@/lib/db";
 import { mapPaymentMethod } from "./enum-mappers";
 import { parseISODate, parseIntParam } from "./utils";
@@ -12,25 +11,9 @@ import type {
   ResumenCorteResponse,
   ListaCortesResponse,
   ShiftsQueryInput,
-  CloseShiftInput as CloseShiftInputRaw,
+  CloseShiftInput,
+  AbrirCorteRequest,
 } from "@/types/api/shifts";
-
-export interface OpenShiftInput {
-  cashierId: string;
-  initialCash: number;
-  notes?: string;
-}
-
-export interface CloseShiftInput {
-  shiftId: number;
-  cashAmount?: number;
-  debitCardAmount?: number;
-  creditCardAmount?: number;
-  totalWithdrawals?: number;
-  withdrawalsConcept?: string;
-  difference?: number;
-  notes?: string;
-}
 
 export interface GetShiftsParams {
   search?: string;
@@ -129,9 +112,6 @@ async function validateNoSystemOpenShift(): Promise<void> {
 
 // ==================== PARSING HELPERS ====================
 
-/**
- * Parse and validate shifts query parameters
- */
 export function parseShiftsQuery(raw: ShiftsQueryInput): GetShiftsParams {
   const validated = ShiftsQuerySchema.parse(raw);
 
@@ -148,25 +128,22 @@ export function parseShiftsQuery(raw: ShiftsQueryInput): GetShiftsParams {
   };
 }
 
-/**
- * Parse and validate close shift input
- */
-export function parseCloseShiftInput(raw: CloseShiftInputRaw): CloseShiftInput {
+export function parseCloseShiftInput(raw: CloseShiftInput): CloseShiftInput {
   const validated = CloseShiftSchema.parse(raw);
   return validated;
 }
 
-/**
- * Parse shift ID from URL param
- */
 export function parseShiftIdParam(id: string): number {
   return parseIntParam(id, "ID de corte");
 }
 
 // ==================== SHIFT SERVICES ====================
 
-export async function openShift(data: OpenShiftInput): Promise<CorteResponse> {
-  await validateNoOpenShift(data.cashierId);
+export async function openShift(
+  data: AbrirCorteRequest,
+  cashierId: string,
+): Promise<CorteResponse> {
+  await validateNoOpenShift(cashierId);
   await validateNoSystemOpenShift();
 
   const lastShift = await prisma.shift.findFirst({
@@ -182,7 +159,7 @@ export async function openShift(data: OpenShiftInput): Promise<CorteResponse> {
   const shift = await prisma.shift.create({
     data: {
       folio: newFolio,
-      cashierId: data.cashierId,
+      cashierId,
       openingDate: new Date(),
       initialCash: data.initialCash,
       notes: data.notes,
@@ -315,16 +292,12 @@ export async function closeShift(
   return serializeShift(updatedShift);
 }
 
-/**
- * Get shifts with filtering, sorting, and pagination
- */
 export async function getShifts(
   params?: GetShiftsParams,
 ): Promise<ListaCortesResponse> {
   const page = params?.page || 1;
   const perPage = params?.perPage || 10;
 
-  // Build where clause
   const where: {
     folio?: { contains: string; mode: "insensitive" };
     openingDate?: { gte: Date; lte: Date };
@@ -356,14 +329,11 @@ export async function getShifts(
     where.closingDate = { not: null };
   }
 
-  // Build orderBy
   const orderByField = params?.orderBy === "folio" ? "folio" : "openingDate";
   const orderDirection = params?.order === "asc" ? "asc" : "desc";
 
-  // Get total count
   const total = await prisma.shift.count({ where });
 
-  // Get paginated shifts
   const shifts = await prisma.shift.findMany({
     where,
     include: {
@@ -723,9 +693,6 @@ export async function cancelShift(
   return { success: true, message: "Corte cancelado exitosamente" };
 }
 
-/**
- * Get shift summary for closing
- */
 export async function getShiftSummary(
   shiftId: number,
 ): Promise<ResumenCorteResponse> {

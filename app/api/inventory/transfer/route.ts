@@ -11,12 +11,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const transfer = await InventoryService.createTransfer({
-      ...body,
-      userId: session.user.id, // ✅ Agregar esto
-    });
+    const transfer = await InventoryService.createTransfer(
+      body,
+      session.user.id,
+    );
     return NextResponse.json(transfer, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Error al crear traspaso";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

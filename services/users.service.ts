@@ -1,20 +1,5 @@
-// services/users.service.ts
 import { prisma } from "@/lib/db";
 import { Role } from "@prisma/client";
-
-export interface CreateUserInput {
-  name: string;
-  email: string;
-  role?: Role;
-  password: string;
-}
-
-export interface UpdateUserInput {
-  name?: string;
-  email?: string;
-  role?: Role;
-  isActive?: boolean;
-}
 
 interface UserResponse {
   id: string;
@@ -69,7 +54,12 @@ export async function getUserById(userId: string): Promise<UserResponse> {
 }
 
 export async function createUser(
-  data: CreateUserInput,
+  data: {
+    name: string;
+    email: string;
+    role?: Role;
+    password: string;
+  },
   currentUserRole: Role,
 ): Promise<UserResponse> {
   validateAdminRole(currentUserRole);
@@ -82,7 +72,6 @@ export async function createUser(
     throw new Error("El correo electrónico ya está registrado");
   }
 
-  // Generate unique ID for user
   const userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
   const user = await prisma.user.create({
@@ -107,7 +96,12 @@ export async function createUser(
 
 export async function updateUser(
   userId: string,
-  data: UpdateUserInput,
+  data: {
+    name?: string;
+    email?: string;
+    role?: Role;
+    isActive?: boolean;
+  },
   currentUserRole: Role,
 ): Promise<UserResponse> {
   validateAdminRole(currentUserRole);

@@ -11,12 +11,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const adjustment = await InventoryService.createAdjustment({
-      ...body,
-      userId: session.user.id, // ✅ Agregar esto
-    });
+    const adjustment = await InventoryService.createAdjustment(
+      body,
+      session.user.id,
+    );
     return NextResponse.json(adjustment, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Error al crear ajuste";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

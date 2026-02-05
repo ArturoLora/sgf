@@ -11,12 +11,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const entry = await InventoryService.createEntry({
-      ...body,
-      userId: session.user.id,
-    });
+    const entry = await InventoryService.createEntry(body, session.user.id);
     return NextResponse.json(entry, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Error al crear entrada";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

@@ -63,6 +63,24 @@ export function mapPaymentMethod(method: PaymentMethod): MetodoPago {
   }
 }
 
+/**
+ * Convert API PaymentMethod string to API MetodoPago enum
+ */
+export function mapPaymentMethodFromApi(method: string): MetodoPago {
+  switch (method) {
+    case "CASH":
+      return MetodoPago.CASH;
+    case "DEBIT_CARD":
+      return MetodoPago.DEBIT_CARD;
+    case "CREDIT_CARD":
+      return MetodoPago.CREDIT_CARD;
+    case "TRANSFER":
+      return MetodoPago.TRANSFER;
+    default:
+      throw new Error(`Unknown PaymentMethod: ${method}`);
+  }
+}
+
 // ==================== MEMBERSHIP TYPE MAPPING ====================
 
 export function mapMembershipType(type: MembershipType): TipoMembresia {
@@ -91,6 +109,45 @@ export function mapMembershipType(type: MembershipType): TipoMembresia {
       return TipoMembresia.NUTRITION_CONSULTATION;
     default:
       throw new Error(`Unknown MembershipType: ${type}`);
+  }
+}
+
+/**
+ * Convert API TipoMembresia to Prisma MembershipType enum
+ */
+export function mapMembershipTypeToApi(type: MembershipType): TipoMembresia {
+  return mapMembershipType(type);
+}
+
+/**
+ * Convert API TipoMembresia string to Prisma MembershipType enum
+ */
+export function mapMembershipTypeFromApi(type: string): MembershipType {
+  switch (type) {
+    case "VISIT":
+      return "VISIT";
+    case "WEEK":
+      return "WEEK";
+    case "MONTH_STUDENT":
+      return "MONTH_STUDENT";
+    case "MONTH_GENERAL":
+      return "MONTH_GENERAL";
+    case "QUARTER_STUDENT":
+      return "QUARTER_STUDENT";
+    case "QUARTER_GENERAL":
+      return "QUARTER_GENERAL";
+    case "ANNUAL_STUDENT":
+      return "ANNUAL_STUDENT";
+    case "ANNUAL_GENERAL":
+      return "ANNUAL_GENERAL";
+    case "PROMOTION":
+      return "PROMOTION";
+    case "REBIRTH":
+      return "REBIRTH";
+    case "NUTRITION_CONSULTATION":
+      return "NUTRITION_CONSULTATION";
+    default:
+      throw new Error(`Unknown membership type: ${type}`);
   }
 }
 

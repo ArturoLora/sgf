@@ -13,13 +13,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const sale = await InventoryService.createSale({
-      ...body,
-      userId: session.user.id,
-    });
+    const sale = await InventoryService.createSale(body, session.user.id);
 
     return NextResponse.json(sale, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Error al crear venta";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

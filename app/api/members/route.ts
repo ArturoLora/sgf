@@ -30,11 +30,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const serviceInput = MembersService.parseCreateMemberInput(
-      body,
+    const serviceInput = MembersService.parseCreateMemberInput(body);
+    const member = await MembersService.createMember(
+      serviceInput,
       session.user.id,
     );
-    const member = await MembersService.createMember(serviceInput);
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
     const message =
