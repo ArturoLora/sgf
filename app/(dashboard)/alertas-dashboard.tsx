@@ -2,13 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle } from "lucide-react";
 
-interface Socio {
+interface SocioVencido {
   id: number;
   name: string;
   memberNumber: string;
 }
 
-interface Producto {
+interface ProductoBajoStock {
   id: number;
   name: string;
   gymStock: number;
@@ -16,15 +16,15 @@ interface Producto {
   minStock: number;
 }
 
-interface AlertasProps {
-  sociosVencidos: Socio[];
-  stockBajo: Producto[];
+interface AlertasDashboardProps {
+  sociosVencidos: SocioVencido[];
+  stockBajo: ProductoBajoStock[];
 }
 
 export default function AlertasDashboard({
   sociosVencidos,
   stockBajo,
-}: AlertasProps) {
+}: AlertasDashboardProps) {
   if (sociosVencidos.length === 0 && stockBajo.length === 0) {
     return null;
   }
@@ -35,7 +35,7 @@ export default function AlertasDashboard({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" />
+              <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-400 shrink-0" />
               Membresías Vencidas
             </CardTitle>
           </CardHeader>
@@ -44,13 +44,11 @@ export default function AlertasDashboard({
               {sociosVencidos.slice(0, 5).map((socio) => (
                 <div
                   key={socio.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 p-2.5 gap-3"
+                  className="flex items-center justify-between rounded-lg bg-muted/50 border p-2.5 gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm text-gray-900 truncate">
-                      {socio.name}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="font-medium text-sm truncate">{socio.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {socio.memberNumber}
                     </p>
                   </div>
@@ -63,7 +61,7 @@ export default function AlertasDashboard({
                 </div>
               ))}
               {sociosVencidos.length > 5 && (
-                <p className="text-xs text-gray-500 pl-2.5 pt-1">
+                <p className="text-xs text-muted-foreground pl-2.5 pt-1">
                   +{sociosVencidos.length - 5} más
                 </p>
               )}
@@ -76,7 +74,7 @@ export default function AlertasDashboard({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" />
+              <AlertCircle className="h-4 w-4 text-yellow-500 dark:text-yellow-400 shrink-0" />
               Stock Bajo
             </CardTitle>
           </CardHeader>
@@ -85,27 +83,27 @@ export default function AlertasDashboard({
               {stockBajo.slice(0, 5).map((producto) => (
                 <div
                   key={producto.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 p-2.5 gap-3"
+                  className="flex items-center justify-between rounded-lg bg-muted/50 border p-2.5 gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm text-gray-900 truncate">
+                    <p className="font-medium text-sm truncate">
                       {producto.name}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Gym: {producto.gymStock} · Bodega:{" "}
                       {producto.warehouseStock}
                     </p>
                   </div>
                   <Badge
                     variant="outline"
-                    className="bg-yellow-50 text-yellow-700 border-yellow-200 shrink-0 text-xs px-2 py-0.5"
+                    className="bg-yellow-50 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700 shrink-0 text-xs px-2 py-0.5"
                   >
                     Min {producto.minStock}
                   </Badge>
                 </div>
               ))}
               {stockBajo.length > 5 && (
-                <p className="text-xs text-gray-500 pl-2.5 pt-1">
+                <p className="text-xs text-muted-foreground pl-2.5 pt-1">
                   +{stockBajo.length - 5} más
                 </p>
               )}
