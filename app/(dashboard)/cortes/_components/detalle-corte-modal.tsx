@@ -77,9 +77,12 @@ export default function DetalleCorteModal({
     );
   }
 
-  const estaCerrado = !!corte.closingDate;
-  const diferencia = Number(corte.difference);
-  const tieneDiferencia = Math.abs(diferencia) > 0.01;
+  const estaCerrado = corte.status === "CLOSED";
+
+  const diferencia = corte.status === "CLOSED" ? Number(corte.difference) : 0;
+
+  const tieneDiferencia =
+    corte.status === "CLOSED" && Math.abs(diferencia) > 0.01;
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -143,28 +146,37 @@ export default function DetalleCorteModal({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">Tickets</p>
-                <p className="text-lg font-bold">{corte.ticketCount}</p>
+                <p className="text-lg font-bold">
+                  {corte.status === "CLOSED" ? corte.ticketCount : 0}
+                </p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">Membresías</p>
                 <p className="text-lg font-bold">
-                  ${Number(corte.membershipSales).toFixed(2)}
+                  $
+                  {Number(
+                    corte.status === "CLOSED" ? corte.membershipSales : 0,
+                  ).toFixed(2)}
                 </p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">Productos</p>
                 <p className="text-lg font-bold">
                   $
-                  {(
-                    Number(corte.productSales0Tax) +
-                    Number(corte.productSales16Tax)
+                  {(corte.status === "CLOSED"
+                    ? Number(corte.productSales0Tax) +
+                      Number(corte.productSales16Tax)
+                    : 0
                   ).toFixed(2)}
                 </p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">IVA</p>
                 <p className="text-lg font-bold">
-                  ${Number(corte.tax).toFixed(2)}
+                  $
+                  {(corte.status === "CLOSED" ? Number(corte.tax) : 0).toFixed(
+                    2,
+                  )}
                 </p>
               </div>
             </div>
@@ -181,7 +193,11 @@ export default function DetalleCorteModal({
                   Efectivo
                 </p>
                 <p className="text-lg font-bold">
-                  ${Number(corte.cashAmount).toFixed(2)}
+                  $
+                  {(corte.status === "CLOSED"
+                    ? Number(corte.cashAmount)
+                    : 0
+                  ).toFixed(2)}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-900">
@@ -189,7 +205,11 @@ export default function DetalleCorteModal({
                   T. Débito
                 </p>
                 <p className="text-lg font-bold">
-                  ${Number(corte.debitCardAmount).toFixed(2)}
+                  $
+                  {(corte.status === "CLOSED"
+                    ? Number(corte.debitCardAmount)
+                    : 0
+                  ).toFixed(2)}
                 </p>
               </div>
               <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-3 border border-purple-200 dark:border-purple-900">
@@ -197,7 +217,11 @@ export default function DetalleCorteModal({
                   T. Crédito
                 </p>
                 <p className="text-lg font-bold">
-                  ${Number(corte.creditCardAmount).toFixed(2)}
+                  $
+                  {(corte.status === "CLOSED"
+                    ? Number(corte.creditCardAmount)
+                    : 0
+                  ).toFixed(2)}
                 </p>
               </div>
               <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 border border-orange-200 dark:border-orange-900">
@@ -205,7 +229,11 @@ export default function DetalleCorteModal({
                   Vouchers
                 </p>
                 <p className="text-lg font-bold">
-                  ${Number(corte.totalVoucher).toFixed(2)}
+                  $
+                  {(corte.status === "CLOSED"
+                    ? Number(corte.totalVoucher)
+                    : 0
+                  ).toFixed(2)}
                 </p>
               </div>
             </div>

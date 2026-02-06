@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db";
 import { InventoryType, Location, PaymentMethod } from "@prisma/client";
 import { calculateMembershipDates, parseISODate, parseIntParam } from "./utils";
-import { mapLocation, mapPaymentMethod } from "./enum-mappers";
+import {
+  mapLocation,
+  mapPaymentMethod,
+  mapInventoryTypeToKardex,
+} from "./enum-mappers";
 import { isMembershipProduct } from "./membership-helpers";
 import {
   MovementsQuerySchema,
@@ -18,6 +22,7 @@ import type {
   EntradaResponse,
   TraspasoResponse,
   AjusteResponse,
+  KardexMovimientoResponse,
   MovementsQueryInput,
   CancelledSalesQueryInput,
 } from "@/types/api/inventory";
@@ -33,6 +38,27 @@ export interface GetMovementsByDateParams {
 export interface GetCancelledSalesParams {
   startDate?: Date;
   endDate?: Date;
+}
+
+interface KardexPrismaRow {
+  id: number;
+  type: InventoryType;
+  location: Location;
+  quantity: number;
+  ticket: string | null;
+  unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+  total: import("@prisma/client/runtime/library").Decimal | null;
+  paymentMethod: PaymentMethod | null;
+  notes: string | null;
+  isCancelled: boolean;
+  date: Date;
+  user: {
+    name: string;
+  };
+  member: {
+    memberNumber: string;
+    name: string | null;
+  } | null;
 }
 
 // ==================== HELPERS ====================
@@ -272,6 +298,39 @@ function serializeInventoryMovement(movement: {
   }
 
   throw new Error(`Unknown movement type: ${movement.type}`);
+}
+
+// ==================== KARDEX SERIALIZER ====================
+
+function serializeKardexMovement(
+  row: KardexPrismaRow,
+  balance: number,
+): KardexMovimientoResponse {
+  return {
+    id: row.id,
+    type: mapInventoryTypeToKardex(row.type),
+    location: mapLocation(row.location),
+    quantity: row.quantity,
+    balance,
+    ticket: row.ticket ?? undefined,
+    unitPrice: row.unitPrice !== null ? Number(row.unitPrice) : undefined,
+    total: row.total !== null ? Number(row.total) : undefined,
+    paymentMethod: row.paymentMethod
+      ? mapPaymentMethod(row.paymentMethod)
+      : undefined,
+    notes: row.notes ?? undefined,
+    isCancelled: row.isCancelled,
+    date: row.date,
+    user: {
+      name: row.user.name,
+    },
+    member: row.member
+      ? {
+          memberNumber: row.member.memberNumber,
+          name: row.member.name ?? undefined,
+        }
+      : undefined,
+  };
 }
 
 // ==================== VALIDATIONS ====================
@@ -726,6 +785,55 @@ export async function createAdjustment(
   });
 
   return serializeAjuste(inventoryMovement);
+}
+
+// ==================== KARDEX SERVICE ====================
+
+export async function getKardex(
+  productId: number,
+  limit?: number,
+): Promise<KardexMovimientoResponse[]> {
+  const movements = await prisma.inventoryMovement.findMany({
+    where: { productId },
+    select: {
+      id: true,
+      type: true,
+      location: true,
+      quantity: true,
+      ticket: true,
+      unitPrice: true,
+      total: true,
+      paymentMethod: true,
+      notes: true,
+      isCancelled: true,
+      date: true,
+      user: {
+        select: {
+          name: true,
+        },
+      },
+      member: {
+        select: {
+          memberNumber: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { date: "asc" },
+    take: limit,
+  });
+
+  let balance = 0;
+  const serialized: KardexMovimientoResponse[] = [];
+
+  for (const movement of movements) {
+    balance += movement.quantity;
+    serialized.push(serializeKardexMovement(movement, balance));
+  }
+
+  serialized.reverse();
+
+  return serialized;
 }
 
 // ==================== QUERY SERVICES ====================

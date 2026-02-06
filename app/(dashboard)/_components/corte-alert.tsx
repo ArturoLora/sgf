@@ -38,7 +38,8 @@ export default function CorteAlert({ corteActivo }: CorteAlertProps) {
             variant="outline"
             className="bg-white dark:bg-green-900/50 text-green-700 dark:text-green-200 border-green-300 dark:border-green-700 shrink-0 text-xs"
           >
-            {corteActivo.ticketCount} tickets
+            {corteActivo.status === "CLOSED" ? corteActivo.ticketCount : 0}{" "}
+            tickets
           </Badge>
         </CardContent>
       </Card>

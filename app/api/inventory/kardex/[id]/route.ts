@@ -10,10 +10,7 @@ export async function GET(
   try {
     const { id } = await params;
     const productId = InventoryService.parseProductIdParam(id);
-    const movements = await InventoryService.getMovementsByProduct(
-      productId,
-      100,
-    );
+    const movements = await InventoryService.getKardex(productId, 100);
     return NextResponse.json(movements);
   } catch (error) {
     const message =

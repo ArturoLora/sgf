@@ -241,7 +241,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
                   Cerrados
                 </p>
                 <p className="text-lg sm:text-2xl font-bold truncate">
-                  {(cortes || []).filter((c) => c.closingDate).length}
+                  {(cortes || []).filter((c) => c.status === "CLOSED").length}
                 </p>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
                   Abiertos
                 </p>
                 <p className="text-lg sm:text-2xl font-bold truncate">
-                  {(cortes || []).filter((c) => !c.closingDate).length}
+                  {(cortes || []).filter((c) => c.status === "CLOSED").length}
                 </p>
               </div>
             </div>

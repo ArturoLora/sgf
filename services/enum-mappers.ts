@@ -11,6 +11,7 @@ import {
   MetodoPago,
   TipoMembresia,
 } from "@/types/models";
+import type { KardexInventoryType } from "@/types/api/inventory";
 
 // ==================== INVENTORY TYPE MAPPING ====================
 
@@ -28,6 +29,27 @@ export function mapInventoryType(type: InventoryType): TipoInventario {
       return TipoInventario.TRANSFER_TO_GYM;
     case "TRANSFER_TO_WAREHOUSE":
       return TipoInventario.TRANSFER_TO_WAREHOUSE;
+    default:
+      throw new Error(`Unknown InventoryType: ${type}`);
+  }
+}
+
+// ==================== KARDEX INVENTORY TYPE MAPPING ====================
+
+export function mapInventoryTypeToKardex(
+  type: InventoryType,
+): KardexInventoryType {
+  switch (type) {
+    case "SALE":
+      return "SALE";
+    case "ADJUSTMENT":
+      return "ADJUSTMENT";
+    case "WAREHOUSE_ENTRY":
+    case "GYM_ENTRY":
+      return "ENTRY";
+    case "TRANSFER_TO_GYM":
+    case "TRANSFER_TO_WAREHOUSE":
+      return "TRANSFER";
     default:
       throw new Error(`Unknown InventoryType: ${type}`);
   }

@@ -1,9 +1,5 @@
 import { z } from "zod";
-import type {
-  TipoInventario,
-  Ubicacion,
-  MetodoPago,
-} from "../models/movimiento-inventario";
+import type { Ubicacion, MetodoPago } from "../models/movimiento-inventario";
 import type { MovimientoInventario } from "../models/movimiento-inventario";
 
 // ==================== ZOD SCHEMAS ====================
@@ -185,13 +181,16 @@ export type MovimientoInventarioResponse =
   | TraspasoResponse
   | AjusteResponse;
 
-// ==================== KARDEX RESPONSE (for display purposes) ====================
+// ==================== KARDEX TYPES ====================
+
+export type KardexInventoryType = "SALE" | "ENTRY" | "TRANSFER" | "ADJUSTMENT";
 
 export interface KardexMovimientoResponse {
   id: number;
-  type: TipoInventario;
+  type: KardexInventoryType;
   location: Ubicacion;
   quantity: number;
+  balance: number;
   ticket?: string;
   unitPrice?: number;
   total?: number;

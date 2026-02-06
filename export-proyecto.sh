@@ -1,30 +1,19 @@
 #!/bin/bash
 
-output="./phase3-types-$(date +%Y%m%d_%H%M%S).txt"
+output="phase4-fix-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "### PHASE 3 - DISCRIMINATED DOMAIN TYPES" > $output
-
-folders=(
-  "types/api/inventory.ts"
-  "types/api/shifts.ts"
-  "services/inventory.service.ts"
-  "services/shifts.service.ts"
-  "app/api/inventory"
-  "app/api/shifts"
+files=(
+services/products.service.ts
+services/reports.service.ts
+"app/(dashboard)/ventas/page.tsx"
+services/index.ts
 )
 
-for path in "${folders[@]}"; do
-  echo -e "\n\n===== $path =====\n" >> $output
+echo "PHASE 4 FIX – PRODUCTS EXPORTS" > $output
 
-  if [ -f "$path" ]; then
-    echo -e "\n--- FILE: $path ---\n" >> $output
-    sed 's/\t/  /g' "$path" >> $output
-  else
-    find "$path" -type f -name "*.ts" | while read file; do
-      echo -e "\n--- FILE: $file ---\n" >> $output
-      sed 's/\t/  /g' "$file" >> $output
-    done
-  fi
+for f in "${files[@]}"; do
+  echo -e "\n\n===== $f =====\n" >> $output
+  sed 's/\x1b\[[0-9;]*m//g' "$f" >> $output
 done
 
-echo "Phase 3 export terminado → $output"
+echo "Exported to $output"

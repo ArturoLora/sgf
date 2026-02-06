@@ -33,7 +33,7 @@ export default function CortesLista({
   };
 
   const calcularDiferencia = (corte: CorteResponse) => {
-    if (!corte.closingDate) return null;
+    if (corte.status !== "CLOSED") return null;
     return Number(corte.difference);
   };
 
@@ -54,7 +54,8 @@ export default function CortesLista({
       <div className="space-y-3 sm:space-y-4">
         {cortes.map((corte) => {
           const diferencia = calcularDiferencia(corte);
-          const estaCerrado = !!corte.closingDate;
+          const estaCerrado = corte.status === "CLOSED";
+
           const tieneDiferencia =
             diferencia !== null && Math.abs(diferencia) > 0.01;
 
@@ -120,7 +121,10 @@ export default function CortesLista({
 
                 <div className="text-left sm:text-right shrink-0">
                   <p className="text-xl sm:text-2xl font-bold">
-                    ${Number(corte.totalSales).toFixed(2)}
+                    $
+                    {corte.status === "CLOSED"
+                      ? Number(corte.totalSales).toFixed(2)
+                      : "0.00"}
                   </p>
                   <p className="text-xs sm:text-sm text-muted-foreground">
                     Fondo: ${Number(corte.initialCash).toFixed(2)}
