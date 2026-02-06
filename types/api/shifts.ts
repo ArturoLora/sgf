@@ -69,15 +69,31 @@ export interface CerrarCorteRequest {
   notes?: string;
 }
 
-// ==================== RESPONSE TYPES ====================
+// ==================== DISCRIMINATED RESPONSE TYPES ====================
 
-export interface CorteResponse {
+interface BaseCorteResponse {
   id: number;
   folio: string;
   cashierId: string;
   openingDate: Date;
-  closingDate?: Date;
   initialCash: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  cashier: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface CorteActivoResponse extends BaseCorteResponse {
+  status: "OPEN";
+}
+
+export interface CorteCerradoResponse extends BaseCorteResponse {
+  status: "CLOSED";
+  closingDate: Date;
   ticketCount: number;
   membershipSales: number;
   productSales0Tax: number;
@@ -94,17 +110,13 @@ export interface CorteResponse {
   cancelledSales: number;
   totalCash: number;
   difference: number;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  cashier: {
-    id: string;
-    name: string;
-    email: string;
-  };
 }
 
-export interface CorteConVentasResponse extends CorteResponse {
+export type CorteResponse = CorteActivoResponse | CorteCerradoResponse;
+
+// ==================== EXTENDED RESPONSE TYPES ====================
+
+export interface CorteActivoConVentasResponse extends CorteActivoResponse {
   inventoryMovements: Array<{
     id: number;
     type: string;
@@ -122,6 +134,31 @@ export interface CorteConVentasResponse extends CorteResponse {
     };
   }>;
 }
+
+export interface CorteCerradoConVentasResponse extends CorteCerradoResponse {
+  inventoryMovements: Array<{
+    id: number;
+    type: string;
+    quantity: number;
+    ticket?: string;
+    total: number;
+    paymentMethod?: MetodoPago;
+    date: Date;
+    product: {
+      name: string;
+    };
+    member?: {
+      memberNumber: string;
+      name?: string;
+    };
+  }>;
+}
+
+export type CorteConVentasResponse =
+  | CorteActivoConVentasResponse
+  | CorteCerradoConVentasResponse;
+
+// ==================== SUMMARY TYPES ====================
 
 export interface ResumenCorteResponse {
   initialCash: number;

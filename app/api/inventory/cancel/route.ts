@@ -1,3 +1,5 @@
+// ===== app/api/inventory/cancel/route.ts =====
+
 import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services";
 import { headers } from "next/headers";
@@ -13,13 +15,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const cancelledSale = await InventoryService.cancelSale({
-      ...body,
-      userId: session.user.id,
-    });
+    const cancelledSale = await InventoryService.cancelSale(body);
 
     return NextResponse.json(cancelledSale);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Error al cancelar venta";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

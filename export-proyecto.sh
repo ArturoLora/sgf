@@ -1,15 +1,16 @@
 #!/bin/bash
 
-output="./phase2-membership-$(date +%Y%m%d_%H%M%S).txt"
+output="./phase3-types-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "### PHASE 2 - MEMBERSHIP LOGIC CENTRALIZATION" > $output
+echo "### PHASE 3 - DISCRIMINATED DOMAIN TYPES" > $output
 
 folders=(
-  "services/products.service.ts"
+  "types/api/inventory.ts"
+  "types/api/shifts.ts"
   "services/inventory.service.ts"
-  "services/members.service.ts"
-  "app/api/sales/products"
-  "types"
+  "services/shifts.service.ts"
+  "app/api/inventory"
+  "app/api/shifts"
 )
 
 for path in "${folders[@]}"; do
@@ -26,4 +27,4 @@ for path in "${folders[@]}"; do
   fi
 done
 
-echo "Phase 2 export terminado → $output"
+echo "Phase 3 export terminado → $output"

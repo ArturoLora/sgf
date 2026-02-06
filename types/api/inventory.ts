@@ -4,10 +4,7 @@ import type {
   Ubicacion,
   MetodoPago,
 } from "../models/movimiento-inventario";
-import type {
-  MovimientoInventario,
-  MovimientoInventarioConRelaciones,
-} from "../models/movimiento-inventario";
+import type { MovimientoInventario } from "../models/movimiento-inventario";
 
 // ==================== ZOD SCHEMAS ====================
 
@@ -108,42 +105,87 @@ export interface CancelarVentaRequest {
   cancellationReason: string;
 }
 
-// ==================== RESPONSE TYPES ====================
+// ==================== DISCRIMINATED RESPONSE TYPES ====================
 
-export interface MovimientoInventarioResponse {
+interface BaseMovimientoResponse {
   id: number;
   productId: number;
-  type: TipoInventario;
-  location: Ubicacion;
-  quantity: number;
-  ticket?: string;
-  memberId?: number;
   userId: string;
-  unitPrice?: number;
-  subtotal?: number;
-  discount?: number;
-  surcharge?: number;
-  total?: number;
-  paymentMethod?: MetodoPago;
+  date: Date;
+  createdAt: Date;
+  user: {
+    name: string;
+  };
+}
+
+interface BaseVentaProduct {
+  product: {
+    name: string;
+    salePrice?: number;
+  };
+}
+
+interface BaseSimpleProduct {
+  product: {
+    name: string;
+  };
+}
+
+export interface VentaResponse
+  extends BaseMovimientoResponse, BaseVentaProduct {
+  type: "SALE";
+  location: "GYM";
+  quantity: number;
+  ticket: string;
+  unitPrice: number;
+  subtotal: number;
+  discount: number;
+  surcharge: number;
+  total: number;
+  paymentMethod: MetodoPago;
+  memberId?: number;
   shiftId?: number;
   notes?: string;
   isCancelled: boolean;
   cancellationReason?: string;
   cancellationDate?: Date;
-  date: Date;
-  createdAt: Date;
-  product: {
-    name: string;
-    salePrice?: number;
-  };
   member?: {
     memberNumber: string;
     name?: string;
   };
-  user: {
-    name: string;
-  };
 }
+
+export interface EntradaResponse
+  extends BaseMovimientoResponse, BaseSimpleProduct {
+  type: "ENTRY";
+  location: Ubicacion;
+  quantity: number;
+  notes?: string;
+}
+
+export interface TraspasoResponse
+  extends BaseMovimientoResponse, BaseSimpleProduct {
+  type: "TRANSFER";
+  location: Ubicacion;
+  quantity: number;
+  notes: string;
+}
+
+export interface AjusteResponse
+  extends BaseMovimientoResponse, BaseSimpleProduct {
+  type: "ADJUSTMENT";
+  location: Ubicacion;
+  quantity: number;
+  notes: string;
+}
+
+export type MovimientoInventarioResponse =
+  | VentaResponse
+  | EntradaResponse
+  | TraspasoResponse
+  | AjusteResponse;
+
+// ==================== KARDEX RESPONSE (for display purposes) ====================
 
 export interface KardexMovimientoResponse {
   id: number;

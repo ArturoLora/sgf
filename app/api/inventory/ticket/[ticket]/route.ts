@@ -1,3 +1,5 @@
+// ===== app/api/inventory/ticket/[ticket]/route.ts =====
+
 import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services";
 
@@ -11,7 +13,9 @@ export async function GET(
     const sales = await InventoryService.getSalesByTicket(ticket);
 
     return NextResponse.json(sales);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Error al obtener ticket";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

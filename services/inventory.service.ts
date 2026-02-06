@@ -1,11 +1,7 @@
 import { prisma } from "@/lib/db";
 import { InventoryType, Location, PaymentMethod } from "@prisma/client";
 import { calculateMembershipDates, parseISODate, parseIntParam } from "./utils";
-import {
-  mapInventoryType,
-  mapLocation,
-  mapPaymentMethod,
-} from "./enum-mappers";
+import { mapLocation, mapPaymentMethod } from "./enum-mappers";
 import { isMembershipProduct } from "./membership-helpers";
 import {
   MovementsQuerySchema,
@@ -18,13 +14,12 @@ import type {
   CrearAjusteRequest,
   CancelarVentaRequest,
   MovimientoInventarioResponse,
+  VentaResponse,
+  EntradaResponse,
+  TraspasoResponse,
+  AjusteResponse,
   MovementsQueryInput,
   CancelledSalesQueryInput,
-  VentaCreada,
-  EntradaCreada,
-  TraspasoCreado,
-  AjusteCreado,
-  VentaCancelada,
 } from "@/types/api/inventory";
 import type { DetalleTicketResponse, ItemVentaTicket } from "@/types/api/sales";
 
@@ -41,6 +36,195 @@ export interface GetCancelledSalesParams {
 }
 
 // ==================== HELPERS ====================
+
+function serializeVenta(movement: {
+  id: number;
+  productId: number;
+  type: InventoryType;
+  location: Location;
+  quantity: number;
+  ticket: string | null;
+  memberId: number | null;
+  userId: string;
+  unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+  subtotal: import("@prisma/client/runtime/library").Decimal | null;
+  discount: import("@prisma/client/runtime/library").Decimal | null;
+  surcharge: import("@prisma/client/runtime/library").Decimal | null;
+  total: import("@prisma/client/runtime/library").Decimal | null;
+  paymentMethod: PaymentMethod | null;
+  shiftId: number | null;
+  notes: string | null;
+  isCancelled: boolean;
+  cancellationReason: string | null;
+  cancellationDate: Date | null;
+  date: Date;
+  createdAt: Date;
+  product: {
+    name: string;
+    salePrice?: import("@prisma/client/runtime/library").Decimal;
+  };
+  member?: { memberNumber: string; name: string | null } | null;
+  user: { name: string };
+}): VentaResponse {
+  if (!movement.ticket) {
+    throw new Error("Sale movement missing required ticket");
+  }
+  if (movement.unitPrice === null) {
+    throw new Error("Sale movement missing required unitPrice");
+  }
+  if (movement.subtotal === null) {
+    throw new Error("Sale movement missing required subtotal");
+  }
+  if (movement.total === null) {
+    throw new Error("Sale movement missing required total");
+  }
+  if (!movement.paymentMethod) {
+    throw new Error("Sale movement missing required paymentMethod");
+  }
+
+  return {
+    id: movement.id,
+    productId: movement.productId,
+    type: "SALE",
+    location: "GYM",
+    quantity: movement.quantity,
+    ticket: movement.ticket,
+    userId: movement.userId,
+    unitPrice: Number(movement.unitPrice),
+    subtotal: Number(movement.subtotal),
+    discount: Number(movement.discount || 0),
+    surcharge: Number(movement.surcharge || 0),
+    total: Number(movement.total),
+    paymentMethod: mapPaymentMethod(movement.paymentMethod),
+    memberId: movement.memberId ?? undefined,
+    shiftId: movement.shiftId ?? undefined,
+    notes: movement.notes ?? undefined,
+    isCancelled: movement.isCancelled,
+    cancellationReason: movement.cancellationReason ?? undefined,
+    cancellationDate: movement.cancellationDate ?? undefined,
+    date: movement.date,
+    createdAt: movement.createdAt,
+    product: {
+      name: movement.product.name,
+      salePrice: movement.product.salePrice
+        ? Number(movement.product.salePrice)
+        : undefined,
+    },
+    member: movement.member
+      ? {
+          memberNumber: movement.member.memberNumber,
+          name: movement.member.name ?? undefined,
+        }
+      : undefined,
+    user: {
+      name: movement.user.name,
+    },
+  };
+}
+
+function serializeEntrada(movement: {
+  id: number;
+  productId: number;
+  type: InventoryType;
+  location: Location;
+  quantity: number;
+  userId: string;
+  notes: string | null;
+  date: Date;
+  createdAt: Date;
+  product: { name: string };
+  user: { name: string };
+}): EntradaResponse {
+  return {
+    id: movement.id,
+    productId: movement.productId,
+    type: "ENTRY",
+    location: mapLocation(movement.location),
+    quantity: movement.quantity,
+    userId: movement.userId,
+    notes: movement.notes ?? undefined,
+    date: movement.date,
+    createdAt: movement.createdAt,
+    product: {
+      name: movement.product.name,
+    },
+    user: {
+      name: movement.user.name,
+    },
+  };
+}
+
+function serializeTraspaso(movement: {
+  id: number;
+  productId: number;
+  type: InventoryType;
+  location: Location;
+  quantity: number;
+  userId: string;
+  notes: string | null;
+  date: Date;
+  createdAt: Date;
+  product: { name: string };
+  user: { name: string };
+}): TraspasoResponse {
+  if (!movement.notes) {
+    throw new Error("Transfer movement missing required notes");
+  }
+
+  return {
+    id: movement.id,
+    productId: movement.productId,
+    type: "TRANSFER",
+    location: mapLocation(movement.location),
+    quantity: movement.quantity,
+    userId: movement.userId,
+    notes: movement.notes,
+    date: movement.date,
+    createdAt: movement.createdAt,
+    product: {
+      name: movement.product.name,
+    },
+    user: {
+      name: movement.user.name,
+    },
+  };
+}
+
+function serializeAjuste(movement: {
+  id: number;
+  productId: number;
+  type: InventoryType;
+  location: Location;
+  quantity: number;
+  userId: string;
+  notes: string | null;
+  date: Date;
+  createdAt: Date;
+  product: { name: string };
+  user: { name: string };
+}): AjusteResponse {
+  if (!movement.notes) {
+    throw new Error("Adjustment movement missing required notes");
+  }
+
+  return {
+    id: movement.id,
+    productId: movement.productId,
+    type: "ADJUSTMENT",
+    location: mapLocation(movement.location),
+    quantity: movement.quantity,
+    userId: movement.userId,
+    notes: movement.notes,
+    date: movement.date,
+    createdAt: movement.createdAt,
+    product: {
+      name: movement.product.name,
+    },
+    user: {
+      name: movement.user.name,
+    },
+  };
+}
 
 function serializeInventoryMovement(movement: {
   id: number;
@@ -71,46 +255,23 @@ function serializeInventoryMovement(movement: {
   member?: { memberNumber: string; name: string | null } | null;
   user: { name: string };
 }): MovimientoInventarioResponse {
-  return {
-    id: movement.id,
-    productId: movement.productId,
-    type: mapInventoryType(movement.type),
-    location: mapLocation(movement.location),
-    quantity: movement.quantity,
-    ticket: movement.ticket ?? undefined,
-    memberId: movement.memberId ?? undefined,
-    userId: movement.userId,
-    unitPrice: movement.unitPrice ? Number(movement.unitPrice) : undefined,
-    subtotal: movement.subtotal ? Number(movement.subtotal) : undefined,
-    discount: movement.discount ? Number(movement.discount) : undefined,
-    surcharge: movement.surcharge ? Number(movement.surcharge) : undefined,
-    total: movement.total ? Number(movement.total) : undefined,
-    paymentMethod: movement.paymentMethod
-      ? mapPaymentMethod(movement.paymentMethod)
-      : undefined,
-    shiftId: movement.shiftId ?? undefined,
-    notes: movement.notes ?? undefined,
-    isCancelled: movement.isCancelled,
-    cancellationReason: movement.cancellationReason ?? undefined,
-    cancellationDate: movement.cancellationDate ?? undefined,
-    date: movement.date,
-    createdAt: movement.createdAt,
-    product: {
-      name: movement.product.name,
-      salePrice: movement.product.salePrice
-        ? Number(movement.product.salePrice)
-        : undefined,
-    },
-    member: movement.member
-      ? {
-          memberNumber: movement.member.memberNumber,
-          name: movement.member.name ?? undefined,
-        }
-      : undefined,
-    user: {
-      name: movement.user.name,
-    },
-  };
+  if (movement.type === "SALE") {
+    return serializeVenta(movement);
+  } else if (
+    movement.type === "WAREHOUSE_ENTRY" ||
+    movement.type === "GYM_ENTRY"
+  ) {
+    return serializeEntrada(movement);
+  } else if (
+    movement.type === "TRANSFER_TO_GYM" ||
+    movement.type === "TRANSFER_TO_WAREHOUSE"
+  ) {
+    return serializeTraspaso(movement);
+  } else if (movement.type === "ADJUSTMENT") {
+    return serializeAjuste(movement);
+  }
+
+  throw new Error(`Unknown movement type: ${movement.type}`);
 }
 
 // ==================== VALIDATIONS ====================
@@ -187,7 +348,7 @@ export function parseProductIdParam(id: string): number {
 export async function createSale(
   data: CrearVentaRequest,
   userId: string,
-): Promise<VentaCreada> {
+): Promise<VentaResponse> {
   const product = await validateStock(data.productId, data.quantity, "GYM");
 
   const unitPrice = data.unitPrice || Number(product.salePrice);
@@ -268,12 +429,12 @@ export async function createSale(
     });
   }
 
-  return serializeInventoryMovement(inventoryMovement) as VentaCreada;
+  return serializeVenta(inventoryMovement);
 }
 
 export async function cancelSale(
   data: CancelarVentaRequest,
-): Promise<VentaCancelada> {
+): Promise<VentaResponse> {
   const sale = await prisma.inventoryMovement.findUnique({
     where: { id: data.inventoryId },
     include: {
@@ -329,7 +490,7 @@ export async function cancelSale(
     return cancelled;
   });
 
-  return serializeInventoryMovement(cancelledInventory) as VentaCancelada;
+  return serializeVenta(cancelledInventory);
 }
 
 // ==================== TICKET SERVICES ====================
@@ -407,7 +568,7 @@ export async function getTicketDetail(
 export async function createEntry(
   data: CrearEntradaRequest,
   userId: string,
-): Promise<EntradaCreada> {
+): Promise<EntradaResponse> {
   const product = await prisma.product.findUnique({
     where: { id: data.productId },
   });
@@ -451,7 +612,7 @@ export async function createEntry(
     return movement;
   });
 
-  return serializeInventoryMovement(inventoryMovement) as EntradaCreada;
+  return serializeEntrada(inventoryMovement);
 }
 
 // ==================== TRANSFER SERVICES ====================
@@ -459,7 +620,7 @@ export async function createEntry(
 export async function createTransfer(
   data: CrearTraspasoRequest,
   userId: string,
-): Promise<TraspasoCreado> {
+): Promise<TraspasoResponse> {
   const origin: Location = data.destination === "GYM" ? "WAREHOUSE" : "GYM";
 
   const product = await validateStock(data.productId, data.quantity, origin);
@@ -506,7 +667,7 @@ export async function createTransfer(
     return movement;
   });
 
-  return serializeInventoryMovement(inventoryMovement) as TraspasoCreado;
+  return serializeTraspaso(inventoryMovement);
 }
 
 // ==================== ADJUSTMENT SERVICES ====================
@@ -514,7 +675,7 @@ export async function createTransfer(
 export async function createAdjustment(
   data: CrearAjusteRequest,
   userId: string,
-): Promise<AjusteCreado> {
+): Promise<AjusteResponse> {
   const product = await prisma.product.findUnique({
     where: { id: data.productId },
   });
@@ -564,7 +725,7 @@ export async function createAdjustment(
     return movement;
   });
 
-  return serializeInventoryMovement(inventoryMovement) as AjusteCreado;
+  return serializeAjuste(inventoryMovement);
 }
 
 // ==================== QUERY SERVICES ====================
@@ -579,6 +740,7 @@ export async function getMovementsByProduct(
       product: {
         select: {
           name: true,
+          salePrice: true,
         },
       },
       member: {
@@ -637,7 +799,7 @@ export async function getMovementsByDate(
 
 export async function getSalesByTicket(
   ticket: string,
-): Promise<MovimientoInventarioResponse[]> {
+): Promise<VentaResponse[]> {
   const sales = await prisma.inventoryMovement.findMany({
     where: {
       ticket,
@@ -665,12 +827,12 @@ export async function getSalesByTicket(
     orderBy: { date: "asc" },
   });
 
-  return sales.map(serializeInventoryMovement);
+  return sales.map(serializeVenta);
 }
 
 export async function getSalesByShift(
   shiftId: number,
-): Promise<MovimientoInventarioResponse[]> {
+): Promise<VentaResponse[]> {
   const sales = await prisma.inventoryMovement.findMany({
     where: {
       shiftId,
@@ -698,12 +860,12 @@ export async function getSalesByShift(
     orderBy: { date: "asc" },
   });
 
-  return sales.map(serializeInventoryMovement);
+  return sales.map(serializeVenta);
 }
 
 export async function getCancelledSales(
   params?: GetCancelledSalesParams,
-): Promise<MovimientoInventarioResponse[]> {
+): Promise<VentaResponse[]> {
   const where: {
     type: InventoryType;
     isCancelled: boolean;
@@ -726,6 +888,7 @@ export async function getCancelledSales(
       product: {
         select: {
           name: true,
+          salePrice: true,
         },
       },
       member: {
@@ -743,5 +906,5 @@ export async function getCancelledSales(
     orderBy: { cancellationDate: "desc" },
   });
 
-  return sales.map(serializeInventoryMovement);
+  return sales.map(serializeVenta);
 }

@@ -4,7 +4,11 @@ import { parseISODate, parseIntParam } from "./utils";
 import { ShiftsQuerySchema, CloseShiftSchema } from "@/types/api/shifts";
 import type {
   CorteResponse,
+  CorteActivoResponse,
+  CorteCerradoResponse,
   CorteConVentasResponse,
+  CorteActivoConVentasResponse,
+  CorteCerradoConVentasResponse,
   EstadisticasCortesResponse,
   ResumenVentasPorProducto,
   ResumenPorFormaPago,
@@ -25,6 +29,91 @@ export interface GetShiftsParams {
   order?: string;
   page?: number;
   perPage?: number;
+}
+
+function serializeCorteActivo(shift: {
+  id: number;
+  folio: string;
+  cashierId: string;
+  openingDate: Date;
+  closingDate: Date | null;
+  initialCash: import("@prisma/client/runtime/library").Decimal;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  cashier: { id: string; name: string; email: string };
+}): CorteActivoResponse {
+  return {
+    id: shift.id,
+    folio: shift.folio,
+    cashierId: shift.cashierId,
+    status: "OPEN",
+    openingDate: shift.openingDate,
+    initialCash: Number(shift.initialCash),
+    notes: shift.notes ?? undefined,
+    createdAt: shift.createdAt,
+    updatedAt: shift.updatedAt,
+    cashier: shift.cashier,
+  };
+}
+
+function serializeCorteCerrado(shift: {
+  id: number;
+  folio: string;
+  cashierId: string;
+  openingDate: Date;
+  closingDate: Date | null;
+  initialCash: import("@prisma/client/runtime/library").Decimal;
+  ticketCount: number;
+  membershipSales: import("@prisma/client/runtime/library").Decimal;
+  productSales0Tax: import("@prisma/client/runtime/library").Decimal;
+  productSales16Tax: import("@prisma/client/runtime/library").Decimal;
+  subtotal: import("@prisma/client/runtime/library").Decimal;
+  tax: import("@prisma/client/runtime/library").Decimal;
+  totalSales: import("@prisma/client/runtime/library").Decimal;
+  cashAmount: import("@prisma/client/runtime/library").Decimal;
+  debitCardAmount: import("@prisma/client/runtime/library").Decimal;
+  creditCardAmount: import("@prisma/client/runtime/library").Decimal;
+  totalVoucher: import("@prisma/client/runtime/library").Decimal;
+  totalWithdrawals: import("@prisma/client/runtime/library").Decimal;
+  withdrawalsConcept: string | null;
+  cancelledSales: import("@prisma/client/runtime/library").Decimal;
+  totalCash: import("@prisma/client/runtime/library").Decimal;
+  difference: import("@prisma/client/runtime/library").Decimal;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  cashier: { id: string; name: string; email: string };
+}): CorteCerradoResponse {
+  return {
+    id: shift.id,
+    folio: shift.folio,
+    cashierId: shift.cashierId,
+    status: "CLOSED",
+    openingDate: shift.openingDate,
+    closingDate: shift.closingDate!,
+    initialCash: Number(shift.initialCash),
+    ticketCount: shift.ticketCount,
+    membershipSales: Number(shift.membershipSales),
+    productSales0Tax: Number(shift.productSales0Tax),
+    productSales16Tax: Number(shift.productSales16Tax),
+    subtotal: Number(shift.subtotal),
+    tax: Number(shift.tax),
+    totalSales: Number(shift.totalSales),
+    cashAmount: Number(shift.cashAmount),
+    debitCardAmount: Number(shift.debitCardAmount),
+    creditCardAmount: Number(shift.creditCardAmount),
+    totalVoucher: Number(shift.totalVoucher),
+    totalWithdrawals: Number(shift.totalWithdrawals),
+    withdrawalsConcept: shift.withdrawalsConcept ?? undefined,
+    cancelledSales: Number(shift.cancelledSales),
+    totalCash: Number(shift.totalCash),
+    difference: Number(shift.difference),
+    notes: shift.notes ?? undefined,
+    createdAt: shift.createdAt,
+    updatedAt: shift.updatedAt,
+    cashier: shift.cashier,
+  };
 }
 
 function serializeShift(shift: {
@@ -55,34 +144,11 @@ function serializeShift(shift: {
   updatedAt: Date;
   cashier: { id: string; name: string; email: string };
 }): CorteResponse {
-  return {
-    id: shift.id,
-    folio: shift.folio,
-    cashierId: shift.cashierId,
-    openingDate: shift.openingDate,
-    closingDate: shift.closingDate ?? undefined,
-    initialCash: Number(shift.initialCash),
-    ticketCount: shift.ticketCount,
-    membershipSales: Number(shift.membershipSales),
-    productSales0Tax: Number(shift.productSales0Tax),
-    productSales16Tax: Number(shift.productSales16Tax),
-    subtotal: Number(shift.subtotal),
-    tax: Number(shift.tax),
-    totalSales: Number(shift.totalSales),
-    cashAmount: Number(shift.cashAmount),
-    debitCardAmount: Number(shift.debitCardAmount),
-    creditCardAmount: Number(shift.creditCardAmount),
-    totalVoucher: Number(shift.totalVoucher),
-    totalWithdrawals: Number(shift.totalWithdrawals),
-    withdrawalsConcept: shift.withdrawalsConcept ?? undefined,
-    cancelledSales: Number(shift.cancelledSales),
-    totalCash: Number(shift.totalCash),
-    difference: Number(shift.difference),
-    notes: shift.notes ?? undefined,
-    createdAt: shift.createdAt,
-    updatedAt: shift.updatedAt,
-    cashier: shift.cashier,
-  };
+  if (shift.closingDate === null) {
+    return serializeCorteActivo(shift);
+  } else {
+    return serializeCorteCerrado(shift);
+  }
 }
 
 async function validateNoOpenShift(cashierId: string): Promise<void> {
@@ -142,7 +208,7 @@ export function parseShiftIdParam(id: string): number {
 export async function openShift(
   data: AbrirCorteRequest,
   cashierId: string,
-): Promise<CorteResponse> {
+): Promise<CorteActivoResponse> {
   await validateNoOpenShift(cashierId);
   await validateNoSystemOpenShift();
 
@@ -175,12 +241,12 @@ export async function openShift(
     },
   });
 
-  return serializeShift(shift);
+  return serializeCorteActivo(shift);
 }
 
 export async function closeShift(
   data: CloseShiftInput,
-): Promise<CorteResponse> {
+): Promise<CorteCerradoResponse> {
   const shift = await prisma.shift.findUnique({
     where: { id: data.shiftId },
     include: {
@@ -289,7 +355,7 @@ export async function closeShift(
     },
   });
 
-  return serializeShift(updatedShift);
+  return serializeCorteCerrado(updatedShift);
 }
 
 export async function getShifts(
@@ -361,7 +427,7 @@ export async function getShifts(
   };
 }
 
-export async function getActiveShift(): Promise<CorteConVentasResponse | null> {
+export async function getActiveShift(): Promise<CorteActivoConVentasResponse | null> {
   const shift = await prisma.shift.findFirst({
     where: { closingDate: null },
     include: {
@@ -381,38 +447,10 @@ export async function getActiveShift(): Promise<CorteConVentasResponse | null> {
 
   if (!shift) return null;
 
-  const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
-  let cashAmount = 0;
-  let debitCardAmount = 0;
-  let creditCardAmount = 0;
-  let totalSales = 0;
-
-  shift.inventoryMovements.forEach((sale) => {
-    const total = Number(sale.total || 0);
-    totalSales += total;
-
-    switch (sale.paymentMethod) {
-      case "CASH":
-        cashAmount += total;
-        break;
-      case "DEBIT_CARD":
-        debitCardAmount += total;
-        break;
-      case "CREDIT_CARD":
-        creditCardAmount += total;
-        break;
-    }
-  });
-
-  const baseShift = serializeShift(shift);
+  const baseShift = serializeCorteActivo(shift);
 
   return {
     ...baseShift,
-    ticketCount: tickets,
-    cashAmount,
-    debitCardAmount,
-    creditCardAmount,
-    totalSales,
     inventoryMovements: shift.inventoryMovements.map((m) => ({
       id: m.id,
       type: m.type,
@@ -475,29 +513,42 @@ export async function getShiftById(
     throw new Error("Corte no encontrado");
   }
 
-  return {
-    ...serializeShift(shift),
-    inventoryMovements: shift.inventoryMovements.map((m) => ({
-      id: m.id,
-      type: m.type,
-      quantity: m.quantity,
-      ticket: m.ticket ?? undefined,
-      total: Number(m.total || 0),
-      paymentMethod: m.paymentMethod
-        ? mapPaymentMethod(m.paymentMethod)
-        : undefined,
-      date: m.date,
-      product: {
-        name: m.product.name,
-      },
-      member: m.member
-        ? {
-            memberNumber: m.member.memberNumber,
-            name: m.member.name ?? undefined,
-          }
-        : undefined,
-    })),
-  };
+  const inventoryMovements = shift.inventoryMovements.map((m) => ({
+    id: m.id,
+    type: m.type,
+    quantity: m.quantity,
+    ticket: m.ticket ?? undefined,
+    total: Number(m.total || 0),
+    paymentMethod: m.paymentMethod
+      ? mapPaymentMethod(m.paymentMethod)
+      : undefined,
+    date: m.date,
+    product: {
+      name: m.product.name,
+    },
+    member: m.member
+      ? {
+          memberNumber: m.member.memberNumber,
+          name: m.member.name ?? undefined,
+        }
+      : undefined,
+  }));
+
+  if (shift.closingDate === null) {
+    const baseShift = serializeCorteActivo(shift);
+    const result: CorteActivoConVentasResponse = {
+      ...baseShift,
+      inventoryMovements,
+    };
+    return result;
+  } else {
+    const baseShift = serializeCorteCerrado(shift);
+    const result: CorteCerradoConVentasResponse = {
+      ...baseShift,
+      inventoryMovements,
+    };
+    return result;
+  }
 }
 
 export async function getAllShifts(limit?: number): Promise<CorteResponse[]> {

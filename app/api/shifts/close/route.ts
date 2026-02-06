@@ -1,3 +1,5 @@
+// ===== app/api/shifts/close/route.ts =====
+
 import { NextRequest, NextResponse } from "next/server";
 import { ShiftsService } from "@/services";
 

@@ -1,3 +1,5 @@
+// ===== app/api/inventory/report/stock/route.ts =====
+
 import { NextResponse } from "next/server";
 import { ReportsService } from "@/services";
 
@@ -6,7 +8,9 @@ export async function GET() {
   try {
     const report = await ReportsService.getCurrentStockReport();
     return NextResponse.json(report);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Error al obtener reporte";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+// ===== app/api/inventory/movements/route.ts =====
+
 import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services";
 
