@@ -10,6 +10,14 @@ import ProductoItem from "./producto-item";
 import ResumenVenta from "./resumen-venta";
 import FinalizarVentaModal from "./finalizar-venta-modal";
 import { useShiftCheck } from "./use-shift-check";
+import {
+  calculateSubtotal,
+  calculateTotal,
+} from "@/lib/domain/sales/calculators";
+import { generateTicket } from "@/lib/domain/sales/ticket";
+import { buildSalePayloadFromCart } from "@/lib/domain/sales/payloads";
+import { processSale } from "@/lib/domain/sales/process";
+import type { MetodoPago } from "@/types/models/movimiento-inventario";
 
 interface Producto {
   id: number;
@@ -38,6 +46,11 @@ export default function VentasContainer({
   const [descuento, setDescuento] = useState(0);
   const [recargo, setRecargo] = useState(0);
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [procesando, setProcesando] = useState(false);
+  const [ventaCompletada, setVentaCompletada] = useState<{
+    ticket: string;
+    total: number;
+  } | null>(null);
 
   const agregarAlCarrito = (producto: Producto) => {
     if (!hasActiveShift) {
@@ -100,6 +113,7 @@ export default function VentasContainer({
     setClienteId(null);
     setDescuento(0);
     setRecargo(0);
+    setVentaCompletada(null);
   };
 
   const handleFinalizarClick = () => {
@@ -112,12 +126,49 @@ export default function VentasContainer({
     setModalAbierto(true);
   };
 
-  const subtotal = carrito.reduce(
-    (sum, item) => sum + item.precioUnitario * item.cantidad,
-    0,
-  );
+  const handleConfirmarVenta = async (metodoPago: MetodoPago) => {
+    setProcesando(true);
 
-  const total = subtotal - descuento + recargo;
+    try {
+      const ticket = generateTicket();
+
+      const payloads = buildSalePayloadFromCart(carrito, {
+        clienteId,
+        descuento,
+        recargo,
+        metodoPago,
+        ticket,
+      });
+
+      await processSale(payloads);
+
+      setVentaCompletada({
+        ticket,
+        total: calculateTotal(calculateSubtotal(carrito), descuento, recargo),
+      });
+
+      setTimeout(() => {
+        limpiarCarrito();
+        setModalAbierto(false);
+      }, 2000);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        alert(error.message);
+      }
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const handleCancelarModal = () => {
+    if (!procesando) {
+      setModalAbierto(false);
+      setVentaCompletada(null);
+    }
+  };
+
+  const subtotal = calculateSubtotal(carrito);
+  const total = calculateTotal(subtotal, descuento, recargo);
 
   if (loading) {
     return (
@@ -216,13 +267,14 @@ export default function VentasContainer({
       {modalAbierto && hasActiveShift && (
         <FinalizarVentaModal
           carrito={carrito}
-          clienteId={clienteId}
           subtotal={subtotal}
           descuento={descuento}
           recargo={recargo}
           total={total}
-          onClose={() => setModalAbierto(false)}
-          onSuccess={limpiarCarrito}
+          procesando={procesando}
+          ventaCompletada={ventaCompletada}
+          onConfirmar={handleConfirmarVenta}
+          onCancelar={handleCancelarModal}
         />
       )}
     </div>
