@@ -1,3 +1,4 @@
+// app/(dashboard)/productos/_components/crear-producto-modal.tsx
 "use client";
 
 import { useState } from "react";
@@ -12,6 +13,8 @@ import {
   CreateProductInputSchema,
   type CreateProductInputRaw,
 } from "@/types/api/products";
+import { createProduct } from "@/lib/api/products.client";
+import { formatSuccessMessage } from "@/lib/domain/products";
 
 interface CrearProductoModalProps {
   onClose: () => void;
@@ -42,19 +45,8 @@ export default function CrearProductoModal({
   const onSubmit = async (data: CreateProductInputRaw) => {
     setSubmitting(true);
     try {
-      const response = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Error al crear producto");
-      }
-
-      onSuccess(`Producto creado: ${data.name}`);
+      const product = await createProduct(data);
+      onSuccess(formatSuccessMessage("crear", product.name));
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Error al crear producto";

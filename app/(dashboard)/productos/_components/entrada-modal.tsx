@@ -1,3 +1,4 @@
+// app/(dashboard)/productos/_components/entrada-modal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -16,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { X, Loader2 } from "lucide-react";
 import { CreateEntryInputSchema } from "@/types/api/inventory";
+import { fetchProductById } from "@/lib/api/products.client";
+import { formatSuccessMessage, getLocationLabel } from "@/lib/domain/products";
 import type { ProductoResponse } from "@/types/api/products";
 import type { Ubicacion } from "@/types/models/movimiento-inventario";
 
@@ -51,39 +54,30 @@ export default function EntradaModal({
     watch,
   } = useForm<EntryFormData>({
     resolver: zodResolver(CreateEntryInputSchema),
-    defaultValues: {
-      productId,
-      location: "WAREHOUSE",
-      quantity: 0,
-      notes: "",
-    },
+    defaultValues: { productId, location: "WAREHOUSE", quantity: 0, notes: "" },
   });
 
   const location = watch("location") as Ubicacion;
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const load = async () => {
       try {
-        const response = await fetch(`/api/products/${productId}`);
-        if (!response.ok) throw new Error("Error al cargar producto");
-        const data: ProductoResponse = await response.json();
+        const data = await fetchProductById(productId);
         setProduct(data);
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Error al cargar producto";
-        onError(message);
+        onError(
+          err instanceof Error ? err.message : "Error al cargar producto",
+        );
         onClose();
       } finally {
         setLoading(false);
       }
     };
-
-    fetchProduct();
+    load();
   }, [productId, onClose, onError]);
 
   const onSubmit = async (data: EntryFormData) => {
     if (!product) return;
-
     setSubmitting(true);
     try {
       const response = await fetch("/api/inventory/entry", {
@@ -91,21 +85,20 @@ export default function EntradaModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(result.error || "Error al registrar entrada");
-      }
 
-      const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
+      const locationName = getLocationLabel(
+        data.location as "WAREHOUSE" | "GYM",
+      );
       onSuccess(
         `Entrada registrada: ${data.quantity} unidades en ${locationName}`,
       );
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Error al registrar entrada";
-      onError(message);
+      onError(
+        err instanceof Error ? err.message : "Error al registrar entrada",
+      );
     } finally {
       setSubmitting(false);
     }

@@ -1,3 +1,4 @@
+// app/(dashboard)/productos/_components/productos-filtros.tsx
 "use client";
 
 import { useState } from "react";
@@ -13,13 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
-
-interface ProductFilters {
-  search: string;
-  status: "todos" | "activos" | "inactivos" | "bajoStock";
-  orderBy: "name" | "salePrice" | "gymStock" | "warehouseStock";
-  order: "asc" | "desc";
-}
+import type { ProductFilters } from "@/lib/domain/products";
 
 interface ProductosFiltrosProps {
   onFilter: (filters: ProductFilters) => void;
@@ -56,7 +51,6 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
   return (
     <Card>
       <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {/* Quick search */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -89,16 +83,13 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
           </div>
         </div>
 
-        {/* Advanced filters */}
         {showFilters && (
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pt-3 sm:pt-4 border-t">
             <div className="space-y-2">
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filters.status}
-                onValueChange={(value: ProductFilters["status"]) =>
-                  handleChange("status", value)
-                }
+                onValueChange={(value) => handleChange("status", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -116,9 +107,7 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filters.orderBy}
-                onValueChange={(value: ProductFilters["orderBy"]) =>
-                  handleChange("orderBy", value)
-                }
+                onValueChange={(value) => handleChange("orderBy", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -136,9 +125,7 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Label className="text-sm">Orden</Label>
               <Select
                 value={filters.order}
-                onValueChange={(value: ProductFilters["order"]) =>
-                  handleChange("order", value)
-                }
+                onValueChange={(value) => handleChange("order", value)}
               >
                 <SelectTrigger>
                   <SelectValue />

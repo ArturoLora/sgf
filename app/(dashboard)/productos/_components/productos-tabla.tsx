@@ -1,26 +1,22 @@
+// app/(dashboard)/productos/_components/productos-tabla.tsx
 "use client";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, ArrowLeftRight, Package } from "lucide-react";
-
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
+import type { ProductoResponse } from "@/types/api/products";
+import {
+  formatStockStatus,
+  formatPrice,
+  isMembershipProduct,
+} from "@/lib/domain/products";
 
 interface ProductosTablaProps {
-  products: Product[];
+  products: ProductoResponse[];
   onDetail: (id: number) => void;
   onEdit: (id: number) => void;
   onTransfer: (id: number) => void;
   onEntry: (id: number) => void;
-  isMembership: (product: Product) => boolean;
 }
 
 export default function ProductosTabla({
@@ -29,35 +25,16 @@ export default function ProductosTabla({
   onEdit,
   onTransfer,
   onEntry,
-  isMembership,
 }: ProductosTablaProps) {
-  const getStockStatus = (current: number, min: number) => {
-    if (current === 0)
-      return { color: "destructive" as const, text: "Sin stock" };
-    if (current < min)
-      return {
-        color: "outline" as const,
-        text: "Bajo",
-        className:
-          "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
-      };
-    return {
-      color: "default" as const,
-      text: "OK",
-      className:
-        "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
-    };
-  };
-
   return (
     <div className="space-y-3">
       {products.map((product) => {
-        const gymStatus = getStockStatus(product.gymStock, product.minStock);
-        const warehouseStatus = getStockStatus(
+        const gymStatus = formatStockStatus(product.gymStock, product.minStock);
+        const warehouseStatus = formatStockStatus(
           product.warehouseStock,
           product.minStock,
         );
-        const isMembershipProduct = isMembership(product);
+        const isMembership = isMembershipProduct(product);
 
         return (
           <div
@@ -74,7 +51,7 @@ export default function ProductosTabla({
                     Inactivo
                   </Badge>
                 )}
-                {isMembershipProduct && (
+                {isMembership && (
                   <Badge
                     variant="outline"
                     className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shrink-0"
@@ -82,9 +59,9 @@ export default function ProductosTabla({
                     Membresía
                   </Badge>
                 )}
-                {(gymStatus.text === "Bajo" ||
-                  warehouseStatus.text === "Bajo") &&
-                  !isMembershipProduct && (
+                {(gymStatus.label === "Bajo" ||
+                  warehouseStatus.label === "Bajo") &&
+                  !isMembership && (
                     <Badge variant="destructive" className="shrink-0">
                       Stock Bajo
                     </Badge>
@@ -93,16 +70,16 @@ export default function ProductosTabla({
 
               <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
                 <p className="font-medium text-base sm:text-lg text-foreground">
-                  ${Number(product.salePrice).toFixed(2)}
+                  {formatPrice(product.salePrice)}
                 </p>
-                {!isMembershipProduct && (
+                {!isMembership && (
                   <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">Gym:</span>
                       <span
                         className={
-                          gymStatus.text === "Bajo" ||
-                          gymStatus.text === "Sin stock"
+                          gymStatus.label === "Bajo" ||
+                          gymStatus.label === "Sin stock"
                             ? "text-destructive font-semibold"
                             : ""
                         }
@@ -110,18 +87,18 @@ export default function ProductosTabla({
                         {product.gymStock}
                       </span>
                       <Badge
-                        variant={gymStatus.color}
+                        variant={gymStatus.variant}
                         className={gymStatus.className}
                       >
-                        {gymStatus.text}
+                        {gymStatus.label}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">Bodega:</span>
                       <span
                         className={
-                          warehouseStatus.text === "Bajo" ||
-                          warehouseStatus.text === "Sin stock"
+                          warehouseStatus.label === "Bajo" ||
+                          warehouseStatus.label === "Sin stock"
                             ? "text-destructive font-semibold"
                             : ""
                         }
@@ -129,10 +106,10 @@ export default function ProductosTabla({
                         {product.warehouseStock}
                       </span>
                       <Badge
-                        variant={warehouseStatus.color}
+                        variant={warehouseStatus.variant}
                         className={warehouseStatus.className}
                       >
-                        {warehouseStatus.text}
+                        {warehouseStatus.label}
                       </Badge>
                     </div>
                     <div className="text-muted-foreground text-xs">
@@ -144,7 +121,7 @@ export default function ProductosTabla({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              {!isMembershipProduct && (
+              {!isMembership && (
                 <>
                   <Button
                     onClick={() => onTransfer(product.id)}

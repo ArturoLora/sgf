@@ -1,3 +1,4 @@
+// app/(dashboard)/productos/_components/ajuste-modal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -16,6 +17,11 @@ import {
 } from "@/components/ui/select";
 import { X, Loader2, Plus, Minus } from "lucide-react";
 import { CreateAdjustmentInputSchema } from "@/types/api/inventory";
+import { fetchProductById } from "@/lib/api/products.client";
+import {
+  validateAdjustment,
+  validateAdjustmentNotes,
+} from "@/lib/domain/products";
 import type { ProductoResponse } from "@/types/api/products";
 import type { Ubicacion } from "@/types/models/movimiento-inventario";
 
@@ -52,34 +58,26 @@ export default function AjusteModal({
     watch,
   } = useForm<AdjustmentFormData>({
     resolver: zodResolver(CreateAdjustmentInputSchema),
-    defaultValues: {
-      productId,
-      location: "WAREHOUSE",
-      quantity: 0,
-      notes: "",
-    },
+    defaultValues: { productId, location: "WAREHOUSE", quantity: 0, notes: "" },
   });
 
   const location = watch("location") as Ubicacion;
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const load = async () => {
       try {
-        const response = await fetch(`/api/products/${productId}`);
-        if (!response.ok) throw new Error("Error al cargar producto");
-        const data: ProductoResponse = await response.json();
+        const data = await fetchProductById(productId);
         setProduct(data);
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Error al cargar producto";
-        onError(message);
+        onError(
+          err instanceof Error ? err.message : "Error al cargar producto",
+        );
         onClose();
       } finally {
         setLoading(false);
       }
     };
-
-    fetchProduct();
+    load();
   }, [productId, onClose, onError]);
 
   const onSubmit = async (data: AdjustmentFormData) => {
@@ -89,39 +87,31 @@ export default function AjusteModal({
       data.location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
     const numericQuantity = Number(data.quantity);
 
-    if (type === "DECREASE" && numericQuantity > currentStock) {
-      onError(`Stock insuficiente. Disponible: ${currentStock}`);
+    const validation = validateAdjustment(numericQuantity, type, currentStock);
+    if (!validation.valid) {
+      onError(validation.error || "Validación falló");
       return;
     }
 
-    if (!data.notes || data.notes.trim() === "") {
-      onError("Las notas son requeridas para ajustes");
+    const notesValidation = validateAdjustmentNotes(data.notes);
+    if (!notesValidation.valid) {
+      onError(notesValidation.error || "Notas requeridas");
       return;
     }
 
     const adjustedQuantity =
       type === "INCREASE" ? numericQuantity : -numericQuantity;
 
-    const payload: AdjustmentFormData = {
-      productId: data.productId,
-      location: data.location,
-      quantity: adjustedQuantity,
-      notes: data.notes,
-    };
-
     setSubmitting(true);
     try {
       const response = await fetch("/api/inventory/adjustment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...data, quantity: adjustedQuantity }),
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(result.error || "Error al realizar ajuste");
-      }
 
       const typeLabel = type === "INCREASE" ? "Incremento" : "Decremento";
       const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
@@ -129,9 +119,7 @@ export default function AjusteModal({
         `${typeLabel} de ${numericQuantity} unidades en ${locationName}`,
       );
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Error al realizar ajuste";
-      onError(message);
+      onError(err instanceof Error ? err.message : "Error al realizar ajuste");
     } finally {
       setSubmitting(false);
     }

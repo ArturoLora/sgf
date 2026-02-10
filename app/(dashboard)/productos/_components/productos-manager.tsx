@@ -1,3 +1,4 @@
+// app/(dashboard)/productos/_components/productos-manager.tsx
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -6,6 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import type { ProductoResponse } from "@/types/api/products";
+import {
+  type ProductFilters,
+  applyFilters,
+  paginateProducts,
+  calculatePageRange,
+  formatPaginationSummary,
+  formatResultsCount,
+  getLowStockProducts,
+} from "@/lib/domain/products";
 import ProductosFiltros from "./productos-filtros";
 import ProductosTabla from "./productos-tabla";
 import CrearProductoModal from "./crear-producto-modal";
@@ -15,27 +26,10 @@ import TraspasoModal from "./traspaso-modal";
 import AjusteModal from "./ajuste-modal";
 import EntradaModal from "./entrada-modal";
 
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
-
-interface ProductFilters {
-  search: string;
-  status: "todos" | "activos" | "inactivos" | "bajoStock";
-  orderBy: "name" | "salePrice" | "gymStock" | "warehouseStock";
-  order: "asc" | "desc";
-}
-
 const ITEMS_PER_PAGE = 10;
 
 interface ProductosManagerProps {
-  initialProducts: Product[];
+  initialProducts: ProductoResponse[];
 }
 
 export default function ProductosManager({
@@ -66,72 +60,24 @@ export default function ProductosManager({
     order: "asc",
   });
 
-  // Filter & sort products
-  const filteredProducts = useMemo(() => {
-    let result = [...initialProducts];
+  // Filter & paginate products
+  const filteredProducts = useMemo(
+    () => applyFilters(initialProducts, filters),
+    [initialProducts, filters],
+  );
 
-    // Search
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      result = result.filter((p) => p.name.toLowerCase().includes(search));
-    }
+  const paginationResult = useMemo(
+    () =>
+      paginateProducts(filteredProducts, {
+        currentPage,
+        itemsPerPage: ITEMS_PER_PAGE,
+      }),
+    [filteredProducts, currentPage],
+  );
 
-    // Status
-    switch (filters.status) {
-      case "activos":
-        result = result.filter((p) => p.isActive);
-        break;
-      case "inactivos":
-        result = result.filter((p) => !p.isActive);
-        break;
-      case "bajoStock":
-        result = result.filter(
-          (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
-        );
-        break;
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let valueA: string | number;
-      let valueB: string | number;
-
-      switch (filters.orderBy) {
-        case "name":
-          valueA = a.name;
-          valueB = b.name;
-          break;
-        case "salePrice":
-          valueA = Number(a.salePrice);
-          valueB = Number(b.salePrice);
-          break;
-        case "gymStock":
-          valueA = a.gymStock;
-          valueB = b.gymStock;
-          break;
-        case "warehouseStock":
-          valueA = a.warehouseStock;
-          valueB = b.warehouseStock;
-          break;
-        default:
-          valueA = a.name;
-          valueB = b.name;
-      }
-
-      if (valueA < valueB) return filters.order === "asc" ? -1 : 1;
-      if (valueA > valueB) return filters.order === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [initialProducts, filters]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedProducts = filteredProducts.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE,
+  const pageRange = useMemo(
+    () => calculatePageRange(currentPage, paginationResult.totalPages),
+    [currentPage, paginationResult.totalPages],
   );
 
   const handleFilter = useCallback((newFilters: ProductFilters) => {
@@ -149,23 +95,9 @@ export default function ProductosManager({
   );
 
   const lowStockProducts = useMemo(
-    () =>
-      initialProducts.filter(
-        (p) =>
-          p.isActive &&
-          (p.gymStock < p.minStock || p.warehouseStock < p.minStock),
-      ),
+    () => getLowStockProducts(initialProducts),
     [initialProducts],
   );
-
-  const isMembership = useCallback((product: Product) => {
-    return (
-      product.name.includes("EFECTIVO") ||
-      product.name === "VISITA" ||
-      product.name.includes("MENSUALIDAD") ||
-      product.name.includes("SEMANA")
-    );
-  }, []);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -227,7 +159,7 @@ export default function ProductosManager({
             <CardTitle className="text-base sm:text-lg">
               Productos
               <span className="text-sm font-normal text-muted-foreground ml-2">
-                ({filteredProducts.length} resultados)
+                ({formatResultsCount(filteredProducts.length)})
               </span>
             </CardTitle>
             <Button
@@ -249,74 +181,58 @@ export default function ProductosManager({
           ) : (
             <>
               <ProductosTabla
-                products={paginatedProducts}
+                products={paginationResult.items}
                 onDetail={setDetailProductId}
                 onEdit={setEditingProductId}
                 onTransfer={setTransferProductId}
                 onEntry={setEntryProductId}
-                isMembership={isMembership}
               />
 
               {/* Pagination */}
-              {totalPages > 1 && (
+              {paginationResult.totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
                   <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                    Mostrando {startIndex + 1}-
-                    {Math.min(
-                      startIndex + ITEMS_PER_PAGE,
-                      filteredProducts.length,
-                    )}{" "}
-                    de {filteredProducts.length}
+                    {formatPaginationSummary(
+                      paginationResult.startIndex,
+                      paginationResult.endIndex,
+                      paginationResult.totalItems,
+                    )}
                   </p>
                   <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
+                      disabled={!paginationResult.hasPreviousPage}
                       className="flex-1 sm:flex-initial"
                     >
                       <ChevronLeft className="h-4 w-4 sm:mr-1" />
                       <span className="hidden sm:inline">Anterior</span>
                     </Button>
                     <div className="flex items-center gap-1">
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          let pageNum: number;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = currentPage - 2 + i;
+                      {pageRange.pages.map((pageNum) => (
+                        <Button
+                          key={pageNum}
+                          variant={
+                            currentPage === pageNum ? "default" : "outline"
                           }
-
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={
-                                currentPage === pageNum ? "default" : "outline"
-                              }
-                              size="sm"
-                              onClick={() => setCurrentPage(pageNum)}
-                              className="w-9"
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        },
-                      )}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-9"
+                        >
+                          {pageNum}
+                        </Button>
+                      ))}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        setCurrentPage((p) =>
+                          Math.min(paginationResult.totalPages, p + 1),
+                        )
                       }
-                      disabled={currentPage === totalPages}
+                      disabled={!paginationResult.hasNextPage}
                       className="flex-1 sm:flex-initial"
                     >
                       <span className="hidden sm:inline">Siguiente</span>

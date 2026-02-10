@@ -1,3 +1,4 @@
+// app/(dashboard)/productos/_components/productos-skeleton.tsx
 "use client";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -6,13 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function ProductosSkeleton() {
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
       <div>
         <Skeleton className="h-8 w-48 mb-2" />
         <Skeleton className="h-4 w-64" />
       </div>
 
-      {/* Stats */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <Card key={i}>
@@ -24,7 +23,6 @@ export default function ProductosSkeleton() {
         ))}
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-3">
           <div className="flex gap-2">
@@ -34,7 +32,6 @@ export default function ProductosSkeleton() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

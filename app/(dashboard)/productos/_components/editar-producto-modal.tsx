@@ -1,3 +1,4 @@
+// app/(dashboard)/productos/_components/editar-producto-modal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -12,8 +13,12 @@ import { X, Loader2 } from "lucide-react";
 import {
   UpdateProductInputSchema,
   type UpdateProductInputRaw,
-  type ProductoResponse,
 } from "@/types/api/products";
+import { fetchProductById, updateProduct } from "@/lib/api/products.client";
+import {
+  formatSuccessMessage,
+  isMembershipProduct,
+} from "@/lib/domain/products";
 
 interface EditarProductoModalProps {
   productId: number;
@@ -30,7 +35,6 @@ export default function EditarProductoModal({
 }: EditarProductoModalProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [product, setProduct] = useState<ProductoResponse | null>(null);
 
   const {
     register,
@@ -45,52 +49,35 @@ export default function EditarProductoModal({
   const isActive = watch("isActive");
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const loadProduct = async () => {
       try {
-        const response = await fetch(`/api/products/${productId}`);
-        if (!response.ok) throw new Error("Error al cargar producto");
-
-        const data: ProductoResponse = await response.json();
-        setProduct(data);
+        const data = await fetchProductById(productId);
         setValue("name", data.name);
         setValue("salePrice", data.salePrice);
         setValue("minStock", data.minStock);
         setValue("isActive", data.isActive);
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Error al cargar producto";
-        onError(message);
+        onError(
+          err instanceof Error ? err.message : "Error al cargar producto",
+        );
         onClose();
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProduct();
+    loadProduct();
   }, [productId, onClose, onError, setValue]);
 
   const onSubmit = async (data: UpdateProductInputRaw) => {
-    if (!product) return;
-
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/products/${product.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Error al actualizar producto");
-      }
-
-      onSuccess(`Producto actualizado: ${data.name}`);
+      const product = await updateProduct(productId, data);
+      onSuccess(formatSuccessMessage("actualizar", product.name));
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Error al actualizar producto";
-      onError(message);
+      onError(
+        err instanceof Error ? err.message : "Error al actualizar producto",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -108,13 +95,9 @@ export default function EditarProductoModal({
     );
   }
 
-  if (!product) return null;
-
-  const isMembership =
-    product.name.includes("EFECTIVO") ||
-    product.name === "VISITA" ||
-    product.name.includes("MENSUALIDAD") ||
-    product.name.includes("SEMANA");
+  const isMembership = watch("name")
+    ? isMembershipProduct({ name: watch("name")! })
+    : false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -136,23 +119,6 @@ export default function EditarProductoModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
-          {!isMembership && (
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
-                <div>
-                  <span className="text-muted-foreground">Stock Bodega:</span>
-                  <span className="ml-2 font-medium">
-                    {product.warehouseStock}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Stock Gym:</span>
-                  <span className="ml-2 font-medium">{product.gymStock}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label>Nombre *</Label>

@@ -1,0 +1,3146 @@
+### TREE (products + domain + api relacionados)
+app/(dashboard)/productos
+├── _components
+│   ├── ajuste-modal.tsx
+│   ├── crear-producto-modal.tsx
+│   ├── detalle-producto-modal.tsx
+│   ├── editar-producto-modal.tsx
+│   ├── entrada-modal.tsx
+│   ├── productos-filtros.tsx
+│   ├── productos-manager.tsx
+│   ├── productos-skeleton.tsx
+│   ├── productos-stats.tsx
+│   ├── productos-tabla.tsx
+│   └── traspaso-modal.tsx
+├── loading.tsx
+├── page.tsx
+└── README.md
+lib/domain
+├── inventory
+│   ├── calculations.ts
+│   ├── filters.ts
+│   ├── formatters.ts
+│   ├── index.ts
+│   └── pagination.ts
+├── sales
+│   ├── calculators.ts
+│   ├── history-calculations.ts
+│   ├── history-filters.ts
+│   ├── history-formatting.ts
+│   ├── history-pagination.ts
+│   ├── index.ts
+│   ├── payloads.ts
+│   ├── process.ts
+│   └── ticket.ts
+└── shifts
+    ├── index.ts
+    ├── shift-calculations.ts
+    ├── shift-formatters.ts
+    └── shift-operations.ts
+lib/api
+├── inventory.client.ts
+├── sales.client.ts
+└── shifts.client.ts
+types/api
+├── common.ts
+├── index.ts
+├── inventory.ts
+├── members.ts
+├── products.ts
+├── reports.ts
+├── sales.ts
+└── shifts.ts
+
+8 directories, 43 files
+
+
+### PRODUCTS - FRONTEND FILES
+
+import { requireAuth } from "@/lib/require-role";
+import { ProductsService } from "@/services";
+import ProductosManager from "./_components/productos-manager";
+import ProductosStats from "./_components/productos-stats";
+
+export default async function ProductosPage() {
+  await requireAuth();
+
+  const products = await ProductsService.getAllProducts();
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Productos</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
+          Gestión de inventario y control de stock
+        </p>
+      </div>
+
+      <ProductosStats products={products} />
+      <ProductosManager initialProducts={products} />
+    </div>
+  );
+}
+import ProductosSkeleton from "./_components/productos-skeleton";
+
+export default function ProductosLoading() {
+  return <ProductosSkeleton />;
+}
+
+
+### FILE: app/(dashboard)/productos/_components/ajuste-modal.tsx
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { X, Loader2, Plus, Minus } from "lucide-react";
+import { CreateAdjustmentInputSchema } from "@/types/api/inventory";
+import type { ProductoResponse } from "@/types/api/products";
+import type { Ubicacion } from "@/types/models/movimiento-inventario";
+
+interface AdjustmentFormData {
+  productId: number;
+  quantity: number;
+  location: string;
+  notes: string;
+}
+
+interface AjusteModalProps {
+  productId: number;
+  onClose: () => void;
+  onSuccess: (mensaje: string) => void;
+  onError: (error: string) => void;
+}
+
+export default function AjusteModal({
+  productId,
+  onClose,
+  onSuccess,
+  onError,
+}: AjusteModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+  const [type, setType] = useState<"INCREASE" | "DECREASE">("INCREASE");
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<AdjustmentFormData>({
+    resolver: zodResolver(CreateAdjustmentInputSchema),
+    defaultValues: {
+      productId,
+      location: "WAREHOUSE",
+      quantity: 0,
+      notes: "",
+    },
+  });
+
+  const location = watch("location") as Ubicacion;
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${productId}`);
+        if (!response.ok) throw new Error("Error al cargar producto");
+        const data: ProductoResponse = await response.json();
+        setProduct(data);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
+        onClose();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productId, onClose, onError]);
+
+  const onSubmit = async (data: AdjustmentFormData) => {
+    if (!product) return;
+
+    const currentStock =
+      data.location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+    const numericQuantity = Number(data.quantity);
+
+    if (type === "DECREASE" && numericQuantity > currentStock) {
+      onError(`Stock insuficiente. Disponible: ${currentStock}`);
+      return;
+    }
+
+    if (!data.notes || data.notes.trim() === "") {
+      onError("Las notas son requeridas para ajustes");
+      return;
+    }
+
+    const adjustedQuantity =
+      type === "INCREASE" ? numericQuantity : -numericQuantity;
+
+    const payload: AdjustmentFormData = {
+      productId: data.productId,
+      location: data.location,
+      quantity: adjustedQuantity,
+      notes: data.notes,
+    };
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/inventory/adjustment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al realizar ajuste");
+      }
+
+      const typeLabel = type === "INCREASE" ? "Incremento" : "Decremento";
+      const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
+      onSuccess(
+        `${typeLabel} de ${numericQuantity} unidades en ${locationName}`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al realizar ajuste";
+      onError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <Card className="w-full max-w-lg">
+          <CardContent className="p-6 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!product) return null;
+
+  const currentStock =
+    location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base sm:text-lg">
+              Ajuste de Inventario
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
+          <div className="p-3 bg-muted rounded-lg">
+            <p className="font-semibold text-sm sm:text-base">{product.name}</p>
+            <div className="grid grid-cols-2 gap-2 mt-2 text-xs sm:text-sm">
+              <div>
+                <span className="text-muted-foreground">Bodega:</span>
+                <span className="ml-2 font-medium">
+                  {product.warehouseStock}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Gym:</span>
+                <span className="ml-2 font-medium">{product.gymStock}</span>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Ubicación *</Label>
+                <Select
+                  value={location}
+                  onValueChange={(value: string) => setValue("location", value)}
+                  disabled={submitting}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="WAREHOUSE">Bodega</SelectItem>
+                    <SelectItem value="GYM">Gym</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Stock actual: {currentStock}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tipo de Ajuste *</Label>
+                <Select
+                  value={type}
+                  onValueChange={(value: "INCREASE" | "DECREASE") =>
+                    setType(value)
+                  }
+                  disabled={submitting}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INCREASE">
+                      <div className="flex items-center gap-2">
+                        <Plus className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        Incrementar
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="DECREASE">
+                      <div className="flex items-center gap-2">
+                        <Minus className="h-4 w-4 text-destructive" />
+                        Decrementar
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cantidad *</Label>
+              <Input
+                type="number"
+                min="1"
+                {...register("quantity", { valueAsNumber: true })}
+                disabled={submitting}
+              />
+              {errors.quantity && (
+                <p className="text-xs text-destructive">
+                  {errors.quantity.message}
+                </p>
+              )}
+              {type === "DECREASE" && (
+                <p className="text-xs text-destructive">
+                  Máximo disponible: {currentStock}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notas *</Label>
+              <Input
+                {...register("notes")}
+                disabled={submitting}
+                placeholder="Motivo del ajuste"
+              />
+              {errors.notes && (
+                <p className="text-xs text-destructive">
+                  {errors.notes.message}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Describe el motivo del ajuste (requerido)
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submitting} className="flex-1">
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  "Realizar Ajuste"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/crear-producto-modal.tsx
+
+"use client";
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { X, Loader2 } from "lucide-react";
+import {
+  CreateProductInputSchema,
+  type CreateProductInputRaw,
+} from "@/types/api/products";
+
+interface CrearProductoModalProps {
+  onClose: () => void;
+  onSuccess: (mensaje: string) => void;
+  onError: (error: string) => void;
+}
+
+export default function CrearProductoModal({
+  onClose,
+  onSuccess,
+  onError,
+}: CrearProductoModalProps) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CreateProductInputRaw>({
+    resolver: zodResolver(CreateProductInputSchema),
+    defaultValues: {
+      name: "",
+      salePrice: 0,
+      minStock: 5,
+    },
+  });
+
+  const onSubmit = async (data: CreateProductInputRaw) => {
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al crear producto");
+      }
+
+      onSuccess(`Producto creado: ${data.name}`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al crear producto";
+      onError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base sm:text-lg">
+              Nuevo Producto
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input
+                {...register("name")}
+                disabled={submitting}
+                placeholder="Ej: Proteína Whey 2kg"
+              />
+              {errors.name && (
+                <p className="text-xs text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Precio de Venta *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...register("salePrice", { valueAsNumber: true })}
+                  disabled={submitting}
+                  placeholder="0.00"
+                />
+                {errors.salePrice && (
+                  <p className="text-xs text-destructive">
+                    {errors.salePrice.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Stock Mínimo *</Label>
+                <Input
+                  type="number"
+                  {...register("minStock", { valueAsNumber: true })}
+                  disabled={submitting}
+                />
+                {errors.minStock && (
+                  <p className="text-xs text-destructive">
+                    {errors.minStock.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-300">
+                💡 El producto se creará con 0 unidades en stock. Usa
+                &quot;Entrada de Stock&quot; después de crearlo para agregar
+                inventario.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submitting} className="flex-1">
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creando...
+                  </>
+                ) : (
+                  "Crear Producto"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/detalle-producto-modal.tsx
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { X, Loader2, Edit, ArrowLeftRight, Plus, Package } from "lucide-react";
+import type { ProductoResponse } from "@/types/api/products";
+
+interface InventoryMovement {
+  id: number;
+  type: string;
+  quantity: number;
+  location?: string;
+  from?: string;
+  to?: string;
+  notes?: string;
+  createdAt: string;
+  createdBy?: {
+    name: string;
+  };
+}
+
+interface DetalleProductoModalProps {
+  productId: number;
+  onClose: () => void;
+  onEdit: (id: number) => void;
+  onTransfer: (id: number) => void;
+  onAdjustment: (id: number) => void;
+  onEntry: (id: number) => void;
+}
+
+export default function DetalleProductoModal({
+  productId,
+  onClose,
+  onEdit,
+  onTransfer,
+  onAdjustment,
+  onEntry,
+}: DetalleProductoModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [productRes, movementsRes] = await Promise.all([
+          fetch(`/api/products/${productId}`),
+          fetch(`/api/inventory/movements?productId=${productId}`),
+        ]);
+
+        if (!productRes.ok) throw new Error("Error al cargar producto");
+
+        const productData: ProductoResponse = await productRes.json();
+        setProduct(productData);
+
+        if (movementsRes.ok) {
+          const movementsData: InventoryMovement[] = await movementsRes.json();
+          setMovements(movementsData);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [productId]);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <Card className="w-full max-w-2xl">
+          <CardContent className="p-6 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!product) return null;
+
+  const isMembership =
+    product.name.includes("EFECTIVO") ||
+    product.name === "VISITA" ||
+    product.name.includes("MENSUALIDAD") ||
+    product.name.includes("SEMANA");
+
+  const totalStock = product.warehouseStock + product.gymStock;
+  const isLowStock = !isMembership && totalStock < product.minStock;
+
+  const getMovementIcon = (type: string) => {
+    switch (type) {
+      case "ENTRY":
+        return (
+          <Package className="h-4 w-4 text-green-600 dark:text-green-400" />
+        );
+      case "TRANSFER":
+        return (
+          <ArrowLeftRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        );
+      case "ADJUSTMENT":
+        return (
+          <Plus className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+        );
+      default:
+        return <Package className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getMovementLabel = (movement: InventoryMovement) => {
+    switch (movement.type) {
+      case "ENTRY":
+        return `Entrada en ${movement.location === "WAREHOUSE" ? "Bodega" : "Gym"}`;
+      case "TRANSFER":
+        return `Traspaso: ${movement.from === "WAREHOUSE" ? "Bodega" : "Gym"} → ${
+          movement.to === "WAREHOUSE" ? "Bodega" : "Gym"
+        }`;
+      case "ADJUSTMENT":
+        return "Ajuste de inventario";
+      default:
+        return "Movimiento";
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base sm:text-lg">
+              Detalle del Producto
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
+          {/* Product Info */}
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-lg sm:text-xl font-bold">{product.name}</h3>
+                {!product.isActive && (
+                  <Badge variant="destructive" className="mt-1">
+                    Inactivo
+                  </Badge>
+                )}
+                {isMembership && (
+                  <Badge
+                    variant="outline"
+                    className="mt-1 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                  >
+                    Membresía
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xl sm:text-2xl font-bold">
+                ${Number(product.salePrice).toFixed(2)}
+              </p>
+            </div>
+
+            {!isMembership && (
+              <>
+                {isLowStock && (
+                  <div className="p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
+                    <p className="text-sm text-orange-800 dark:text-orange-300 font-medium">
+                      ⚠️ Stock bajo mínimo ({product.minStock} unidades)
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <Card>
+                    <CardContent className="pt-4 sm:pt-6">
+                      <div className="text-2xl font-bold">
+                        {product.gymStock}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Stock Gym</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 sm:pt-6">
+                      <div className="text-2xl font-bold">
+                        {product.warehouseStock}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Stock Bodega
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4 sm:pt-6">
+                      <div className="text-2xl font-bold">{totalStock}</div>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => onEdit(product.id)}
+              variant="outline"
+              size="sm"
+              className="gap-2 flex-1 sm:flex-initial"
+            >
+              <Edit className="h-4 w-4" />
+              Editar
+            </Button>
+            {!isMembership && (
+              <>
+                <Button
+                  onClick={() => onEntry(product.id)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 flex-1 sm:flex-initial"
+                >
+                  <Package className="h-4 w-4" />
+                  Entrada
+                </Button>
+                <Button
+                  onClick={() => onTransfer(product.id)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 flex-1 sm:flex-initial"
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                  Traspaso
+                </Button>
+                <Button
+                  onClick={() => onAdjustment(product.id)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 flex-1 sm:flex-initial"
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajuste
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Movement History */}
+          {!isMembership && (
+            <div className="space-y-3">
+              <h4 className="font-semibold text-sm sm:text-base">
+                Historial de Movimientos
+              </h4>
+
+              {movements.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No hay movimientos registrados
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {movements.map((movement) => (
+                    <div
+                      key={movement.id}
+                      className="p-3 border rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">
+                          {getMovementIcon(movement.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                            <p className="font-medium text-sm">
+                              {getMovementLabel(movement)}
+                            </p>
+                            <p className="text-xs text-muted-foreground shrink-0">
+                              {new Date(movement.createdAt).toLocaleDateString(
+                                "es-MX",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )}
+                            </p>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Cantidad:{" "}
+                            <span className="font-medium">
+                              {movement.quantity > 0 ? "+" : ""}
+                              {movement.quantity}
+                            </span>
+                          </p>
+                          {movement.notes && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {movement.notes}
+                            </p>
+                          )}
+                          {movement.createdBy && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Por: {movement.createdBy.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/editar-producto-modal.tsx
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { X, Loader2 } from "lucide-react";
+import {
+  UpdateProductInputSchema,
+  type UpdateProductInputRaw,
+  type ProductoResponse,
+} from "@/types/api/products";
+
+interface EditarProductoModalProps {
+  productId: number;
+  onClose: () => void;
+  onSuccess: (mensaje: string) => void;
+  onError: (error: string) => void;
+}
+
+export default function EditarProductoModal({
+  productId,
+  onClose,
+  onSuccess,
+  onError,
+}: EditarProductoModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<UpdateProductInputRaw>({
+    resolver: zodResolver(UpdateProductInputSchema),
+  });
+
+  const isActive = watch("isActive");
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${productId}`);
+        if (!response.ok) throw new Error("Error al cargar producto");
+
+        const data: ProductoResponse = await response.json();
+        setProduct(data);
+        setValue("name", data.name);
+        setValue("salePrice", data.salePrice);
+        setValue("minStock", data.minStock);
+        setValue("isActive", data.isActive);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
+        onClose();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productId, onClose, onError, setValue]);
+
+  const onSubmit = async (data: UpdateProductInputRaw) => {
+    if (!product) return;
+
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al actualizar producto");
+      }
+
+      onSuccess(`Producto actualizado: ${data.name}`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al actualizar producto";
+      onError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <Card className="w-full max-w-lg">
+          <CardContent className="p-6 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!product) return null;
+
+  const isMembership =
+    product.name.includes("EFECTIVO") ||
+    product.name === "VISITA" ||
+    product.name.includes("MENSUALIDAD") ||
+    product.name.includes("SEMANA");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base sm:text-lg">
+              Editar Producto
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
+          {!isMembership && (
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
+                <div>
+                  <span className="text-muted-foreground">Stock Bodega:</span>
+                  <span className="ml-2 font-medium">
+                    {product.warehouseStock}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Stock Gym:</span>
+                  <span className="ml-2 font-medium">{product.gymStock}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input {...register("name")} disabled={submitting} />
+              {errors.name && (
+                <p className="text-xs text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Precio de Venta *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...register("salePrice", { valueAsNumber: true })}
+                  disabled={submitting}
+                />
+                {errors.salePrice && (
+                  <p className="text-xs text-destructive">
+                    {errors.salePrice.message}
+                  </p>
+                )}
+              </div>
+
+              {!isMembership && (
+                <div className="space-y-2">
+                  <Label>Stock Mínimo *</Label>
+                  <Input
+                    type="number"
+                    {...register("minStock", { valueAsNumber: true })}
+                    disabled={submitting}
+                  />
+                  {errors.minStock && (
+                    <p className="text-xs text-destructive">
+                      {errors.minStock.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="space-y-0.5">
+                <Label>Estado</Label>
+                <p className="text-xs text-muted-foreground">
+                  {isActive ? "Activo" : "Inactivo"}
+                </p>
+              </div>
+              <Switch
+                checked={isActive}
+                onCheckedChange={(checked: boolean) =>
+                  setValue("isActive", checked)
+                }
+                disabled={submitting}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submitting} className="flex-1">
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  "Guardar Cambios"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/entrada-modal.tsx
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { X, Loader2 } from "lucide-react";
+import { CreateEntryInputSchema } from "@/types/api/inventory";
+import type { ProductoResponse } from "@/types/api/products";
+import type { Ubicacion } from "@/types/models/movimiento-inventario";
+
+interface EntryFormData {
+  productId: number;
+  quantity: number;
+  location: string;
+  notes?: string;
+}
+
+interface EntradaModalProps {
+  productId: number;
+  onClose: () => void;
+  onSuccess: (mensaje: string) => void;
+  onError: (error: string) => void;
+}
+
+export default function EntradaModal({
+  productId,
+  onClose,
+  onSuccess,
+  onError,
+}: EntradaModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<EntryFormData>({
+    resolver: zodResolver(CreateEntryInputSchema),
+    defaultValues: {
+      productId,
+      location: "WAREHOUSE",
+      quantity: 0,
+      notes: "",
+    },
+  });
+
+  const location = watch("location") as Ubicacion;
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${productId}`);
+        if (!response.ok) throw new Error("Error al cargar producto");
+        const data: ProductoResponse = await response.json();
+        setProduct(data);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
+        onClose();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productId, onClose, onError]);
+
+  const onSubmit = async (data: EntryFormData) => {
+    if (!product) return;
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/inventory/entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al registrar entrada");
+      }
+
+      const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
+      onSuccess(
+        `Entrada registrada: ${data.quantity} unidades en ${locationName}`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al registrar entrada";
+      onError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <Card className="w-full max-w-lg">
+          <CardContent className="p-6 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!product) return null;
+
+  const currentStock =
+    location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base sm:text-lg">
+              Entrada de Stock
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
+          <div className="p-3 bg-muted rounded-lg">
+            <p className="font-semibold text-sm sm:text-base">{product.name}</p>
+            <div className="grid grid-cols-2 gap-2 mt-2 text-xs sm:text-sm">
+              <div>
+                <span className="text-muted-foreground">Bodega:</span>
+                <span className="ml-2 font-medium">
+                  {product.warehouseStock}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Gym:</span>
+                <span className="ml-2 font-medium">{product.gymStock}</span>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Ubicación *</Label>
+              <Select
+                value={location}
+                onValueChange={(value: string) => setValue("location", value)}
+                disabled={submitting}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WAREHOUSE">Bodega</SelectItem>
+                  <SelectItem value="GYM">Gym</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Stock actual: {currentStock}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cantidad *</Label>
+              <Input
+                type="number"
+                {...register("quantity", { valueAsNumber: true })}
+                disabled={submitting}
+              />
+              {errors.quantity && (
+                <p className="text-xs text-destructive">
+                  {errors.quantity.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <Input
+                {...register("notes")}
+                disabled={submitting}
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submitting} className="flex-1">
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  "Registrar Entrada"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/productos-filtros.tsx
+
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, X, Filter } from "lucide-react";
+
+interface ProductFilters {
+  search: string;
+  status: "todos" | "activos" | "inactivos" | "bajoStock";
+  orderBy: "name" | "salePrice" | "gymStock" | "warehouseStock";
+  order: "asc" | "desc";
+}
+
+interface ProductosFiltrosProps {
+  onFilter: (filters: ProductFilters) => void;
+}
+
+export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<ProductFilters>({
+    search: "",
+    status: "todos",
+    orderBy: "name",
+    order: "asc",
+  });
+
+  const handleChange = (key: keyof ProductFilters, value: string) => {
+    const newFilters = { ...filters, [key]: value };
+    setFilters(newFilters);
+    onFilter(newFilters);
+  };
+
+  const clearFilters = () => {
+    const cleanFilters: ProductFilters = {
+      search: "",
+      status: "todos",
+      orderBy: "name",
+      order: "asc",
+    };
+    setFilters(cleanFilters);
+    onFilter(cleanFilters);
+  };
+
+  const hasActiveFilters = filters.search || filters.status !== "todos";
+
+  return (
+    <Card>
+      <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {/* Quick search */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar producto..."
+              value={filters.search}
+              onChange={(e) => handleChange("search", e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="gap-2 flex-1 sm:flex-initial"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtros</span>
+            </Button>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="gap-2 flex-1 sm:flex-initial"
+              >
+                <X className="h-4 w-4" />
+                <span className="hidden sm:inline">Limpiar</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Advanced filters */}
+        {showFilters && (
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pt-3 sm:pt-4 border-t">
+            <div className="space-y-2">
+              <Label className="text-sm">Estado</Label>
+              <Select
+                value={filters.status}
+                onValueChange={(value: ProductFilters["status"]) =>
+                  handleChange("status", value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="activos">Activos</SelectItem>
+                  <SelectItem value="inactivos">Inactivos</SelectItem>
+                  <SelectItem value="bajoStock">Stock Bajo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Ordenar Por</Label>
+              <Select
+                value={filters.orderBy}
+                onValueChange={(value: ProductFilters["orderBy"]) =>
+                  handleChange("orderBy", value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Nombre</SelectItem>
+                  <SelectItem value="salePrice">Precio</SelectItem>
+                  <SelectItem value="gymStock">Stock Gym</SelectItem>
+                  <SelectItem value="warehouseStock">Stock Bodega</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Orden</Label>
+              <Select
+                value={filters.order}
+                onValueChange={(value: ProductFilters["order"]) =>
+                  handleChange("order", value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascendente</SelectItem>
+                  <SelectItem value="desc">Descendente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/productos-manager.tsx
+
+"use client";
+
+import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Plus, X, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import ProductosFiltros from "./productos-filtros";
+import ProductosTabla from "./productos-tabla";
+import CrearProductoModal from "./crear-producto-modal";
+import EditarProductoModal from "./editar-producto-modal";
+import DetalleProductoModal from "./detalle-producto-modal";
+import TraspasoModal from "./traspaso-modal";
+import AjusteModal from "./ajuste-modal";
+import EntradaModal from "./entrada-modal";
+
+interface Product {
+  id: number;
+  name: string;
+  salePrice: number;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
+}
+
+interface ProductFilters {
+  search: string;
+  status: "todos" | "activos" | "inactivos" | "bajoStock";
+  orderBy: "name" | "salePrice" | "gymStock" | "warehouseStock";
+  order: "asc" | "desc";
+}
+
+const ITEMS_PER_PAGE = 10;
+
+interface ProductosManagerProps {
+  initialProducts: Product[];
+}
+
+export default function ProductosManager({
+  initialProducts,
+}: ProductosManagerProps) {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Modals state
+  const [showCrearModal, setShowCrearModal] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [detailProductId, setDetailProductId] = useState<number | null>(null);
+  const [transferProductId, setTransferProductId] = useState<number | null>(
+    null,
+  );
+  const [adjustmentProductId, setAdjustmentProductId] = useState<number | null>(
+    null,
+  );
+  const [entryProductId, setEntryProductId] = useState<number | null>(null);
+
+  // Pagination & filters
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState<ProductFilters>({
+    search: "",
+    status: "todos",
+    orderBy: "name",
+    order: "asc",
+  });
+
+  // Filter & sort products
+  const filteredProducts = useMemo(() => {
+    let result = [...initialProducts];
+
+    // Search
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(search));
+    }
+
+    // Status
+    switch (filters.status) {
+      case "activos":
+        result = result.filter((p) => p.isActive);
+        break;
+      case "inactivos":
+        result = result.filter((p) => !p.isActive);
+        break;
+      case "bajoStock":
+        result = result.filter(
+          (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
+        );
+        break;
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let valueA: string | number;
+      let valueB: string | number;
+
+      switch (filters.orderBy) {
+        case "name":
+          valueA = a.name;
+          valueB = b.name;
+          break;
+        case "salePrice":
+          valueA = Number(a.salePrice);
+          valueB = Number(b.salePrice);
+          break;
+        case "gymStock":
+          valueA = a.gymStock;
+          valueB = b.gymStock;
+          break;
+        case "warehouseStock":
+          valueA = a.warehouseStock;
+          valueB = b.warehouseStock;
+          break;
+        default:
+          valueA = a.name;
+          valueB = b.name;
+      }
+
+      if (valueA < valueB) return filters.order === "asc" ? -1 : 1;
+      if (valueA > valueB) return filters.order === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [initialProducts, filters]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedProducts = filteredProducts.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE,
+  );
+
+  const handleFilter = useCallback((newFilters: ProductFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSuccess = useCallback(
+    (message: string) => {
+      setSuccess(message);
+      router.refresh();
+      setTimeout(() => setSuccess(""), 3000);
+    },
+    [router],
+  );
+
+  const lowStockProducts = useMemo(
+    () =>
+      initialProducts.filter(
+        (p) =>
+          p.isActive &&
+          (p.gymStock < p.minStock || p.warehouseStock < p.minStock),
+      ),
+    [initialProducts],
+  );
+
+  const isMembership = useCallback((product: Product) => {
+    return (
+      product.name.includes("EFECTIVO") ||
+      product.name === "VISITA" ||
+      product.name.includes("MENSUALIDAD") ||
+      product.name.includes("SEMANA")
+    );
+  }, []);
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Messages */}
+      {error && (
+        <div className="rounded-lg bg-destructive/10 dark:bg-destructive/20 p-3 text-sm text-destructive flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="ghost" size="sm" onClick={() => setError("")}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {success && (
+        <div className="rounded-lg bg-green-50 dark:bg-green-950 p-3 text-sm text-green-600 dark:text-green-300 font-medium">
+          {success}
+        </div>
+      )}
+
+      {/* Low stock alert */}
+      {lowStockProducts.length > 0 && (
+        <Card className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+              {lowStockProducts.length} producto
+              {lowStockProducts.length === 1 ? "" : "s"} con stock bajo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {lowStockProducts.slice(0, 5).map((product) => (
+                <Badge
+                  key={product.id}
+                  variant="outline"
+                  className="bg-background cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900"
+                  onClick={() => setDetailProductId(product.id)}
+                >
+                  {product.name}
+                </Badge>
+              ))}
+              {lowStockProducts.length > 5 && (
+                <Badge variant="outline" className="bg-background">
+                  +{lowStockProducts.length - 5} más
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters */}
+      <ProductosFiltros onFilter={handleFilter} />
+
+      {/* Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <CardTitle className="text-base sm:text-lg">
+              Productos
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({filteredProducts.length} resultados)
+              </span>
+            </CardTitle>
+            <Button
+              onClick={() => setShowCrearModal(true)}
+              className="gap-2 w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo Producto
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                No hay productos que coincidan con los filtros
+              </p>
+            </div>
+          ) : (
+            <>
+              <ProductosTabla
+                products={paginatedProducts}
+                onDetail={setDetailProductId}
+                onEdit={setEditingProductId}
+                onTransfer={setTransferProductId}
+                onEntry={setEntryProductId}
+                isMembership={isMembership}
+              />
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
+                  <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
+                    Mostrando {startIndex + 1}-
+                    {Math.min(
+                      startIndex + ITEMS_PER_PAGE,
+                      filteredProducts.length,
+                    )}{" "}
+                    de {filteredProducts.length}
+                  </p>
+                  <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="flex-1 sm:flex-initial"
+                    >
+                      <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Anterior</span>
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from(
+                        { length: Math.min(5, totalPages) },
+                        (_, i) => {
+                          let pageNum: number;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={
+                                currentPage === pageNum ? "default" : "outline"
+                              }
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className="w-9"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        },
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="flex-1 sm:flex-initial"
+                    >
+                      <span className="hidden sm:inline">Siguiente</span>
+                      <ChevronRight className="h-4 w-4 sm:ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modals */}
+      {showCrearModal && (
+        <CrearProductoModal
+          onClose={() => setShowCrearModal(false)}
+          onSuccess={(msg) => {
+            setShowCrearModal(false);
+            handleSuccess(msg);
+          }}
+          onError={setError}
+        />
+      )}
+
+      {editingProductId && (
+        <EditarProductoModal
+          productId={editingProductId}
+          onClose={() => setEditingProductId(null)}
+          onSuccess={(msg) => {
+            setEditingProductId(null);
+            handleSuccess(msg);
+          }}
+          onError={setError}
+        />
+      )}
+
+      {detailProductId && (
+        <DetalleProductoModal
+          productId={detailProductId}
+          onClose={() => setDetailProductId(null)}
+          onEdit={(id) => {
+            setDetailProductId(null);
+            setEditingProductId(id);
+          }}
+          onTransfer={(id) => {
+            setDetailProductId(null);
+            setTransferProductId(id);
+          }}
+          onAdjustment={(id) => {
+            setDetailProductId(null);
+            setAdjustmentProductId(id);
+          }}
+          onEntry={(id) => {
+            setDetailProductId(null);
+            setEntryProductId(id);
+          }}
+        />
+      )}
+
+      {transferProductId && (
+        <TraspasoModal
+          productId={transferProductId}
+          onClose={() => setTransferProductId(null)}
+          onSuccess={(msg) => {
+            setTransferProductId(null);
+            handleSuccess(msg);
+          }}
+          onError={setError}
+        />
+      )}
+
+      {adjustmentProductId && (
+        <AjusteModal
+          productId={adjustmentProductId}
+          onClose={() => setAdjustmentProductId(null)}
+          onSuccess={(msg) => {
+            setAdjustmentProductId(null);
+            handleSuccess(msg);
+          }}
+          onError={setError}
+        />
+      )}
+
+      {entryProductId && (
+        <EntradaModal
+          productId={entryProductId}
+          onClose={() => setEntryProductId(null)}
+          onSuccess={(msg) => {
+            setEntryProductId(null);
+            handleSuccess(msg);
+          }}
+          onError={setError}
+        />
+      )}
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/productos-skeleton.tsx
+
+"use client";
+
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function ProductosSkeleton() {
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div>
+        <Skeleton className="h-8 w-48 mb-2" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+
+      {/* Stats */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="pt-4 sm:pt-6">
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-24" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-3 sm:p-4 space-y-3">
+          <div className="flex gap-2">
+            <Skeleton className="h-9 flex-1" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-9 w-40" />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between gap-3 rounded-lg border p-3 sm:p-4"
+            >
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-8 w-20" />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/productos-stats.tsx
+
+import { Card, CardContent } from "@/components/ui/card";
+
+interface Product {
+  id: number;
+  name: string;
+  salePrice: number;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
+}
+
+interface ProductosStatsProps {
+  products: Product[];
+}
+
+export default function ProductosStats({ products }: ProductosStatsProps) {
+  const totalProducts = products.length;
+  const activeProducts = products.filter((p) => p.isActive).length;
+
+  const lowStockProducts = products.filter(
+    (p) =>
+      p.isActive && (p.gymStock < p.minStock || p.warehouseStock < p.minStock),
+  ).length;
+
+  const inventoryValue = products
+    .filter((p) => p.isActive)
+    .reduce((sum, p) => {
+      const totalStock = p.warehouseStock + p.gymStock;
+      return sum + Number(p.salePrice) * totalStock;
+    }, 0);
+
+  return (
+    <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold">{totalProducts}</div>
+          <p className="text-xs text-muted-foreground">Total de productos</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold">{activeProducts}</div>
+          <p className="text-xs text-muted-foreground">Activos</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold text-destructive">
+            {lowStockProducts}
+          </div>
+          <p className="text-xs text-muted-foreground">Stock bajo</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="text-xl sm:text-2xl font-bold">
+            ${inventoryValue.toFixed(2)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Valor total inventario
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/productos-tabla.tsx
+
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Eye, Edit, ArrowLeftRight, Package } from "lucide-react";
+
+interface Product {
+  id: number;
+  name: string;
+  salePrice: number;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
+}
+
+interface ProductosTablaProps {
+  products: Product[];
+  onDetail: (id: number) => void;
+  onEdit: (id: number) => void;
+  onTransfer: (id: number) => void;
+  onEntry: (id: number) => void;
+  isMembership: (product: Product) => boolean;
+}
+
+export default function ProductosTabla({
+  products,
+  onDetail,
+  onEdit,
+  onTransfer,
+  onEntry,
+  isMembership,
+}: ProductosTablaProps) {
+  const getStockStatus = (current: number, min: number) => {
+    if (current === 0)
+      return { color: "destructive" as const, text: "Sin stock" };
+    if (current < min)
+      return {
+        color: "outline" as const,
+        text: "Bajo",
+        className:
+          "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+      };
+    return {
+      color: "default" as const,
+      text: "OK",
+      className:
+        "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
+    };
+  };
+
+  return (
+    <div className="space-y-3">
+      {products.map((product) => {
+        const gymStatus = getStockStatus(product.gymStock, product.minStock);
+        const warehouseStatus = getStockStatus(
+          product.warehouseStock,
+          product.minStock,
+        );
+        const isMembershipProduct = isMembership(product);
+
+        return (
+          <div
+            key={product.id}
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border p-3 sm:p-4 hover:bg-muted transition-colors"
+          >
+            <div className="flex-1 min-w-0 w-full sm:w-auto">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <p className="font-semibold text-sm sm:text-base truncate">
+                  {product.name}
+                </p>
+                {!product.isActive && (
+                  <Badge variant="destructive" className="shrink-0">
+                    Inactivo
+                  </Badge>
+                )}
+                {isMembershipProduct && (
+                  <Badge
+                    variant="outline"
+                    className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shrink-0"
+                  >
+                    Membresía
+                  </Badge>
+                )}
+                {(gymStatus.text === "Bajo" ||
+                  warehouseStatus.text === "Bajo") &&
+                  !isMembershipProduct && (
+                    <Badge variant="destructive" className="shrink-0">
+                      Stock Bajo
+                    </Badge>
+                  )}
+              </div>
+
+              <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
+                <p className="font-medium text-base sm:text-lg text-foreground">
+                  ${Number(product.salePrice).toFixed(2)}
+                </p>
+                {!isMembershipProduct && (
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Gym:</span>
+                      <span
+                        className={
+                          gymStatus.text === "Bajo" ||
+                          gymStatus.text === "Sin stock"
+                            ? "text-destructive font-semibold"
+                            : ""
+                        }
+                      >
+                        {product.gymStock}
+                      </span>
+                      <Badge
+                        variant={gymStatus.color}
+                        className={gymStatus.className}
+                      >
+                        {gymStatus.text}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Bodega:</span>
+                      <span
+                        className={
+                          warehouseStatus.text === "Bajo" ||
+                          warehouseStatus.text === "Sin stock"
+                            ? "text-destructive font-semibold"
+                            : ""
+                        }
+                      >
+                        {product.warehouseStock}
+                      </span>
+                      <Badge
+                        variant={warehouseStatus.color}
+                        className={warehouseStatus.className}
+                      >
+                        {warehouseStatus.text}
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground text-xs">
+                      Min: {product.minStock}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {!isMembershipProduct && (
+                <>
+                  <Button
+                    onClick={() => onTransfer(product.id)}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 flex-1 sm:flex-initial"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                    <span className="hidden sm:inline">Traspaso</span>
+                  </Button>
+                  <Button
+                    onClick={() => onEntry(product.id)}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 flex-1 sm:flex-initial"
+                  >
+                    <Package className="h-4 w-4" />
+                    <span className="hidden sm:inline">Entrada</span>
+                  </Button>
+                </>
+              )}
+              <Button
+                onClick={() => onDetail(product.id)}
+                variant="outline"
+                size="sm"
+                className="gap-2 flex-1 sm:flex-initial"
+              >
+                <Eye className="h-4 w-4" />
+                <span className="hidden sm:inline">Ver</span>
+              </Button>
+              <Button
+                onClick={() => onEdit(product.id)}
+                variant="outline"
+                size="sm"
+                className="gap-2 flex-1 sm:flex-initial"
+              >
+                <Edit className="h-4 w-4" />
+                <span className="hidden sm:inline">Editar</span>
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+### FILE: app/(dashboard)/productos/_components/traspaso-modal.tsx
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { X, Loader2 } from "lucide-react";
+import { CreateTransferInputSchema } from "@/types/api/inventory";
+import type { ProductoResponse } from "@/types/api/products";
+import type { Ubicacion } from "@/types/models/movimiento-inventario";
+
+interface TransferFormData {
+  productId: number;
+  quantity: number;
+  destination: string;
+  notes?: string;
+}
+
+interface TraspasoModalProps {
+  productId: number;
+  onClose: () => void;
+  onSuccess: (mensaje: string) => void;
+  onError: (error: string) => void;
+}
+
+export default function TraspasoModal({
+  productId,
+  onClose,
+  onSuccess,
+  onError,
+}: TraspasoModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+  const [from, setFrom] = useState<Ubicacion>("WAREHOUSE" as Ubicacion);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<TransferFormData>({
+    resolver: zodResolver(CreateTransferInputSchema),
+    defaultValues: {
+      productId,
+      destination: "GYM",
+      quantity: 0,
+      notes: "",
+    },
+  });
+
+  const destination = watch("destination") as Ubicacion;
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${productId}`);
+        if (!response.ok) throw new Error("Error al cargar producto");
+        const data: ProductoResponse = await response.json();
+        setProduct(data);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
+        onClose();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productId, onClose, onError]);
+
+  const handleFromChange = (value: string) => {
+    const newFrom = value as Ubicacion;
+    setFrom(newFrom);
+    setValue("destination", newFrom === "WAREHOUSE" ? "GYM" : "WAREHOUSE");
+  };
+
+  const onSubmit = async (data: TransferFormData) => {
+    if (!product) return;
+
+    const availableStock =
+      from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+
+    if (data.quantity > availableStock) {
+      onError(`Stock insuficiente. Disponible: ${availableStock}`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/inventory/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al realizar traspaso");
+      }
+
+      onSuccess(
+        `Traspaso realizado: ${data.quantity} unidades de ${product.name}`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al realizar traspaso";
+      onError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <Card className="w-full max-w-lg">
+          <CardContent className="p-6 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!product) return null;
+
+  const availableStock =
+    from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="w-full max-w-lg max-h-[90vh] flex flex-col">
+        <CardHeader className="border-b bg-background rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base sm:text-lg">
+              Traspaso de Stock
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
+          <div className="p-3 bg-muted rounded-lg">
+            <p className="font-semibold text-sm sm:text-base">{product.name}</p>
+            <div className="grid grid-cols-2 gap-2 mt-2 text-xs sm:text-sm">
+              <div>
+                <span className="text-muted-foreground">Bodega:</span>
+                <span className="ml-2 font-medium">
+                  {product.warehouseStock}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Gym:</span>
+                <span className="ml-2 font-medium">{product.gymStock}</span>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Desde</Label>
+              <Select
+                value={from}
+                onValueChange={handleFromChange}
+                disabled={submitting}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WAREHOUSE">Bodega</SelectItem>
+                  <SelectItem value="GYM">Gym</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Stock disponible: {availableStock}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Hacia</Label>
+              <Input
+                value={destination === "WAREHOUSE" ? "Bodega" : "Gym"}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cantidad *</Label>
+              <Input
+                type="number"
+                {...register("quantity", { valueAsNumber: true })}
+                disabled={submitting}
+              />
+              {errors.quantity && (
+                <p className="text-xs text-destructive">
+                  {errors.quantity.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <Input
+                {...register("notes")}
+                disabled={submitting}
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submitting} className="flex-1">
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  "Realizar Traspaso"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+### PRODUCTS - API ROUTES
+
+
+
+### FILE: app/api/products/[id]/route.ts
+
+import { NextRequest, NextResponse } from "next/server";
+import { ProductsService } from "@/services";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const productId = ProductsService.parseProductId(id);
+    const product = await ProductsService.getProductById(productId);
+    return NextResponse.json(product);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Producto no encontrado";
+    return NextResponse.json({ error: message }, { status: 404 });
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const productId = ProductsService.parseProductId(id);
+    const body = await request.json();
+    const serviceInput = ProductsService.parseUpdateProductInput(body);
+    const product = await ProductsService.updateProduct(
+      productId,
+      serviceInput,
+    );
+    return NextResponse.json(product);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al actualizar producto";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const productId = ProductsService.parseProductId(id);
+    const product = await ProductsService.toggleProductStatus(productId);
+    return NextResponse.json(product);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Error al cambiar estado del producto";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}
+
+
+### PRODUCTS - TYPES (source of truth)
+
+import { z } from "zod";
+import type { Ubicacion } from "../models/movimiento-inventario";
+
+// ==================== ZOD SCHEMAS ====================
+
+export const ProductsQuerySchema = z.object({
+  search: z.string().optional(),
+  isActive: z.string().optional(),
+  lowStock: z.string().optional(),
+});
+
+export const CreateProductInputSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido"),
+  salePrice: z.number().positive("El precio debe ser mayor a 0"),
+  minStock: z
+    .number()
+    .int()
+    .min(0, "El stock mínimo no puede ser negativo")
+    .optional(),
+});
+
+export const UpdateProductInputSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido").optional(),
+  salePrice: z.number().positive("El precio debe ser mayor a 0").optional(),
+  minStock: z
+    .number()
+    .int()
+    .min(0, "El stock mínimo no puede ser negativo")
+    .optional(),
+  isActive: z.boolean().optional(),
+});
+
+// ==================== INFERRED TYPES ====================
+
+export type ProductsQueryInput = z.infer<typeof ProductsQuerySchema>;
+export type CreateProductInputRaw = z.infer<typeof CreateProductInputSchema>;
+export type UpdateProductInputRaw = z.infer<typeof UpdateProductInputSchema>;
+
+// ==================== QUERY PARAMS ====================
+
+export interface BuscarProductosQuery {
+  search?: string;
+  isActive?: string;
+  lowStock?: string;
+}
+
+// ==================== REQUEST TYPES ====================
+
+export interface CrearProductoRequest {
+  name: string;
+  salePrice: number;
+  minStock?: number;
+}
+
+export interface ActualizarProductoRequest {
+  name?: string;
+  salePrice?: number;
+  minStock?: number;
+  isActive?: boolean;
+}
+
+// ==================== RESPONSE TYPES ====================
+
+export interface ProductoResponse {
+  id: number;
+  name: string;
+  salePrice: number;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProductoConMovimientosResponse extends ProductoResponse {
+  inventoryMovements: Array<{
+    id: number;
+    type: string;
+    location: Ubicacion;
+    quantity: number;
+    ticket?: string;
+    unitPrice?: number;
+    total?: number;
+    notes?: string;
+    isCancelled: boolean;
+    date: Date;
+    user: {
+      name: string;
+    };
+    member?: {
+      memberNumber: string;
+      name?: string;
+    };
+  }>;
+}
+
+export interface StockProductoResponse {
+  warehouse: number;
+  gym: number;
+  total: number;
+}
+
+export interface EstadisticasProductosResponse {
+  total: number;
+  active: number;
+  lowStockGym: number;
+  lowStockWarehouse: number;
+  inventoryValue: number;
+}
+
+export interface ProductoBajoStockResponse {
+  id: number;
+  name: string;
+  gymStock: number;
+  warehouseStock: number;
+  minStock: number;
+  stockFaltante: {
+    gym: number;
+    warehouse: number;
+  };
+}
+
+
+### PRODUCTS - SERVICES (backend reference)
+
+import { prisma } from "@/lib/db";
+import { Location } from "@prisma/client";
+import { mapLocation } from "./enum-mappers";
+import { parseBooleanQuery, parseIntParam } from "./utils";
+import { isMembershipProduct, MEMBERSHIP_KEYWORDS } from "./membership-helpers";
+import {
+  ProductsQuerySchema,
+  CreateProductInputSchema,
+  UpdateProductInputSchema,
+} from "@/types/api/products";
+import type {
+  ProductoResponse,
+  ProductoConMovimientosResponse,
+  ProductoBajoStockResponse,
+  StockProductoResponse,
+  EstadisticasProductosResponse,
+  ProductsQueryInput,
+  CreateProductInputRaw,
+  UpdateProductInputRaw,
+  CrearProductoRequest,
+  ActualizarProductoRequest,
+} from "@/types/api/products";
+import type { ProductoVentaResponse } from "@/types/api/sales";
+
+function serializeProduct(product: {
+  id: number;
+  name: string;
+  salePrice: import("@prisma/client/runtime/library").Decimal;
+  warehouseStock: number;
+  gymStock: number;
+  minStock: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProductoResponse {
+  return {
+    id: product.id,
+    name: product.name,
+    salePrice: Number(product.salePrice),
+    warehouseStock: product.warehouseStock,
+    gymStock: product.gymStock,
+    minStock: product.minStock,
+    isActive: product.isActive,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
+  };
+}
+
+export interface SearchProductsParams {
+  search?: string;
+  isActive?: boolean;
+  lowStock?: boolean;
+}
+
+// ==================== PARSING HELPERS ====================
+
+export function parseProductsQuery(
+  raw: ProductsQueryInput,
+): SearchProductsParams {
+  const validated = ProductsQuerySchema.parse(raw);
+
+  return {
+    search: validated.search,
+    isActive: parseBooleanQuery(validated.isActive),
+    lowStock: parseBooleanQuery(validated.lowStock) ?? false,
+  };
+}
+
+export function parseCreateProductInput(
+  raw: CreateProductInputRaw,
+): CrearProductoRequest {
+  const validated = CreateProductInputSchema.parse(raw);
+
+  return {
+    name: validated.name,
+    salePrice: validated.salePrice,
+    minStock: validated.minStock,
+  };
+}
+
+export function parseUpdateProductInput(
+  raw: UpdateProductInputRaw,
+): ActualizarProductoRequest {
+  const validated = UpdateProductInputSchema.parse(raw);
+
+  return {
+    name: validated.name,
+    salePrice: validated.salePrice,
+    minStock: validated.minStock,
+    isActive: validated.isActive,
+  };
+}
+
+export function parseProductId(id: string): number {
+  return parseIntParam(id, "ID de producto");
+}
+
+// ==================== SERVICE METHODS ====================
+
+export async function getAllProducts(
+  params?: SearchProductsParams,
+): Promise<ProductoResponse[]> {
+  const where: {
+    name?: { contains: string; mode: "insensitive" };
+    isActive?: boolean;
+  } = {};
+
+  if (params?.search) {
+    where.name = {
+      contains: params.search,
+      mode: "insensitive",
+    };
+  }
+
+  if (params?.isActive !== undefined) {
+    where.isActive = params.isActive;
+  }
+
+  const products = await prisma.product.findMany({
+    where,
+    orderBy: { name: "asc" },
+  });
+
+  let result = products;
+
+  if (params?.lowStock) {
+    result = products.filter(
+      (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
+    );
+  }
+
+  return result.map(serializeProduct);
+}
+
+export async function getProductById(
+  id: number,
+): Promise<ProductoConMovimientosResponse> {
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      inventoryMovements: {
+        orderBy: { date: "desc" },
+        take: 20,
+        include: {
+          user: {
+            select: {
+              name: true,
+            },
+          },
+          member: {
+            select: {
+              memberNumber: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  return {
+    ...serializeProduct(product),
+    inventoryMovements: product.inventoryMovements.map((m) => ({
+      id: m.id,
+      type: m.type,
+      location: mapLocation(m.location),
+      quantity: m.quantity,
+      ticket: m.ticket ?? undefined,
+      unitPrice: m.unitPrice ? Number(m.unitPrice) : undefined,
+      total: m.total ? Number(m.total) : undefined,
+      notes: m.notes ?? undefined,
+      isCancelled: m.isCancelled,
+      date: m.date,
+      user: {
+        name: m.user.name,
+      },
+      member: m.member
+        ? {
+            memberNumber: m.member.memberNumber,
+            name: m.member.name ?? undefined,
+          }
+        : undefined,
+    })),
+  };
+}
+
+export async function createProduct(
+  data: CrearProductoRequest,
+): Promise<ProductoResponse> {
+  const existingProduct = await prisma.product.findUnique({
+    where: { name: data.name },
+  });
+
+  if (existingProduct) {
+    throw new Error("Ya existe un producto con ese nombre");
+  }
+
+  const product = await prisma.product.create({
+    data: {
+      name: data.name,
+      salePrice: data.salePrice,
+      minStock: data.minStock || 0,
+    },
+  });
+
+  return serializeProduct(product);
+}
+
+export async function updateProduct(
+  id: number,
+  data: ActualizarProductoRequest,
+): Promise<ProductoResponse> {
+  const product = await prisma.product.findUnique({
+    where: { id },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  if (data.name && data.name !== product.name) {
+    const existingProduct = await prisma.product.findUnique({
+      where: { name: data.name },
+    });
+
+    if (existingProduct) {
+      throw new Error("Ya existe un producto con ese nombre");
+    }
+  }
+
+  const updatedProduct = await prisma.product.update({
+    where: { id },
+    data,
+  });
+
+  return serializeProduct(updatedProduct);
+}
+
+export async function toggleProductStatus(
+  id: number,
+): Promise<ProductoResponse> {
+  const product = await prisma.product.findUnique({
+    where: { id },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  const updatedProduct = await prisma.product.update({
+    where: { id },
+    data: { isActive: !product.isActive },
+  });
+
+  return serializeProduct(updatedProduct);
+}
+
+export async function getActiveProducts(): Promise<ProductoResponse[]> {
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+
+  return products.map(serializeProduct);
+}
+
+export async function getLowStockProducts(): Promise<
+  ProductoBajoStockResponse[]
+> {
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+  });
+
+  const result = products.filter(
+    (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
+  );
+
+  return result.map((p) => ({
+    id: p.id,
+    name: p.name,
+    gymStock: p.gymStock,
+    warehouseStock: p.warehouseStock,
+    minStock: p.minStock,
+    stockFaltante: {
+      gym: Math.max(0, p.minStock - p.gymStock),
+      warehouse: Math.max(0, p.minStock - p.warehouseStock),
+    },
+  }));
+}
+
+export async function getProductStock(
+  productId: number,
+  location?: Location,
+): Promise<StockProductoResponse | number> {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+  });
+
+  if (!product) {
+    throw new Error("Producto no encontrado");
+  }
+
+  if (location === "WAREHOUSE") {
+    return product.warehouseStock;
+  } else if (location === "GYM") {
+    return product.gymStock;
+  }
+
+  return {
+    warehouse: product.warehouseStock,
+    gym: product.gymStock,
+    total: product.warehouseStock + product.gymStock,
+  };
+}
+
+export async function getMembershipProducts(): Promise<ProductoResponse[]> {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      OR: MEMBERSHIP_KEYWORDS.map((keyword) => ({
+        name: { contains: keyword, mode: "insensitive" },
+      })),
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return products.map(serializeProduct);
+}
+
+export async function getSaleProducts(): Promise<ProductoVentaResponse[]> {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      NOT: {
+        OR: MEMBERSHIP_KEYWORDS.map((keyword) => ({
+          name: { contains: keyword, mode: "insensitive" },
+        })),
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    salePrice: Number(p.salePrice),
+    gymStock: p.gymStock,
+    warehouseStock: p.warehouseStock,
+    totalStock: p.gymStock + p.warehouseStock,
+  }));
+}
+
+export async function getProductsStatistics(): Promise<EstadisticasProductosResponse> {
+  const total = await prisma.product.count();
+  const active = await prisma.product.count({ where: { isActive: true } });
+
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+  });
+
+  const lowStockGym = products.filter((p) => p.gymStock < p.minStock).length;
+  const lowStockWarehouse = products.filter(
+    (p) => p.warehouseStock < p.minStock,
+  ).length;
+
+  const inventoryValue = products.reduce((sum, p) => {
+    const totalStock = p.warehouseStock + p.gymStock;
+    return sum + Number(p.salePrice) * totalStock;
+  }, 0);
+
+  return {
+    total,
+    active,
+    lowStockGym,
+    lowStockWarehouse,
+    inventoryValue,
+  };
+}
