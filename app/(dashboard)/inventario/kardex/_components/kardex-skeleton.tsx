@@ -5,24 +5,21 @@ export function KardexSkeleton() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <Skeleton className="h-8 w-64 sm:h-10 sm:w-96" />
-          <Skeleton className="h-4 w-48 sm:w-64 mt-2" />
-        </div>
-        <Skeleton className="h-10 w-full sm:w-32" />
+      <div>
+        <Skeleton className="h-8 w-32 sm:h-10 sm:w-40" />
+        <Skeleton className="h-4 w-48 sm:w-64 mt-2" />
       </div>
 
       {/* Stats */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className={i === 2 ? "col-span-2 lg:col-span-1" : ""}>
             <CardContent className="pt-4 sm:pt-6">
               <div className="flex items-center gap-2 sm:gap-3">
                 <Skeleton className="h-6 w-6 sm:h-8 sm:w-8 rounded-full shrink-0" />
                 <div className="min-w-0 flex-1">
                   <Skeleton className="h-3 w-20 sm:h-4 sm:w-24 mb-2" />
-                  <Skeleton className="h-6 w-16 sm:h-8 sm:w-20" />
+                  <Skeleton className="h-6 w-12 sm:h-8 sm:w-16" />
                 </div>
               </div>
             </CardContent>
@@ -33,33 +30,39 @@ export function KardexSkeleton() {
       {/* Movimientos */}
       <Card>
         <CardHeader>
-          <Skeleton className="h-5 w-48 sm:h-6 sm:w-64" />
+          <Skeleton className="h-5 w-48 sm:h-6 sm:w-56" />
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
+          {/* Desktop skeleton */}
+          <div className="hidden md:block space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+
+          {/* Mobile skeleton */}
+          <div className="md:hidden space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
-                className="border border-border rounded-lg p-3 sm:p-4"
+                className="border border-border rounded-lg p-3 space-y-2"
               >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0 space-y-2 w-full">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Skeleton className="h-6 w-20" />
-                      <Skeleton className="h-6 w-16" />
-                      <Skeleton className="h-6 w-12" />
-                    </div>
-                    <div className="space-y-1">
-                      <Skeleton className="h-4 w-40" />
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-4 w-36" />
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2 flex-1">
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-20 mb-1" />
+                      <Skeleton className="h-3 w-32" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 sm:gap-4 self-end sm:self-auto">
-                    <Skeleton className="h-8 w-16" />
-                    <Skeleton className="h-12 w-20" />
-                  </div>
+                  <Skeleton className="h-5 w-16" />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                </div>
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-3 w-24" />
               </div>
             ))}
           </div>

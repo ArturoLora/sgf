@@ -1,64 +1,36 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-set -e
+OUTPUT="fe-inventario-export-$(date +%Y%m%d_%H%M%S).txt"
 
-OUTPUT="fe-review-$(date +%Y%m%d_%H%M%S).txt"
-ROOT="$(pwd)"
+echo "### TREE (inventario + domain + api relacionados)" > "$OUTPUT"
+tree -L 5 \
+  app/'(dashboard)'/inventario \
+  lib/domain \
+  lib/api \
+  types/api \
+  -I "node_modules|.next|dist|build|generated" >> "$OUTPUT"
 
-echo "📦 Exportando proyecto para revisión" > "$OUTPUT"
-echo "Ruta: $ROOT" >> "$OUTPUT"
-echo "Fecha: $(date)" >> "$OUTPUT"
-echo "----------------------------------------" >> "$OUTPUT"
+echo -e "\n\n### INVENTARIO - FRONTEND FILES\n" >> "$OUTPUT"
 
-print_file () {
-  local file="$1"
-  echo "" >> "$OUTPUT"
-  echo "===== $file =====" >> "$OUTPUT"
-  sed -n '1,20000p' "$file" >> "$OUTPUT"
-}
+sed -n '1,20000p' app/'(dashboard)'/inventario/page.tsx >> "$OUTPUT"
+sed -n '1,20000p' app/'(dashboard)'/inventario/loading.tsx >> "$OUTPUT"
 
-# ---------- INVENTARIO ----------
-echo "" >> "$OUTPUT"
-echo "########## INVENTARIO ##########" >> "$OUTPUT"
-
-find "app/(dashboard)/inventario" -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.md" \) | sort | while read -r f; do
-  print_file "$f"
+for f in app/'(dashboard)'/inventario/_components/*.tsx; do
+  echo -e "\n\n### FILE: $f\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
 done
 
-# ---------- CORTES ----------
-echo "" >> "$OUTPUT"
-echo "########## CORTES ##########" >> "$OUTPUT"
+echo -e "\n\n### INVENTARIO - API ROUTES\n" >> "$OUTPUT"
 
-find "app/(dashboard)/cortes" -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.md" \) | sort | while read -r f; do
-  print_file "$f"
+for f in app/api/inventory/*/route.ts; do
+  echo -e "\n\n### FILE: $f\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
 done
 
-# ---------- HISTORIAL VENTAS ----------
-echo "" >> "$OUTPUT"
-echo "########## HISTORIAL VENTAS ##########" >> "$OUTPUT"
+echo -e "\n\n### INVENTARIO - TYPES (source of truth)\n" >> "$OUTPUT"
+sed -n '1,20000p' types/api/inventory.ts >> "$OUTPUT"
 
-find "app/(dashboard)/historial-ventas" -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.md" \) | sort | while read -r f; do
-  print_file "$f"
-done
+echo -e "\n\n### INVENTARIO - SERVICES (backend reference)\n" >> "$OUTPUT"
+sed -n '1,20000p' services/inventory.service.ts >> "$OUTPUT"
 
-# ---------- DOMAIN ----------
-echo "" >> "$OUTPUT"
-echo "########## DOMAIN ##########" >> "$OUTPUT"
-
-find "lib/domain" -type f -name "*.ts" | sort | while read -r f; do
-  print_file "$f"
-done
-
-# ---------- API CLIENTS ----------
-echo "" >> "$OUTPUT"
-echo "########## API CLIENTS ##########" >> "$OUTPUT"
-
-find "lib/api" -type f -name "*.ts" | sort | while read -r f; do
-  print_file "$f"
-done
-
-echo "" >> "$OUTPUT"
-echo "✅ Export finalizado" >> "$OUTPUT"
-
-echo "Archivo generado:"
-echo "$OUTPUT"
+echo "✅ Export completo: $OUTPUT"

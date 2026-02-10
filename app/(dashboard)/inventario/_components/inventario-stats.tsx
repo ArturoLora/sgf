@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Package, AlertCircle, TrendingUp, DollarSign } from "lucide-react";
+import { formatearValor } from "@/lib/domain/inventory";
 
 interface InventarioStatsProps {
   totalProductos: number;
@@ -79,7 +80,7 @@ export function InventarioStats({
                 Valor Total
               </p>
               <p className="text-xl sm:text-2xl font-bold truncate">
-                ${valorTotal.toFixed(0)}
+                {formatearValor(valorTotal)}
               </p>
             </div>
           </div>

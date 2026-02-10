@@ -4,45 +4,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BarChart3 } from "lucide-react";
 import Link from "next/link";
-
-interface Producto {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
+import {
+  formatearEstadoStock,
+  formatearPrecio,
+  formatearValor,
+  calcularStockTotal,
+  calcularValorProducto,
+  type Producto,
+} from "@/lib/domain/inventory";
 
 interface InventarioTablaProps {
   productos: Producto[];
 }
 
 export function InventarioTabla({ productos }: InventarioTablaProps) {
-  const getEstadoStock = (actual: number, minimo: number) => {
-    if (actual === 0) {
-      return {
-        variant: "destructive" as const,
-        texto: "Sin stock",
-      };
-    }
-    if (actual < minimo) {
-      return {
-        variant: "outline" as const,
-        texto: "Bajo",
-        className:
-          "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
-      };
-    }
-    return {
-      variant: "default" as const,
-      texto: "OK",
-      className:
-        "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
-    };
-  };
-
   if (productos.length === 0) {
     return (
       <div className="text-center py-8">
@@ -76,16 +51,16 @@ export function InventarioTabla({ productos }: InventarioTablaProps) {
           </thead>
           <tbody>
             {productos.map((producto) => {
-              const estadoGym = getEstadoStock(
+              const estadoGym = formatearEstadoStock(
                 producto.gymStock,
                 producto.minStock,
               );
-              const estadoBodega = getEstadoStock(
+              const estadoBodega = formatearEstadoStock(
                 producto.warehouseStock,
                 producto.minStock,
               );
-              const stockTotal = producto.warehouseStock + producto.gymStock;
-              const valorTotal = Number(producto.salePrice) * stockTotal;
+              const stockTotal = calcularStockTotal(producto);
+              const valorTotal = calcularValorProducto(producto);
 
               return (
                 <tr
@@ -142,12 +117,12 @@ export function InventarioTabla({ productos }: InventarioTablaProps) {
                   </td>
                   <td className="p-3 text-right">
                     <span className="font-medium">
-                      ${Number(producto.salePrice).toFixed(2)}
+                      {formatearPrecio(producto.salePrice)}
                     </span>
                   </td>
                   <td className="p-3 text-right">
                     <span className="font-bold text-purple-600 dark:text-purple-400">
-                      ${valorTotal.toFixed(2)}
+                      {formatearValor(valorTotal)}
                     </span>
                   </td>
                   <td className="p-3 text-center">
@@ -173,30 +148,29 @@ export function InventarioTabla({ productos }: InventarioTablaProps) {
       {/* Vista Mobile */}
       <div className="md:hidden space-y-3">
         {productos.map((producto) => {
-          const estadoGym = getEstadoStock(
+          const estadoGym = formatearEstadoStock(
             producto.gymStock,
             producto.minStock,
           );
-          const estadoBodega = getEstadoStock(
+          const estadoBodega = formatearEstadoStock(
             producto.warehouseStock,
             producto.minStock,
           );
-          const stockTotal = producto.warehouseStock + producto.gymStock;
-          const valorTotal = Number(producto.salePrice) * stockTotal;
+          const stockTotal = calcularStockTotal(producto);
+          const valorTotal = calcularValorProducto(producto);
 
           return (
             <div
               key={producto.id}
               className="border border-border rounded-lg p-3 space-y-3 bg-card"
             >
-              {/* Header */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm truncate">
                     {producto.name}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Precio: ${Number(producto.salePrice).toFixed(2)}
+                    Precio: {formatearPrecio(producto.salePrice)}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
@@ -205,7 +179,6 @@ export function InventarioTabla({ productos }: InventarioTablaProps) {
                 </div>
               </div>
 
-              {/* Stocks */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-muted rounded p-2">
                   <p className="text-xs text-muted-foreground mb-1">Gym</p>
@@ -254,12 +227,11 @@ export function InventarioTabla({ productos }: InventarioTablaProps) {
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="flex items-center justify-between pt-2 border-t border-border">
                 <div>
                   <p className="text-xs text-muted-foreground">Valor Total</p>
                   <p className="font-bold text-purple-600 dark:text-purple-400">
-                    ${valorTotal.toFixed(2)}
+                    {formatearValor(valorTotal)}
                   </p>
                 </div>
                 <Link href={`/inventario/kardex/${producto.id}`}>

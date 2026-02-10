@@ -13,13 +13,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
+import type {
+  Ubicacion,
+  Estado,
+  OrdenarPor,
+  Orden,
+} from "@/lib/domain/inventory/filters";
 
 export interface FiltrosInventario {
   busqueda: string;
-  ubicacion: "todos" | "gym" | "bodega";
-  estado: "todos" | "stock_ok" | "bajo_stock" | "sin_stock";
-  ordenarPor: "nombre" | "stockGym" | "stockBodega" | "stockTotal" | "valor";
-  orden: "asc" | "desc";
+  ubicacion: Ubicacion;
+  estado: Estado;
+  ordenarPor: OrdenarPor;
+  orden: Orden;
 }
 
 interface InventarioFiltrosProps {
@@ -55,7 +61,6 @@ export function InventarioFiltros({
   return (
     <Card>
       <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {/* Búsqueda y botones principales */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -88,14 +93,13 @@ export function InventarioFiltros({
           </div>
         </div>
 
-        {/* Filtros avanzados */}
         {mostrarAvanzados && (
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 pt-3 sm:pt-4 border-t border-border">
             <div className="space-y-2">
               <Label className="text-sm">Ubicación</Label>
               <Select
                 value={filtros.ubicacion}
-                onValueChange={(value: FiltrosInventario["ubicacion"]) =>
+                onValueChange={(value: Ubicacion) =>
                   handleChange("ubicacion", value)
                 }
               >
@@ -114,9 +118,7 @@ export function InventarioFiltros({
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filtros.estado}
-                onValueChange={(value: FiltrosInventario["estado"]) =>
-                  handleChange("estado", value)
-                }
+                onValueChange={(value: Estado) => handleChange("estado", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -134,7 +136,7 @@ export function InventarioFiltros({
               <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filtros.ordenarPor}
-                onValueChange={(value: FiltrosInventario["ordenarPor"]) =>
+                onValueChange={(value: OrdenarPor) =>
                   handleChange("ordenarPor", value)
                 }
               >
@@ -155,9 +157,7 @@ export function InventarioFiltros({
               <Label className="text-sm">Orden</Label>
               <Select
                 value={filtros.orden}
-                onValueChange={(value: FiltrosInventario["orden"]) =>
-                  handleChange("orden", value)
-                }
+                onValueChange={(value: Orden) => handleChange("orden", value)}
               >
                 <SelectTrigger>
                   <SelectValue />

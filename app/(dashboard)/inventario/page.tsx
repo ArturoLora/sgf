@@ -1,27 +1,13 @@
 import { requireAuth } from "@/lib/require-role";
 import { ProductsService } from "@/services";
 import { InventarioManager } from "./_components/inventario-manager";
+import { filtrarProductosFisicos } from "@/lib/domain/inventory";
 
 export default async function InventarioPage() {
   await requireAuth();
 
   const allProducts = await ProductsService.getAllProducts();
-
-  // Excluir membresías del inventario físico
-  const keywords = [
-    "EFECTIVO",
-    "VISITA",
-    "MENSUALIDAD",
-    "SEMANA",
-    "TRIMESTRE",
-    "ANUAL",
-    "PROMOCION",
-    "RENACER",
-  ];
-
-  const physicalProducts = allProducts.filter((p) => {
-    return !keywords.some((keyword) => p.name.toUpperCase().includes(keyword));
-  });
+  const physicalProducts = filtrarProductosFisicos(allProducts);
 
   return <InventarioManager productos={physicalProducts} />;
 }
