@@ -7,6 +7,8 @@ import { X } from "lucide-react";
 import { HistorialFiltros } from "./historial-filtros";
 import { HistorialLista } from "./historial-lista";
 import { HistorialStats } from "./historial-stats";
+import { fetchSalesHistory } from "@/lib/api/sales.client";
+import { DEFAULT_HISTORY_FILTERS } from "@/lib/domain/sales/history-filters";
 import type {
   HistorialVentasFilters,
   HistorialVentasResponse,
@@ -37,65 +39,21 @@ export function HistorialVentasManager({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filters, setFilters] = useState<HistorialVentasFilters>({
-    search: "",
-    startDate: "",
-    endDate: "",
-    cashier: "todos",
-    product: "todos",
-    member: "todos",
-    paymentMethod: "todos",
-    productType: "todos",
-    orderBy: "date_desc",
-    onlyActive: true,
-  });
+  const [filters, setFilters] = useState<HistorialVentasFilters>(
+    DEFAULT_HISTORY_FILTERS,
+  );
 
   const loadSales = useCallback(
-    async (newFilters: HistorialVentasFilters, page: number = 1) => {
+    async (currentFilters: HistorialVentasFilters, page: number = 1) => {
       setLoading(true);
       setError("");
 
       try {
-        const params = new URLSearchParams();
-
-        if (newFilters.search) params.append("search", newFilters.search);
-        if (newFilters.startDate)
-          params.append("startDate", newFilters.startDate);
-        if (newFilters.endDate) params.append("endDate", newFilters.endDate);
-        if (newFilters.cashier && newFilters.cashier !== "todos") {
-          params.append("cashier", newFilters.cashier);
-        }
-        if (newFilters.product && newFilters.product !== "todos") {
-          params.append("product", newFilters.product);
-        }
-        if (newFilters.member && newFilters.member !== "todos") {
-          params.append("member", newFilters.member);
-        }
-        if (newFilters.paymentMethod && newFilters.paymentMethod !== "todos") {
-          params.append("paymentMethod", newFilters.paymentMethod);
-        }
-        if (newFilters.productType && newFilters.productType !== "todos") {
-          params.append("productType", newFilters.productType);
-        }
-
-        if (newFilters.orderBy) {
-          const [orderByField, order] = newFilters.orderBy.split("_");
-          params.append("orderBy", orderByField);
-          params.append("order", order);
-        }
-
-        params.append("onlyActive", (newFilters.onlyActive ?? true).toString());
-        params.append("page", page.toString());
-        params.append("perPage", ITEMS_PER_PAGE.toString());
-
-        const res = await fetch(`/api/sales/history?${params}`);
-
-        if (!res.ok) {
-          throw new Error("Error al cargar ventas");
-        }
-
-        const data: HistorialVentasResponse = await res.json();
-
+        const data = await fetchSalesHistory(
+          currentFilters,
+          page,
+          ITEMS_PER_PAGE,
+        );
         setResponse(data);
       } catch (err) {
         const errorMessage =

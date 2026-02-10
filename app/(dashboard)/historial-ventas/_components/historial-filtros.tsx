@@ -22,6 +22,11 @@ import {
   type ProductOption,
   type MemberOption,
 } from "@/types/api/sales";
+import {
+  DEFAULT_HISTORY_FILTERS,
+  hasActiveFilters,
+  buildFiltersWithDateRange,
+} from "@/lib/domain/sales/history-filters";
 
 interface HistorialFiltrosProps {
   onFilter: (filters: HistorialVentasFilters) => void;
@@ -40,22 +45,14 @@ export function HistorialFiltros({
 }: HistorialFiltrosProps) {
   const [showFilters, setShowFilters] = useState(false);
 
-  const { register, handleSubmit, setValue, getValues, reset } =
+  const { register, handleSubmit, setValue, getValues, reset, watch } =
     useForm<HistorialVentasFilters>({
       resolver: zodResolver(HistorialVentasFiltersSchema),
-      defaultValues: {
-        search: "",
-        startDate: "",
-        endDate: "",
-        cashier: "todos",
-        product: "todos",
-        member: "todos",
-        paymentMethod: "todos",
-        productType: "todos",
-        orderBy: "date_desc",
-        onlyActive: true,
-      },
+      defaultValues: DEFAULT_HISTORY_FILTERS,
     });
+
+  const currentValues = watch();
+  const filtersActive = hasActiveFilters(currentValues);
 
   const onSubmit = useCallback(
     (data: HistorialVentasFilters) => {
@@ -65,67 +62,19 @@ export function HistorialFiltros({
   );
 
   const handleClearFilters = useCallback(() => {
-    reset();
-    onFilter({
-      search: "",
-      startDate: "",
-      endDate: "",
-      cashier: "todos",
-      product: "todos",
-      member: "todos",
-      paymentMethod: "todos",
-      productType: "todos",
-      orderBy: "date_desc",
-      onlyActive: true,
-    });
+    reset(DEFAULT_HISTORY_FILTERS);
+    onFilter(DEFAULT_HISTORY_FILTERS);
   }, [reset, onFilter]);
 
-  const setDefaultRange = useCallback(
+  const handleDateRange = useCallback(
     (type: "today" | "week" | "month") => {
-      const today = new Date();
-      const end = today.toISOString().split("T")[0];
-      let start = "";
-
-      switch (type) {
-        case "today":
-          start = end;
-          break;
-        case "week": {
-          const weekAgo = new Date(today);
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          start = weekAgo.toISOString().split("T")[0];
-          break;
-        }
-        case "month": {
-          const monthAgo = new Date(today);
-          monthAgo.setMonth(monthAgo.getMonth() - 1);
-          start = monthAgo.toISOString().split("T")[0];
-          break;
-        }
-      }
-
-      setValue("startDate", start);
-      setValue("endDate", end);
+      const updated = buildFiltersWithDateRange(getValues(), type);
+      setValue("startDate", updated.startDate);
+      setValue("endDate", updated.endDate);
       handleSubmit(onSubmit)();
     },
-    [setValue, handleSubmit, onSubmit],
+    [getValues, setValue, handleSubmit, onSubmit],
   );
-
-  const checkHasActiveFilters = useCallback(() => {
-    const values = getValues();
-    return (
-      values.search ||
-      values.startDate ||
-      values.endDate ||
-      (values.cashier && values.cashier !== "todos") ||
-      (values.product && values.product !== "todos") ||
-      (values.member && values.member !== "todos") ||
-      (values.paymentMethod && values.paymentMethod !== "todos") ||
-      !values.onlyActive
-    );
-  }, [getValues]);
-
-  const hasActiveFilters = checkHasActiveFilters();
 
   return (
     <Card>
@@ -158,7 +107,7 @@ export function HistorialFiltros({
               >
                 {loading ? "Buscando..." : "Buscar"}
               </Button>
-              {hasActiveFilters && (
+              {filtersActive && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -178,7 +127,7 @@ export function HistorialFiltros({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setDefaultRange("today")}
+              onClick={() => handleDateRange("today")}
               className="flex-1 sm:flex-initial"
             >
               <Calendar className="h-3 w-3 sm:mr-1" />
@@ -188,7 +137,7 @@ export function HistorialFiltros({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setDefaultRange("week")}
+              onClick={() => handleDateRange("week")}
               className="flex-1 sm:flex-initial"
             >
               <span className="text-xs sm:text-sm">7 días</span>
@@ -197,12 +146,12 @@ export function HistorialFiltros({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setDefaultRange("month")}
+              onClick={() => handleDateRange("month")}
               className="flex-1 sm:flex-initial"
             >
               <span className="text-xs sm:text-sm">30 días</span>
             </Button>
-            {hasActiveFilters && (
+            {filtersActive && (
               <Button
                 type="button"
                 variant="ghost"

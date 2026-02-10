@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { calculateHistorialStats } from "@/lib/domain/sales/history-calculations";
 import type { TicketVentaAgrupado } from "@/types/api/sales";
 
 interface HistorialStatsProps {
@@ -9,24 +10,7 @@ interface HistorialStatsProps {
 }
 
 export function HistorialStats({ tickets }: HistorialStatsProps) {
-  const stats = useMemo(() => {
-    const totalValue = tickets.reduce(
-      (sum, ticket) => sum + Number(ticket.total),
-      0,
-    );
-    const cancelled = tickets.filter((ticket) => ticket.isCancelled).length;
-    const totalItems = tickets.reduce(
-      (sum, ticket) => sum + ticket.items.length,
-      0,
-    );
-
-    return {
-      totalValue,
-      uniqueTickets: tickets.length,
-      cancelled,
-      totalItems,
-    };
-  }, [tickets]);
+  const stats = useMemo(() => calculateHistorialStats(tickets), [tickets]);
 
   return (
     <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
