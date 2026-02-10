@@ -1,40 +1,39 @@
 #!/bin/bash
-# Export Ventas Frontend - Simple Artifact Mode
 
-output_file="./fe-ventas-simple-$(date +%Y%m%d_%H%M%S).txt"
+OUTPUT="fe-cortes-review-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "=== FE VENTAS SIMPLE EXPORT ===" > "$output_file"
-echo "Generated at: $(date)" >> "$output_file"
-echo "" >> "$output_file"
+echo "### PROJECT TREE (cortes + shifts domain) ###" > "$OUTPUT"
+tree -L 5 \
+  app/'(dashboard)'/cortes \
+  lib/api/shifts.client.ts \
+  lib/domain/shifts \
+  types/api/shifts.ts \
+  >> "$OUTPUT"
 
-add_file() {
-  local file="$1"
-  echo "" >> "$output_file"
-  echo "===== FILE: $file =====" >> "$output_file"
-  sed 's/\t/  /g' "$file" >> "$output_file"
-}
+echo -e "\n\n### FILE CONTENTS ###\n" >> "$OUTPUT"
 
-scan_dir() {
-  local dir="$1"
-  if [ -d "$dir" ]; then
-    find "$dir" -type f \( -name "*.ts" -o -name "*.tsx" \) | sort | while read -r f; do
-      add_file "$f"
-    done
-  fi
-}
+# --- CORTES PAGES ---
+sed -n '1,20000p' "app/(dashboard)/cortes/page.tsx" >> "$OUTPUT"
+sed -n '1,20000p' "app/(dashboard)/cortes/loading.tsx" >> "$OUTPUT"
 
-# Ventas frontend
-scan_dir "./app/(dashboard)/ventas"
+# --- CORTES COMPONENTS ---
+for file in app/'(dashboard)'/cortes/_components/*.tsx; do
+  echo -e "\n\n### FILE: $file ###\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$file" >> "$OUTPUT"
+done
 
-# Lib (auth, utils, etc)
-scan_dir "./lib"
+# --- API CLIENT ---
+echo -e "\n\n### FILE: lib/api/shifts.client.ts ###\n" >> "$OUTPUT"
+sed -n '1,20000p' lib/api/shifts.client.ts >> "$OUTPUT"
 
-# Types completos (api + models)
-scan_dir "./types"
+# --- DOMAIN SHIFTS ---
+for file in lib/domain/shifts/*.ts; do
+  echo -e "\n\n### FILE: $file ###\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$file" >> "$OUTPUT"
+done
 
-# UI components usados
-scan_dir "./components/ui"
+# --- BACKEND TYPES (SOURCE OF TRUTH) ---
+echo -e "\n\n### FILE: types/api/shifts.ts ###\n" >> "$OUTPUT"
+sed -n '1,20000p' types/api/shifts.ts >> "$OUTPUT"
 
-echo ""
-echo "Export terminado:"
-echo "$output_file"
+echo "✅ Export completo generado en $OUTPUT"

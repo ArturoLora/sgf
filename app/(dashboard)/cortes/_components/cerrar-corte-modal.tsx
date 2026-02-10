@@ -17,21 +17,33 @@ import {
 import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { CloseShiftSchema, type CloseShiftInput } from "@/types/api/shifts";
 import type { ResumenCorteResponse, CorteResponse } from "@/types/api/shifts";
+import {
+  calcularDiferencia,
+  calcularEfectivoEsperado,
+  tieneDiferenciaSignificativa,
+  tipoDiferencia,
+} from "@/lib/domain/shifts";
 
 interface CerrarCorteModalProps {
+  open: boolean;
   corte: CorteResponse;
   onClose: () => void;
-  onSuccess: () => void;
+  onLoadResumen: (corteId: number) => Promise<ResumenCorteResponse>;
+  onSubmit: (data: CloseShiftInput) => Promise<void>;
+  error?: string;
 }
 
 export default function CerrarCorteModal({
+  open,
   corte,
   onClose,
-  onSuccess,
+  onLoadResumen,
+  onSubmit,
+  error,
 }: CerrarCorteModalProps) {
   const [resumen, setResumen] = useState<ResumenCorteResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const {
     register,
@@ -39,6 +51,7 @@ export default function CerrarCorteModal({
     watch,
     setValue,
     formState: { isSubmitting },
+    reset,
   } = useForm<CloseShiftInput>({
     resolver: zodResolver(CloseShiftSchema),
     defaultValues: {
@@ -55,88 +68,60 @@ export default function CerrarCorteModal({
 
   const watchedValues = watch();
 
-  const calcularDiferencia = useCallback(() => {
-    if (!resumen) return 0;
-
-    const efectivo = Number(watchedValues.cashAmount) || 0;
-    const debito = Number(watchedValues.debitCardAmount) || 0;
-    const credito = Number(watchedValues.creditCardAmount) || 0;
-    const retiros = Number(watchedValues.totalWithdrawals) || 0;
-
-    const totalReal = efectivo + debito + credito - retiros;
-    const totalEsperado =
-      Number(resumen.initialCash) +
-      Number(resumen.totalSales) -
-      Number(resumen.totalWithdrawals || 0);
-
-    return Number((totalReal - totalEsperado).toFixed(2));
-  }, [
-    resumen,
-    watchedValues.cashAmount,
-    watchedValues.debitCardAmount,
-    watchedValues.creditCardAmount,
-    watchedValues.totalWithdrawals,
-  ]);
+  const diferencia = resumen
+    ? calcularDiferencia(resumen, {
+        cashAmount: Number(watchedValues.cashAmount) || 0,
+        debitCardAmount: Number(watchedValues.debitCardAmount) || 0,
+        creditCardAmount: Number(watchedValues.creditCardAmount) || 0,
+        totalWithdrawals: Number(watchedValues.totalWithdrawals) || 0,
+      })
+    : 0;
 
   const cargarResumen = useCallback(async () => {
     try {
-      const res = await fetch(`/api/shifts/${corte.id}/summary`);
-      if (!res.ok) throw new Error("Error al cargar resumen");
-
-      const data = await res.json();
+      setLoading(true);
+      const data = await onLoadResumen(corte.id);
       setResumen(data);
 
       setValue("debitCardAmount", Number(data.debitCardAmount) || 0);
       setValue("creditCardAmount", Number(data.creditCardAmount) || 0);
       setValue("totalWithdrawals", Number(data.totalWithdrawals) || 0);
 
-      const efectivoEsperado =
-        Number(data.initialCash) +
-        Number(data.cashAmount) -
-        Number(data.totalWithdrawals || 0);
-      setValue("cashAmount", Number(efectivoEsperado.toFixed(2)));
+      const efectivoEsperado = calcularEfectivoEsperado(data);
+      setValue("cashAmount", efectivoEsperado);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setLoadError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
-  }, [corte.id, setValue]);
+  }, [corte.id, onLoadResumen, setValue]);
 
   useEffect(() => {
-    cargarResumen();
-  }, [cargarResumen]);
+    if (open) {
+      cargarResumen();
+    }
+  }, [open, cargarResumen]);
 
   useEffect(() => {
     if (resumen) {
-      const diferencia = calcularDiferencia();
       setValue("difference", diferencia);
     }
-  }, [resumen, calcularDiferencia, setValue]);
+  }, [resumen, diferencia, setValue]);
 
-  const onSubmit = async (data: CloseShiftInput) => {
-    try {
-      const validated = CloseShiftSchema.parse(data);
+  const handleClose = () => {
+    reset();
+    setResumen(null);
+    setLoadError("");
+    onClose();
+  };
 
-      const res = await fetch("/api/shifts/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Error al cerrar corte");
-      }
-
-      onSuccess();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    }
+  const handleFormSubmit = async (data: CloseShiftInput) => {
+    await onSubmit(data);
   };
 
   if (loading) {
     return (
-      <Dialog open onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-2xl">
           <DialogTitle className="sr-only">Cargando...</DialogTitle>
           <div className="flex items-center justify-center py-8">
@@ -147,11 +132,11 @@ export default function CerrarCorteModal({
     );
   }
 
-  const diferencia = calcularDiferencia();
-  const tieneDiferencia = Math.abs(diferencia) > 0.01;
+  const tieneDiferencia = tieneDiferenciaSignificativa(diferencia);
+  const tipo = tipoDiferencia(diferencia);
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -163,10 +148,10 @@ export default function CerrarCorteModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {error && (
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+          {(error || loadError) && (
             <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+              {error || loadError}
             </div>
           )}
 
@@ -301,7 +286,7 @@ export default function CerrarCorteModal({
           {tieneDiferencia && (
             <div
               className={`rounded-lg p-4 border ${
-                diferencia > 0
+                tipo === "sobrante"
                   ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
                   : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
               }`}
@@ -309,18 +294,18 @@ export default function CerrarCorteModal({
               <div className="flex items-center gap-2">
                 <AlertCircle
                   className={`h-5 w-5 ${
-                    diferencia > 0
+                    tipo === "sobrante"
                       ? "text-green-600 dark:text-green-500"
                       : "text-red-600 dark:text-red-500"
                   }`}
                 />
                 <div>
                   <p className="font-medium">
-                    {diferencia > 0 ? "Sobrante" : "Faltante"}: $
+                    {tipo === "sobrante" ? "Sobrante" : "Faltante"}: $
                     {Math.abs(diferencia).toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {diferencia > 0
+                    {tipo === "sobrante"
                       ? "Hay más dinero del esperado"
                       : "Falta dinero en el arqueo"}
                   </p>
@@ -333,7 +318,7 @@ export default function CerrarCorteModal({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="flex-1"
             >

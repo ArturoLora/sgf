@@ -4,12 +4,28 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X, Plus, DollarSign, Clock, CheckCircle } from "lucide-react";
-import CortesFiltros from "./cortes-filtros";
+import CortesFiltros, { type FiltrosCorte } from "./cortes-filtros";
 import CortesLista from "./cortes-lista";
 import AbrirCorteModal from "./abrir-corte-modal";
 import CerrarCorteModal from "./cerrar-corte-modal";
 import DetalleCorteModal from "./detalle-corte-modal";
-import type { CorteResponse } from "@/types/api/shifts";
+import type {
+  CorteResponse,
+  CorteActivoConVentasResponse,
+  OpenShiftInput,
+  CloseShiftInput,
+  BuscarCortesQuery,
+  ResumenCorteResponse,
+  CorteConVentasResponse,
+} from "@/types/api/shifts";
+import {
+  abrirCorte,
+  cerrarCorte,
+  cargarCortes,
+  verificarCorteActivo,
+  cargarResumenCorte,
+  cargarDetalleCorte,
+} from "@/lib/domain/shifts";
 
 interface Cajero {
   id: string;
@@ -21,87 +37,82 @@ interface CortesManagerProps {
   currentUserId: string;
 }
 
-interface FiltrosCorte {
-  busqueda: string;
-  fechaInicio: string;
-  fechaFin: string;
-  cajero: string;
-  estado: "todos" | "abiertos" | "cerrados";
-  ordenarPor: "fecha_desc" | "fecha_asc" | "folio_desc" | "folio_asc";
-}
-
 const ITEMS_POR_PAGINA = 10;
 
+const filtrosIniciales: FiltrosCorte = {
+  busqueda: "",
+  fechaInicio: "",
+  fechaFin: "",
+  cajero: "todos",
+  estado: "todos",
+  ordenarPor: "fecha_desc",
+};
+
 export default function CortesManager({ cajeros }: CortesManagerProps) {
+  // Estados de datos
   const [cortes, setCortes] = useState<CorteResponse[]>([]);
-  const [corteActivo, setCorteActivo] = useState<CorteResponse | null>(null);
+  const [corteActivo, setCorteActivo] =
+    useState<CorteActivoConVentasResponse | null>(null);
   const [totalCortes, setTotalCortes] = useState(0);
+
+  // Estados de UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [paginaActual, setPaginaActual] = useState(1);
+  const [filtros, setFiltros] = useState<FiltrosCorte>(filtrosIniciales);
+
+  // Estados de modales
   const [mostrarAbrirModal, setMostrarAbrirModal] = useState(false);
   const [mostrarCerrarModal, setMostrarCerrarModal] = useState(false);
   const [corteDetalle, setCorteDetalle] = useState<number | null>(null);
+  const [errorModal, setErrorModal] = useState("");
 
-  const [filtros, setFiltros] = useState<FiltrosCorte>({
-    busqueda: "",
-    fechaInicio: "",
-    fechaFin: "",
-    cajero: "todos",
-    estado: "todos",
-    ordenarPor: "fecha_desc",
-  });
-
-  const verificarCorteActivo = useCallback(async () => {
-    try {
-      const res = await fetch("/api/shifts/active");
-      if (res.ok) {
-        const data = await res.json();
-        setCorteActivo(data);
-      } else if (res.status === 404) {
-        setCorteActivo(null);
-      }
-    } catch (err) {
-      console.error("Error al verificar corte activo:", err);
-      setCorteActivo(null);
+  /**
+   * Verifica si existe un corte activo
+   */
+  const verificarActivo = useCallback(async () => {
+    const resultado = await verificarCorteActivo();
+    if (resultado.success) {
+      setCorteActivo(resultado.corte ?? null);
     }
   }, []);
 
+  /**
+   * Carga la lista de cortes con filtros
+   */
   const cargarDatos = useCallback(
     async (nuevosFiltros?: FiltrosCorte, pagina: number = 1) => {
       setLoading(true);
       setError("");
 
       try {
-        const params = new URLSearchParams();
         const filtrosActuales = nuevosFiltros || filtros;
+        const params: BuscarCortesQuery = {};
 
-        if (filtrosActuales.busqueda)
-          params.append("search", filtrosActuales.busqueda);
+        if (filtrosActuales.busqueda) params.search = filtrosActuales.busqueda;
         if (filtrosActuales.fechaInicio)
-          params.append("startDate", filtrosActuales.fechaInicio);
-        if (filtrosActuales.fechaFin)
-          params.append("endDate", filtrosActuales.fechaFin);
+          params.startDate = filtrosActuales.fechaInicio;
+        if (filtrosActuales.fechaFin) params.endDate = filtrosActuales.fechaFin;
         if (filtrosActuales.cajero !== "todos")
-          params.append("cashier", filtrosActuales.cajero);
+          params.cashier = filtrosActuales.cajero;
         if (filtrosActuales.estado !== "todos")
-          params.append("status", filtrosActuales.estado);
+          params.status = filtrosActuales.estado;
 
         const [campo, orden] = filtrosActuales.ordenarPor.split("_");
-        params.append("orderBy", campo);
-        params.append("order", orden);
+        params.orderBy = campo;
+        params.order = orden;
+        params.page = pagina.toString();
+        params.perPage = ITEMS_POR_PAGINA.toString();
 
-        params.append("page", pagina.toString());
-        params.append("perPage", ITEMS_POR_PAGINA.toString());
+        const resultado = await cargarCortes(params);
 
-        const res = await fetch(`/api/shifts?${params}`);
-        if (!res.ok) throw new Error("Error al cargar cortes");
-
-        const data = await res.json();
-        setCortes(data.shifts);
-        setTotalCortes(data.total);
-        setPaginaActual(pagina);
+        if (resultado.success && resultado.data) {
+          setCortes(resultado.data.shifts);
+          setTotalCortes(resultado.data.total);
+          setPaginaActual(pagina);
+        } else {
+          setError(resultado.error || "Error al cargar cortes");
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error desconocido");
       } finally {
@@ -111,49 +122,119 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
     [filtros],
   );
 
+  /**
+   * Carga inicial de datos
+   */
   useEffect(() => {
     cargarDatos();
-    verificarCorteActivo();
-  }, [cargarDatos, verificarCorteActivo]);
+    verificarActivo();
+  }, [cargarDatos, verificarActivo]);
 
-  const handleFiltrar = (nuevosFiltros: FiltrosCorte) => {
+  /**
+   * Handlers de filtros
+   */
+  const handleFiltrosChange = (nuevosFiltros: FiltrosCorte) => {
     setFiltros(nuevosFiltros);
-    cargarDatos(nuevosFiltros, 1);
+  };
+
+  const handleAplicarFiltros = () => {
+    cargarDatos(filtros, 1);
   };
 
   const handleCambiarPagina = (pagina: number) => {
     cargarDatos(filtros, pagina);
   };
 
-  const handleAbrirCorte = () => {
+  /**
+   * Handlers de modales
+   */
+  const handleAbrirModal = () => {
     setMostrarAbrirModal(true);
+    setErrorModal("");
   };
 
-  const handleCerrarCorte = () => {
+  const handleCerrarModal = () => {
     if (!corteActivo) return;
     setMostrarCerrarModal(true);
+    setErrorModal("");
   };
 
-  const handleCorteAbierto = () => {
-    setMostrarAbrirModal(false);
-    verificarCorteActivo();
-    cargarDatos(filtros, 1);
+  /**
+   * Handler de abrir corte
+   */
+  const handleAbrirCorte = async (data: OpenShiftInput) => {
+    const resultado = await abrirCorte(data);
+
+    if (resultado.success) {
+      setMostrarAbrirModal(false);
+      await verificarActivo();
+      await cargarDatos(filtros, 1);
+    } else {
+      setErrorModal(resultado.error || "Error al abrir corte");
+      throw new Error(resultado.error);
+    }
   };
 
-  const handleCorteCerrado = () => {
-    setMostrarCerrarModal(false);
-    setCorteActivo(null);
-    cargarDatos(filtros, 1);
+  /**
+   * Handler de cerrar corte
+   */
+  const handleCerrarCorte = async (data: CloseShiftInput) => {
+    const resultado = await cerrarCorte(data);
+
+    if (resultado.success) {
+      setMostrarCerrarModal(false);
+      setCorteActivo(null);
+      await cargarDatos(filtros, 1);
+    } else {
+      setErrorModal(resultado.error || "Error al cerrar corte");
+      throw new Error(resultado.error);
+    }
   };
 
+  /**
+   * Handler de ver detalle
+   */
   const handleVerDetalle = (corteId: number) => {
     setCorteDetalle(corteId);
   };
 
+  /**
+   * Handler de cargar resumen para modal de cierre
+   */
+  const handleCargarResumen = async (
+    corteId: number,
+  ): Promise<ResumenCorteResponse> => {
+    const resultado = await cargarResumenCorte(corteId);
+
+    if (resultado.success && resultado.resumen) {
+      return resultado.resumen;
+    }
+
+    throw new Error(resultado.error || "Error al cargar resumen");
+  };
+
+  /**
+   * Handler de cargar detalle para modal de detalle
+   */
+  const handleCargarDetalleCorte = async (
+    corteId: number,
+  ): Promise<CorteConVentasResponse> => {
+    const resultado = await cargarDetalleCorte(corteId);
+
+    if (resultado.success && resultado.corte) {
+      return resultado.corte;
+    }
+
+    throw new Error(resultado.error || "Error al cargar detalle");
+  };
+
   const totalPaginas = Math.ceil(totalCortes / ITEMS_POR_PAGINA);
+  const cortesCerrados = cortes.filter((c) => c.status === "CLOSED").length;
+  const cortesAbiertos = cortes.filter((c) => c.status === "OPEN").length;
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Cortes de Caja</h1>
@@ -164,7 +245,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
         <div className="flex gap-2">
           {corteActivo ? (
             <Button
-              onClick={handleCerrarCorte}
+              onClick={handleCerrarModal}
               variant="destructive"
               className="gap-2 flex-1 sm:flex-initial"
             >
@@ -173,7 +254,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
             </Button>
           ) : (
             <Button
-              onClick={handleAbrirCorte}
+              onClick={handleAbrirModal}
               className="gap-2 flex-1 sm:flex-initial"
             >
               <Plus className="h-4 w-4" />
@@ -183,6 +264,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
         </div>
       </div>
 
+      {/* Error global */}
       {error && (
         <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive flex justify-between items-start gap-2">
           <span className="flex-1">{error}</span>
@@ -192,6 +274,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
         </div>
       )}
 
+      {/* Corte activo */}
       {corteActivo && (
         <Card className="border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20">
           <CardContent className="p-4">
@@ -215,6 +298,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
         </Card>
       )}
 
+      {/* Estadísticas */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-4 sm:pt-6">
@@ -241,7 +325,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
                   Cerrados
                 </p>
                 <p className="text-lg sm:text-2xl font-bold truncate">
-                  {(cortes || []).filter((c) => c.status === "CLOSED").length}
+                  {cortesCerrados}
                 </p>
               </div>
             </div>
@@ -257,7 +341,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
                   Abiertos
                 </p>
                 <p className="text-lg sm:text-2xl font-bold truncate">
-                  {(cortes || []).filter((c) => c.status === "CLOSED").length}
+                  {cortesAbiertos}
                 </p>
               </div>
             </div>
@@ -278,12 +362,16 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
         </Card>
       </div>
 
+      {/* Filtros */}
       <CortesFiltros
-        onFiltrar={handleFiltrar}
+        filtros={filtros}
+        onFiltrosChange={handleFiltrosChange}
+        onAplicarFiltros={handleAplicarFiltros}
         cajeros={cajeros}
         loading={loading}
       />
 
+      {/* Lista de cortes */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-base sm:text-lg">
@@ -305,25 +393,31 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
         </CardContent>
       </Card>
 
-      {mostrarAbrirModal && (
-        <AbrirCorteModal
-          onClose={() => setMostrarAbrirModal(false)}
-          onSuccess={handleCorteAbierto}
-        />
-      )}
+      {/* Modales */}
+      <AbrirCorteModal
+        open={mostrarAbrirModal}
+        onClose={() => setMostrarAbrirModal(false)}
+        onSubmit={handleAbrirCorte}
+        error={errorModal}
+      />
 
-      {mostrarCerrarModal && corteActivo && (
+      {corteActivo && (
         <CerrarCorteModal
+          open={mostrarCerrarModal}
           corte={corteActivo}
           onClose={() => setMostrarCerrarModal(false)}
-          onSuccess={handleCorteCerrado}
+          onLoadResumen={handleCargarResumen}
+          onSubmit={handleCerrarCorte}
+          error={errorModal}
         />
       )}
 
-      {corteDetalle && (
+      {corteDetalle !== null && (
         <DetalleCorteModal
+          open={true}
           corteId={corteDetalle}
           onClose={() => setCorteDetalle(null)}
+          onLoadDetalle={handleCargarDetalleCorte}
         />
       )}
     </div>

@@ -4,36 +4,188 @@
 
 Gestión de turnos de caja con apertura, cierre y arqueo. Permite registrar ventas durante el turno y cerrar con balance detallado.
 
-## Estructura
+## Arquitectura
+
+Este módulo sigue el patrón de **Arquitectura Limpia** con separación estricta de responsabilidades:
 
 ```
-cortes/
-├── page.tsx                    # Server Component - auth y data fetching
-├── loading.tsx                 # Skeleton de carga
-├── _components/
-│   ├── cortes-skeleton.tsx     # Skeleton component
-│   ├── cortes-manager.tsx      # Orquestación principal
-│   ├── cortes-filtros.tsx      # Filtros de búsqueda
-│   ├── cortes-lista.tsx        # Tabla de cortes
-│   ├── abrir-corte-modal.tsx   # Modal apertura (RHF + Zod)
-│   ├── cerrar-corte-modal.tsx  # Modal cierre con arqueo (RHF + Zod)
-│   └── detalle-corte-modal.tsx # Vista detallada
-└── README.md
+lib/
+├── api/
+│   └── shifts.client.ts          # Capa de acceso a datos (fetch puro)
+└── domain/
+    └── shifts/
+        ├── shift-operations.ts    # Orquestación de flujos
+        ├── shift-calculations.ts  # Cálculos de negocio
+        ├── shift-formatters.ts    # Formateadores
+        └── index.ts              # Barrel export
+
+app/(dashboard)/cortes/
+├── page.tsx                       # Server Component (composición)
+├── loading.tsx                    # Skeleton loader
+└── _components/
+    ├── cortes-skeleton.tsx        # Skeleton component
+    ├── cortes-manager.tsx         # Container (orquestación UI)
+    ├── cortes-filtros.tsx         # Filtros (presentación)
+    ├── cortes-lista.tsx           # Lista (presentación)
+    ├── abrir-corte-modal.tsx      # Modal abrir (UI + form)
+    ├── cerrar-corte-modal.tsx     # Modal cerrar (UI + form)
+    └── detalle-corte-modal.tsx    # Modal detalle (UI)
+```
+
+## Capas de Responsabilidad
+
+### 1. API Client (`lib/api/shifts.client.ts`)
+
+**Responsabilidad**: Comunicación HTTP con el backend
+
+- Un fetch = una operación
+- Sin lógica de negocio
+- Sin orquestación
+- Solo tipos desde `@/types/api/shifts`
+
+```typescript
+export async function fetchAbrirCorte(
+  data: OpenShiftInput,
+): Promise<CorteResponse>;
+export async function fetchCerrarCorte(
+  data: CloseShiftInput,
+): Promise<CorteResponse>;
+export async function fetchCortes(
+  params?: BuscarCortesQuery,
+): Promise<ListaCortesResponse>;
+```
+
+### 2. Domain Layer (`lib/domain/shifts/`)
+
+**Responsabilidad**: Lógica de negocio y orquestación
+
+#### shift-operations.ts
+
+Orquestación de flujos de negocio:
+
+- `abrirCorte()` - Flujo de apertura
+- `cerrarCorte()` - Flujo de cierre
+- `cargarCortes()` - Consulta con filtros
+- `verificarCorteActivo()` - Estado actual
+- `cargarDetalleCorte()` - Detalle completo
+- `cargarResumenCorte()` - Resumen para arqueo
+
+#### shift-calculations.ts
+
+Cálculos puros de dominio:
+
+- `calcularDiferencia()` - Diferencia entre real y esperado
+- `calcularEfectivoEsperado()` - Efectivo esperado en caja
+- `tieneDiferenciaSignificativa()` - Validación de diferencia
+- `tipoDiferencia()` - Clasificación (sobrante/faltante)
+
+#### shift-formatters.ts
+
+Formateo de datos:
+
+- `formatearFechaCorte()` - Fecha corta
+- `formatearFechaLarga()` - Fecha extendida
+- `formatearMontoCorte()` - Formato moneda
+
+### 3. UI Layer
+
+#### Container: `cortes-manager.tsx`
+
+**Responsabilidad**: Orquestación de UI y estado
+
+- Maneja estado global del módulo
+- Coordina comunicación con domain layer
+- Gestiona modales y navegación
+- Propaga datos a componentes presentacionales
+- **NO tiene lógica de negocio**
+- **NO hace fetch directo**
+
+#### Presentación: `cortes-filtros.tsx`, `cortes-lista.tsx`
+
+**Responsabilidad**: Solo presentación
+
+- Reciben datos por props
+- Emiten eventos hacia el container
+- Sin estado de negocio
+- Sin llamadas a APIs
+
+#### Modales: `abrir-corte-modal.tsx`, `cerrar-corte-modal.tsx`, `detalle-corte-modal.tsx`
+
+**Responsabilidad**: UI + Formularios
+
+- React Hook Form + Zod
+- Schemas desde `@/types/api/shifts`
+- Emiten datos validados al container
+- Reciben handlers por props
+- Sin lógica de negocio
+
+### 4. Page Layer
+
+#### `page.tsx`
+
+**Responsabilidad**: Composición y data fetching del servidor
+
+- Server Component
+- Verifica autenticación
+- Carga datos iniciales
+- Pasa datos al manager
+- **Cero lógica**
+
+#### `loading.tsx`
+
+**Responsabilidad**: Estado de carga
+
+- Solo importa y renderiza skeleton
+- Sin lógica
+
+## Flujo de Datos
+
+### Flujo de Apertura de Corte
+
+```
+Usuario → abrir-corte-modal.tsx (RHF validación)
+       → cortes-manager.tsx (handleAbrirCorte)
+       → domain/shifts (abrirCorte)
+       → api/shifts.client (fetchAbrirCorte)
+       → Backend POST /api/shifts
+```
+
+### Flujo de Cierre de Corte
+
+```
+Usuario → cerrar-corte-modal.tsx
+       → Carga resumen via domain (cargarResumenCorte)
+       → Calcula diferencia via domain (calcularDiferencia)
+       → Submit → cortes-manager.tsx (handleCerrarCorte)
+       → domain/shifts (cerrarCorte)
+       → api/shifts.client (fetchCerrarCorte)
+       → Backend POST /api/shifts/close
+```
+
+### Flujo de Consulta
+
+```
+Usuario → cortes-filtros.tsx (cambio de filtros)
+       → cortes-manager.tsx (handleAplicarFiltros)
+       → domain/shifts (cargarCortes)
+       → api/shifts.client (fetchCortes)
+       → Backend GET /api/shifts?filters
+       → cortes-lista.tsx (presentación)
 ```
 
 ## Validación de Datos
 
-### Schemas del Backend (Fuente de Verdad)
+### Fuente de Verdad: Backend
 
-Todos los payloads se validan usando schemas de `@/types/api/shifts`:
+Todos los schemas vienen de `@/types/api/shifts`:
 
 ```typescript
 import { OpenShiftSchema, CloseShiftSchema } from "@/types/api/shifts";
 ```
 
-**Regla**: NO crear schemas locales para dominio. Reutilizar del backend.
+**Regla**: NUNCA crear schemas locales para dominio. Siempre reutilizar del backend.
 
-### Formularios con React Hook Form
+### Formularios
 
 Todos los formularios usan:
 
@@ -41,82 +193,88 @@ Todos los formularios usan:
 - `zodResolver` para validación
 - Backend schemas para payloads
 
-Ejemplo:
-
 ```typescript
 const { register, handleSubmit } = useForm<OpenShiftInput>({
   resolver: zodResolver(OpenShiftSchema),
 });
+```
 
-const onSubmit = async (data: OpenShiftInput) => {
-  const validated = OpenShiftSchema.parse(data);
-  await fetch("/api/shifts", { body: JSON.stringify(validated) });
-};
+## Endpoints API
+
+```
+GET  /api/shifts              # Lista con filtros
+GET  /api/shifts/active       # Corte activo
+POST /api/shifts              # Abrir corte
+POST /api/shifts/close        # Cerrar corte
+GET  /api/shifts/[id]         # Detalle
+GET  /api/shifts/[id]/summary # Resumen
 ```
 
 ## Dark Mode
 
-Todos los componentes usan tokens shadcn:
+Todos los componentes usan tokens de shadcn:
 
 - `bg-background` / `bg-card` / `bg-muted`
 - `text-foreground` / `text-muted-foreground`
 - `border-border`
 - `text-destructive` (no `text-red-600`)
 
-## Flujo de Datos
+## Principios de Calidad
 
-### Server (page.tsx)
+### TypeScript
 
-- Verifica autenticación
-- Carga lista de cajeros
-- Pasa datos a manager
+- ✅ Sin `any`
+- ✅ Sin `as` casts forzados
+- ✅ Sin `!` non-null assertions
+- ✅ Tipos explícitos en interfaces
+- ✅ Zod solo valida, no tipa retornos
 
-### Client (cortes-manager.tsx)
+### Arquitectura
 
-- Maneja estado (filtros, paginación, modales)
-- Coordina comunicación con API
-- Orquesta componentes hijos
+- ✅ Separación clara de responsabilidades
+- ✅ Domain sin referencias a UI
+- ✅ UI sin lógica de negocio
+- ✅ API client delgado
+- ✅ Single Source of Truth (backend types)
 
-### Presentational (cortes-lista.tsx)
+### Mantenibilidad
 
-- Muestra tabla de cortes
-- Delega acciones al manager
+- ✅ Fácil de leer
+- ✅ Fácil de razonar
+- ✅ Fácil de testear
+- ✅ Fácil de extender
 
-## Endpoints API
+## Ejemplos de Uso
 
+### Abrir un corte desde el manager
+
+```typescript
+const handleAbrirCorte = async (data: OpenShiftInput) => {
+  const resultado = await abrirCorte(data);
+
+  if (resultado.success) {
+    // Actualizar UI
+    await verificarActivo();
+    await cargarDatos();
+  } else {
+    // Mostrar error
+    setError(resultado.error);
+  }
+};
 ```
-GET  /api/shifts              # Lista de cortes con filtros
-GET  /api/shifts/active       # Corte activo del usuario
-POST /api/shifts              # Abrir nuevo corte
-POST /api/shifts/close        # Cerrar corte actual
-GET  /api/shifts/[id]         # Detalle de un corte
-GET  /api/shifts/[id]/summary # Resumen completo
+
+### Calcular diferencia en el modal de cierre
+
+```typescript
+const diferencia = resumen
+  ? calcularDiferencia(resumen, {
+      cashAmount: watchedValues.cashAmount,
+      debitCardAmount: watchedValues.debitCardAmount,
+      creditCardAmount: watchedValues.creditCardAmount,
+      totalWithdrawals: watchedValues.totalWithdrawals,
+    })
+  : 0;
 ```
-
-## Flujo de Usuario
-
-### Apertura de Corte
-
-1. Click en "Abrir Corte"
-2. Modal solicita fondo inicial
-3. Valida con `OpenShiftSchema`
-4. Crea registro de Shift en DB
-5. Actualiza estado, corte ahora "activo"
-
-### Cierre de Corte
-
-1. Click en "Cerrar Corte"
-2. Sistema calcula totales esperados
-3. Modal muestra arqueo (efectivo, tarjetas, retiros)
-4. Usuario confirma o ajusta montos
-5. Valida con `CloseShiftSchema`
-6. Sistema cierra Shift y calcula diferencia
-
-### Consulta Histórica
-
-1. Filtros por fecha, cajero, folio
-2. Paginación (10 items por página)
-3. Vista detallada al hacer clic
 
 ## Consideraciones Técnicas
 
@@ -124,15 +282,6 @@ GET  /api/shifts/[id]/summary # Resumen completo
 - Solo admins pueden cerrar cortes ajenos
 - Diferencias se marcan visualmente
 - Validación de montos positivos
-- Skeleton real durante carga
-
-## Schemas de Referencia
-
-```typescript
-// Backend schemas (FUENTE DE VERDAD)
-OpenShiftSchema; // POST /api/shifts
-CloseShiftSchema; // POST /api/shifts/close
-
-// Ubicados en:
-// @/types/api/shifts
-```
+- Skeleton refleja UI real
+- Estado local mínimo en componentes
+- Máximo reuso de funciones de dominio

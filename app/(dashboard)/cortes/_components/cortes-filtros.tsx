@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Search, X, Filter, Calendar } from "lucide-react";
 
-interface FiltrosCorte {
+export interface FiltrosCorte {
   busqueda: string;
   fechaInicio: string;
   fechaFin: string;
@@ -23,39 +23,35 @@ interface FiltrosCorte {
   ordenarPor: "fecha_desc" | "fecha_asc" | "folio_desc" | "folio_asc";
 }
 
+interface Cajero {
+  id: string;
+  name: string;
+}
+
 interface CortesFiltrosProps {
-  onFiltrar: (filtros: FiltrosCorte) => void;
-  cajeros: Array<{ id: string; name: string }>;
+  filtros: FiltrosCorte;
+  onFiltrosChange: (filtros: FiltrosCorte) => void;
+  onAplicarFiltros: () => void;
+  cajeros: Cajero[];
   loading: boolean;
 }
 
 export default function CortesFiltros({
-  onFiltrar,
+  filtros,
+  onFiltrosChange,
+  onAplicarFiltros,
   cajeros,
   loading,
 }: CortesFiltrosProps) {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  const [filtros, setFiltros] = useState<FiltrosCorte>({
-    busqueda: "",
-    fechaInicio: "",
-    fechaFin: "",
-    cajero: "todos",
-    estado: "todos",
-    ordenarPor: "fecha_desc",
-  });
 
   const handleChange = (key: keyof FiltrosCorte, value: string) => {
-    const nuevosFiltros = { ...filtros, [key]: value };
-    setFiltros(nuevosFiltros);
-  };
-
-  const aplicarFiltros = () => {
-    onFiltrar(filtros);
+    onFiltrosChange({ ...filtros, [key]: value });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      aplicarFiltros();
+      onAplicarFiltros();
     }
   };
 
@@ -68,8 +64,7 @@ export default function CortesFiltros({
       estado: "todos",
       ordenarPor: "fecha_desc",
     };
-    setFiltros(filtrosLimpios);
-    onFiltrar(filtrosLimpios);
+    onFiltrosChange(filtrosLimpios);
   };
 
   const establecerRangoFecha = (tipo: "hoy" | "semana" | "mes") => {
@@ -93,13 +88,11 @@ export default function CortesFiltros({
         break;
     }
 
-    const nuevosFiltros = {
+    onFiltrosChange({
       ...filtros,
       fechaInicio: inicio,
       fechaFin: fin,
-    };
-    setFiltros(nuevosFiltros);
-    onFiltrar(nuevosFiltros);
+    });
   };
 
   const hayFiltrosActivos =
@@ -133,7 +126,7 @@ export default function CortesFiltros({
               <span className="hidden sm:inline">Filtros</span>
             </Button>
             <Button
-              onClick={aplicarFiltros}
+              onClick={onAplicarFiltros}
               disabled={loading}
               className="gap-2 flex-1 sm:flex-initial sm:min-w-25"
             >

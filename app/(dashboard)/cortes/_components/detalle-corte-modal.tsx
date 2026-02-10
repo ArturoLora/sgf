@@ -5,52 +5,57 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, DollarSign, Receipt, AlertCircle } from "lucide-react";
-import type { CorteResponse } from "@/types/api/shifts";
+import type { CorteConVentasResponse } from "@/types/api/shifts";
+import { formatearFechaLarga } from "@/lib/domain/shifts";
+import {
+  tieneDiferenciaSignificativa,
+  tipoDiferencia,
+} from "@/lib/domain/shifts";
 
 interface DetalleCorteModalProps {
+  open: boolean;
   corteId: number;
   onClose: () => void;
+  onLoadDetalle: (corteId: number) => Promise<CorteConVentasResponse>;
 }
 
 export default function DetalleCorteModal({
+  open,
   corteId,
   onClose,
+  onLoadDetalle,
 }: DetalleCorteModalProps) {
-  const [corte, setCorte] = useState<CorteResponse | null>(null);
+  const [corte, setCorte] = useState<CorteConVentasResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const cargarDetalle = useCallback(async () => {
     try {
-      const res = await fetch(`/api/shifts/${corteId}`);
-      if (!res.ok) throw new Error("Error al cargar detalle");
-
-      const data = await res.json();
+      setLoading(true);
+      const data = await onLoadDetalle(corteId);
       setCorte(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
-  }, [corteId]);
+  }, [corteId, onLoadDetalle]);
 
   useEffect(() => {
-    cargarDetalle();
-  }, [cargarDetalle]);
+    if (open) {
+      cargarDetalle();
+    }
+  }, [open, cargarDetalle]);
 
-  const formatFecha = (fecha: string | Date) => {
-    return new Date(fecha).toLocaleString("es-MX", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const handleClose = () => {
+    setCorte(null);
+    setError("");
+    onClose();
   };
 
   if (loading) {
     return (
-      <Dialog open onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-3xl">
           <DialogTitle className="sr-only">Detalle del Corte</DialogTitle>
           <div className="flex items-center justify-center py-8">
@@ -63,12 +68,12 @@ export default function DetalleCorteModal({
 
   if (error || !corte) {
     return (
-      <Dialog open onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
           <DialogTitle className="sr-only">Detalle del Corte</DialogTitle>
           <div className="text-center py-8">
             <p className="text-destructive">{error || "Corte no encontrado"}</p>
-            <Button onClick={onClose} className="mt-4">
+            <Button onClick={handleClose} className="mt-4">
               Cerrar
             </Button>
           </div>
@@ -78,14 +83,13 @@ export default function DetalleCorteModal({
   }
 
   const estaCerrado = corte.status === "CLOSED";
-
-  const diferencia = corte.status === "CLOSED" ? Number(corte.difference) : 0;
-
+  const diferencia = estaCerrado ? Number(corte.difference) : 0;
   const tieneDiferencia =
-    corte.status === "CLOSED" && Math.abs(diferencia) > 0.01;
+    estaCerrado && tieneDiferenciaSignificativa(diferencia);
+  const tipo = tipoDiferencia(diferencia);
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className="sm:max-w-3xl max-h-[90vh] overflow-y-auto"
         showCloseButton={true}
@@ -126,14 +130,18 @@ export default function DetalleCorteModal({
               <p className="text-sm text-blue-700 dark:text-blue-400 font-medium mb-1">
                 Apertura
               </p>
-              <p className="text-sm">{formatFecha(corte.openingDate)}</p>
+              <p className="text-sm">
+                {formatearFechaLarga(corte.openingDate)}
+              </p>
             </div>
             {estaCerrado && corte.closingDate && (
               <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-4 border border-green-200 dark:border-green-900">
                 <p className="text-sm text-green-700 dark:text-green-400 font-medium mb-1">
                   Cierre
                 </p>
-                <p className="text-sm">{formatFecha(corte.closingDate)}</p>
+                <p className="text-sm">
+                  {formatearFechaLarga(corte.closingDate)}
+                </p>
               </div>
             )}
           </div>
@@ -147,23 +155,20 @@ export default function DetalleCorteModal({
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">Tickets</p>
                 <p className="text-lg font-bold">
-                  {corte.status === "CLOSED" ? corte.ticketCount : 0}
+                  {estaCerrado ? corte.ticketCount : 0}
                 </p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">Membresías</p>
                 <p className="text-lg font-bold">
-                  $
-                  {Number(
-                    corte.status === "CLOSED" ? corte.membershipSales : 0,
-                  ).toFixed(2)}
+                  ${Number(estaCerrado ? corte.membershipSales : 0).toFixed(2)}
                 </p>
               </div>
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">Productos</p>
                 <p className="text-lg font-bold">
                   $
-                  {(corte.status === "CLOSED"
+                  {(estaCerrado
                     ? Number(corte.productSales0Tax) +
                       Number(corte.productSales16Tax)
                     : 0
@@ -173,10 +178,7 @@ export default function DetalleCorteModal({
               <div className="bg-muted/50 rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground mb-1">IVA</p>
                 <p className="text-lg font-bold">
-                  $
-                  {(corte.status === "CLOSED" ? Number(corte.tax) : 0).toFixed(
-                    2,
-                  )}
+                  ${(estaCerrado ? Number(corte.tax) : 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -193,11 +195,7 @@ export default function DetalleCorteModal({
                   Efectivo
                 </p>
                 <p className="text-lg font-bold">
-                  $
-                  {(corte.status === "CLOSED"
-                    ? Number(corte.cashAmount)
-                    : 0
-                  ).toFixed(2)}
+                  ${(estaCerrado ? Number(corte.cashAmount) : 0).toFixed(2)}
                 </p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-900">
@@ -206,10 +204,7 @@ export default function DetalleCorteModal({
                 </p>
                 <p className="text-lg font-bold">
                   $
-                  {(corte.status === "CLOSED"
-                    ? Number(corte.debitCardAmount)
-                    : 0
-                  ).toFixed(2)}
+                  {(estaCerrado ? Number(corte.debitCardAmount) : 0).toFixed(2)}
                 </p>
               </div>
               <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-3 border border-purple-200 dark:border-purple-900">
@@ -218,10 +213,9 @@ export default function DetalleCorteModal({
                 </p>
                 <p className="text-lg font-bold">
                   $
-                  {(corte.status === "CLOSED"
-                    ? Number(corte.creditCardAmount)
-                    : 0
-                  ).toFixed(2)}
+                  {(estaCerrado ? Number(corte.creditCardAmount) : 0).toFixed(
+                    2,
+                  )}
                 </p>
               </div>
               <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 border border-orange-200 dark:border-orange-900">
@@ -229,11 +223,7 @@ export default function DetalleCorteModal({
                   Vouchers
                 </p>
                 <p className="text-lg font-bold">
-                  $
-                  {(corte.status === "CLOSED"
-                    ? Number(corte.totalVoucher)
-                    : 0
-                  ).toFixed(2)}
+                  ${(estaCerrado ? Number(corte.totalVoucher) : 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -305,7 +295,7 @@ export default function DetalleCorteModal({
           {tieneDiferencia && estaCerrado && (
             <div
               className={`rounded-lg p-4 border ${
-                diferencia > 0
+                tipo === "sobrante"
                   ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
                   : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
               }`}
@@ -313,18 +303,18 @@ export default function DetalleCorteModal({
               <div className="flex items-start gap-3">
                 <AlertCircle
                   className={`h-6 w-6 shrink-0 ${
-                    diferencia > 0
+                    tipo === "sobrante"
                       ? "text-green-600 dark:text-green-500"
                       : "text-red-600 dark:text-red-500"
                   }`}
                 />
                 <div className="flex-1">
                   <p className="font-semibold text-lg">
-                    {diferencia > 0 ? "Sobrante" : "Faltante"}: $
+                    {tipo === "sobrante" ? "Sobrante" : "Faltante"}: $
                     {Math.abs(diferencia).toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {diferencia > 0
+                    {tipo === "sobrante"
                       ? "El arqueo reportó más dinero del esperado"
                       : "El arqueo reportó menos dinero del esperado"}
                   </p>

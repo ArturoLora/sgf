@@ -16,48 +16,38 @@ import { DollarSign, Loader2 } from "lucide-react";
 import { OpenShiftSchema, type OpenShiftInput } from "@/types/api/shifts";
 
 interface AbrirCorteModalProps {
+  open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSubmit: (data: OpenShiftInput) => Promise<void>;
+  error?: string;
 }
 
 export default function AbrirCorteModal({
+  open,
   onClose,
-  onSuccess,
+  onSubmit,
+  error,
 }: AbrirCorteModalProps) {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
+    reset,
   } = useForm<OpenShiftInput>({
     resolver: zodResolver(OpenShiftSchema),
   });
 
-  const onSubmit = async (data: OpenShiftInput) => {
-    try {
-      const validated = OpenShiftSchema.parse(data);
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
 
-      const res = await fetch("/api/shifts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Error al abrir corte");
-      }
-
-      onSuccess();
-    } catch (err) {
-      setError("root", {
-        message: err instanceof Error ? err.message : "Error desconocido",
-      });
-    }
+  const handleFormSubmit = async (data: OpenShiftInput) => {
+    await onSubmit(data);
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -69,10 +59,10 @@ export default function AbrirCorteModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {errors.root && (
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+          {error && (
             <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-              {errors.root.message}
+              {error}
             </div>
           )}
 
@@ -107,7 +97,7 @@ export default function AbrirCorteModal({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="flex-1"
             >

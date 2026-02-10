@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function CortesSkeleton() {
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <Skeleton className="h-8 w-48 mb-2" />
@@ -14,6 +15,7 @@ export default function CortesSkeleton() {
         <Skeleton className="h-10 w-32" />
       </div>
 
+      {/* Estadísticas */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
@@ -30,6 +32,7 @@ export default function CortesSkeleton() {
         ))}
       </div>
 
+      {/* Filtros */}
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-3">
           <div className="flex gap-2">
@@ -45,6 +48,7 @@ export default function CortesSkeleton() {
         </CardContent>
       </Card>
 
+      {/* Lista */}
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-48" />

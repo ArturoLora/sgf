@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Calendar, ChevronLeft, ChevronRight, User } from "lucide-react";
 import type { CorteResponse } from "@/types/api/shifts";
+import { formatearFechaCorte } from "@/lib/domain/shifts";
+import { tieneDiferenciaSignificativa } from "@/lib/domain/shifts";
 
 interface CortesListaProps {
   cortes: CorteResponse[];
@@ -22,21 +24,6 @@ export default function CortesLista({
   onPageChange,
   onVerDetalle,
 }: CortesListaProps) {
-  const formatFecha = (fecha: string | Date) => {
-    return new Date(fecha).toLocaleString("es-MX", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const calcularDiferencia = (corte: CorteResponse) => {
-    if (corte.status !== "CLOSED") return null;
-    return Number(corte.difference);
-  };
-
   if (loading) {
     return (
       <p className="text-center text-muted-foreground py-8">Cargando...</p>
@@ -53,11 +40,10 @@ export default function CortesLista({
     <>
       <div className="space-y-3 sm:space-y-4">
         {cortes.map((corte) => {
-          const diferencia = calcularDiferencia(corte);
           const estaCerrado = corte.status === "CLOSED";
-
+          const diferencia = estaCerrado ? Number(corte.difference) : 0;
           const tieneDiferencia =
-            diferencia !== null && Math.abs(diferencia) > 0.01;
+            estaCerrado && tieneDiferenciaSignificativa(diferencia);
 
           return (
             <div
@@ -66,7 +52,7 @@ export default function CortesLista({
                 !estaCerrado
                   ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900"
                   : ""
-              } ${tieneDiferencia && estaCerrado ? "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900" : ""}`}
+              } ${tieneDiferencia ? "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900" : ""}`}
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
@@ -104,7 +90,7 @@ export default function CortesLista({
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3 w-3 shrink-0" />
                       <span className="truncate">
-                        Apertura: {formatFecha(corte.openingDate)}
+                        Apertura: {formatearFechaCorte(corte.openingDate)}
                       </span>
                     </div>
 
@@ -112,7 +98,7 @@ export default function CortesLista({
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3 shrink-0" />
                         <span className="truncate">
-                          Cierre: {formatFecha(corte.closingDate)}
+                          Cierre: {formatearFechaCorte(corte.closingDate)}
                         </span>
                       </div>
                     )}
@@ -122,9 +108,7 @@ export default function CortesLista({
                 <div className="text-left sm:text-right shrink-0">
                   <p className="text-xl sm:text-2xl font-bold">
                     $
-                    {corte.status === "CLOSED"
-                      ? Number(corte.totalSales).toFixed(2)
-                      : "0.00"}
+                    {estaCerrado ? Number(corte.totalSales).toFixed(2) : "0.00"}
                   </p>
                   <p className="text-xs sm:text-sm text-muted-foreground">
                     Fondo: ${Number(corte.initialCash).toFixed(2)}
@@ -132,13 +116,13 @@ export default function CortesLista({
                   {tieneDiferencia && (
                     <p
                       className={`text-xs sm:text-sm font-medium ${
-                        diferencia! > 0
+                        diferencia > 0
                           ? "text-green-600 dark:text-green-500"
                           : "text-red-600 dark:text-red-500"
                       }`}
                     >
-                      Dif: ${Math.abs(diferencia!).toFixed(2)}{" "}
-                      {diferencia! > 0 ? "↑" : "↓"}
+                      Dif: ${Math.abs(diferencia).toFixed(2)}{" "}
+                      {diferencia > 0 ? "↑" : "↓"}
                     </p>
                   )}
                 </div>
