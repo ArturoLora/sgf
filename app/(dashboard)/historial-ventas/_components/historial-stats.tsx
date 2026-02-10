@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { calculateHistorialStats } from "@/lib/domain/sales/history-calculations";
+import { calculateHistorialStats, formatCurrency } from "@/lib/domain/sales";
 import type { TicketVentaAgrupado } from "@/types/api/sales";
 
 interface HistorialStatsProps {
@@ -17,7 +17,7 @@ export function HistorialStats({ tickets }: HistorialStatsProps) {
       <Card>
         <CardContent className="pt-4 sm:pt-6">
           <div className="text-xl sm:text-2xl font-bold">
-            ${stats.totalValue.toFixed(2)}
+            ${formatCurrency(stats.totalValue)}
           </div>
           <p className="text-xs text-muted-foreground">Total en ventas</p>
         </CardContent>

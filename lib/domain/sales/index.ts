@@ -23,3 +23,18 @@ export {
 // History calculations
 export { calculateHistorialStats } from "./history-calculations";
 export type { HistorialStats } from "./history-calculations";
+
+// History formatting
+export {
+  formatDateMX,
+  formatPaymentMethod,
+  formatCurrency,
+} from "./history-formatting";
+
+// History pagination
+export {
+  isValidPage,
+  hasPreviousPage,
+  hasNextPage,
+  calculateTotalPages,
+} from "./history-pagination";

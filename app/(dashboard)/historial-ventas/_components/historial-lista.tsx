@@ -4,6 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Receipt, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import type { TicketVentaAgrupado } from "@/types/api/sales";
+import {
+  formatDateMX,
+  formatPaymentMethod,
+  formatCurrency,
+  hasPreviousPage,
+  hasNextPage,
+} from "@/lib/domain/sales";
 
 interface HistorialListaProps {
   tickets: TicketVentaAgrupado[];
@@ -20,22 +27,6 @@ export function HistorialLista({
   totalPages,
   onPageChange,
 }: HistorialListaProps) {
-  const formatDate = (date: Date | string) => {
-    const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toLocaleString("es-MX", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatPaymentMethod = (method?: string) => {
-    if (!method) return "";
-    return method.replace(/_/g, " ");
-  };
-
   if (loading) {
     return (
       <p className="text-center text-muted-foreground py-8">Cargando...</p>
@@ -47,6 +38,10 @@ export function HistorialLista({
       <p className="text-center text-muted-foreground py-8">Sin resultados</p>
     );
   }
+
+  const showPagination = totalPages > 1;
+  const canGoPrevious = hasPreviousPage(currentPage);
+  const canGoNext = hasNextPage(currentPage, totalPages);
 
   return (
     <>
@@ -80,7 +75,7 @@ export function HistorialLista({
 
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-1">
                   <Calendar className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{formatDate(ticket.date)}</span>
+                  <span className="truncate">{formatDateMX(ticket.date)}</span>
                 </div>
 
                 <div className="space-y-0.5 text-xs sm:text-sm text-muted-foreground">
@@ -114,7 +109,7 @@ export function HistorialLista({
               {/* Total - aligned right on desktop, full width on mobile */}
               <div className="text-left sm:text-right shrink-0">
                 <p className="text-xl sm:text-2xl font-bold">
-                  ${Number(ticket.total).toFixed(2)}
+                  ${formatCurrency(ticket.total)}
                 </p>
               </div>
             </div>
@@ -135,7 +130,7 @@ export function HistorialLista({
                     </span>
                   </span>
                   <span className="font-medium shrink-0">
-                    ${Number(item.total).toFixed(2)}
+                    ${formatCurrency(item.total)}
                   </span>
                 </div>
               ))}
@@ -145,7 +140,7 @@ export function HistorialLista({
       </div>
 
       {/* Pagination - responsive */}
-      {totalPages > 1 && (
+      {showPagination && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-border">
           <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
             Página {currentPage} de {totalPages}
@@ -154,7 +149,7 @@ export function HistorialLista({
             <Button
               size="sm"
               variant="outline"
-              disabled={currentPage === 1 || loading}
+              disabled={!canGoPrevious || loading}
               onClick={() => onPageChange(currentPage - 1)}
               className="flex-1 sm:flex-initial"
             >
@@ -165,7 +160,7 @@ export function HistorialLista({
             <Button
               size="sm"
               variant="outline"
-              disabled={currentPage === totalPages || loading}
+              disabled={!canGoNext || loading}
               onClick={() => onPageChange(currentPage + 1)}
               className="flex-1 sm:flex-initial"
             >
