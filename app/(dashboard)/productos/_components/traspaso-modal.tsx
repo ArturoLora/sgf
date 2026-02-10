@@ -1,4 +1,3 @@
-// app/(dashboard)/productos/_components/traspaso-modal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,8 +16,6 @@ import {
 } from "@/components/ui/select";
 import { X, Loader2 } from "lucide-react";
 import { CreateTransferInputSchema } from "@/types/api/inventory";
-import { fetchProductById } from "@/lib/api/products.client";
-import { validateTransfer } from "@/lib/domain/products";
 import type { ProductoResponse } from "@/types/api/products";
 import type { Ubicacion } from "@/types/models/movimiento-inventario";
 
@@ -55,26 +52,34 @@ export default function TraspasoModal({
     watch,
   } = useForm<TransferFormData>({
     resolver: zodResolver(CreateTransferInputSchema),
-    defaultValues: { productId, destination: "GYM", quantity: 0, notes: "" },
+    defaultValues: {
+      productId,
+      destination: "GYM",
+      quantity: 0,
+      notes: "",
+    },
   });
 
   const destination = watch("destination") as Ubicacion;
 
   useEffect(() => {
-    const load = async () => {
+    const fetchProduct = async () => {
       try {
-        const data = await fetchProductById(productId);
+        const response = await fetch(`/api/products/${productId}`);
+        if (!response.ok) throw new Error("Error al cargar producto");
+        const data: ProductoResponse = await response.json();
         setProduct(data);
       } catch (err) {
-        onError(
-          err instanceof Error ? err.message : "Error al cargar producto",
-        );
+        const message =
+          err instanceof Error ? err.message : "Error al cargar producto";
+        onError(message);
         onClose();
       } finally {
         setLoading(false);
       }
     };
-    load();
+
+    fetchProduct();
   }, [productId, onClose, onError]);
 
   const handleFromChange = (value: string) => {
@@ -88,10 +93,9 @@ export default function TraspasoModal({
 
     const availableStock =
       from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
-    const validation = validateTransfer(data.quantity, availableStock);
 
-    if (!validation.valid) {
-      onError(validation.error || "Validación falló");
+    if (data.quantity > availableStock) {
+      onError(`Stock insuficiente. Disponible: ${availableStock}`);
       return;
     }
 
@@ -102,17 +106,20 @@ export default function TraspasoModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+
       const result = await response.json();
-      if (!response.ok)
+
+      if (!response.ok) {
         throw new Error(result.error || "Error al realizar traspaso");
+      }
 
       onSuccess(
         `Traspaso realizado: ${data.quantity} unidades de ${product.name}`,
       );
     } catch (err) {
-      onError(
-        err instanceof Error ? err.message : "Error al realizar traspaso",
-      );
+      const message =
+        err instanceof Error ? err.message : "Error al realizar traspaso";
+      onError(message);
     } finally {
       setSubmitting(false);
     }

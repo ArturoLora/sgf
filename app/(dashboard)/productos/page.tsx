@@ -1,7 +1,5 @@
-// app/(dashboard)/productos/page.tsx
 import { requireAuth } from "@/lib/require-role";
 import { ProductsService } from "@/services";
-import { calculateProductStatistics } from "@/lib/domain/products";
 import ProductosManager from "./_components/productos-manager";
 import ProductosStats from "./_components/productos-stats";
 
@@ -9,7 +7,6 @@ export default async function ProductosPage() {
   await requireAuth();
 
   const products = await ProductsService.getAllProducts();
-  const stats = calculateProductStatistics(products);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -20,7 +17,7 @@ export default async function ProductosPage() {
         </p>
       </div>
 
-      <ProductosStats stats={stats} />
+      <ProductosStats products={products} />
       <ProductosManager initialProducts={products} />
     </div>
   );

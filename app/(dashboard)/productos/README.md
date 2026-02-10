@@ -1,265 +1,162 @@
-# Módulo de Productos - Arquitectura Limpia
+# Módulo Products
 
-## 📋 Descripción
+Gestión completa de productos del gimnasio con control de inventario.
 
-Módulo refactorizado siguiendo el patrón de arquitectura limpia establecido en ventas, cortes, historial-ventas e inventario.
+## Propósito
 
-## 🏗️ Estructura
+- CRUD de productos físicos y membresías
+- Gestión de stock (Gym / Bodega)
+- Operaciones de inventario (traspasos, ajustes, entradas)
+- Alertas de stock bajo
+- Vista detallada con historial de movimientos
 
-```
-app/(dashboard)/productos/
-├── _components/              # UI Components
-│   ├── productos-manager.tsx       # Orchestration
-│   ├── productos-stats.tsx         # Stats display
-│   ├── productos-tabla.tsx         # Table presentation
-│   ├── productos-filtros.tsx       # Filter controls
-│   ├── productos-skeleton.tsx      # Loading state
-│   ├── crear-producto-modal.tsx    # Create modal
-│   ├── editar-producto-modal.tsx   # Edit modal
-│   ├── detalle-producto-modal.tsx  # Detail modal
-│   ├── entrada-modal.tsx           # Entry modal
-│   ├── traspaso-modal.tsx          # Transfer modal
-│   └── ajuste-modal.tsx            # Adjustment modal
-├── page.tsx                  # Server component
-└── loading.tsx               # Loading wrapper
-
-lib/
-├── api/
-│   └── products.client.ts    # API client (pure fetch)
-└── domain/
-    └── products/
-        ├── index.ts          # Public exports
-        ├── calculations.ts   # Stock calculations
-        ├── filters.ts        # Filter logic
-        ├── validators.ts     # Validation rules
-        ├── formatters.ts     # Display formatting
-        ├── pagination.ts     # Pagination logic
-        └── statistics.ts     # Stats calculations
-
-types/api/
-└── products.ts               # Source of truth (backend)
-```
-
-## 🎯 Capas de Arquitectura
-
-### 1. Types Layer (`types/api/products.ts`)
-
-- **Propósito**: Fuente de verdad del backend
-- **Contiene**: Schemas Zod, tipos TypeScript
-- **Regla**: Solo lo que existe en el backend
-
-### 2. API Client Layer (`lib/api/products.client.ts`)
-
-- **Propósito**: Comunicación con API
-- **Características**:
-  - 1 función = 1 endpoint
-  - Solo fetch calls
-  - Sin loops ni lógica
-  - Manejo de errores básico
-
-### 3. Domain Layer (`lib/domain/products/`)
-
-- **Propósito**: Lógica de negocio pura
-- **Características**:
-  - Funciones puras
-  - Sin React
-  - Sin fetch
-  - 100% testeable
-
-#### Módulos Domain:
-
-**calculations.ts**
-
-- Cálculos de stock
-- Validaciones de cantidades
-- Análisis de déficit
-- Distribución de inventario
-
-**filters.ts**
-
-- Filtrado por búsqueda
-- Filtrado por estado
-- Ordenamiento
-- Aplicación combinada
-
-**validators.ts**
-
-- Validación de productos
-- Validación de stock
-- Validación de traspasos
-- Validación de ajustes
-
-**formatters.ts**
-
-- Formato de precios
-- Formato de estados
-- Mensajes de éxito/error
-- Labels de ubicación
-
-**pagination.ts**
-
-- Lógica de paginación
-- Cálculo de rangos
-- Navegación de páginas
-
-**statistics.ts**
-
-- Estadísticas generales
-- Análisis de stock
-- Análisis de valor
-- Top productos
-
-### 4. Container Layer (Manager)
-
-- **Propósito**: Orquestación
-- **Características**:
-  - Coordina flujo
-  - Usa domain + API
-  - No calcula
-  - No formatea
-
-### 5. Presentation Layer (UI Components)
-
-- **Propósito**: Solo presentación
-- **Características**:
-  - Recibe datos procesados
-  - No lógica de negocio
-  - Props tipados
-
-## 🔄 Flujo de Datos
+## Estructura
 
 ```
-Server (page.tsx)
-    ↓
-ProductsService.getAllProducts()
-    ↓
-calculateProductStatistics() [domain]
-    ↓
-ProductosManager (client orchestration)
-    ↓
-applyFilters() [domain]
-    ↓
-paginateProducts() [domain]
-    ↓
-ProductosTabla (presentation)
+productos/
+├── page.tsx                    # Server Component - composición
+├── loading.tsx                 # Loading state con skeleton
+├── _components/                # Client components
+│   ├── productos-skeleton.tsx
+│   ├── productos-manager.tsx   # Orquestación UI & estado
+│   ├── productos-stats.tsx     # Server - estadísticas
+│   ├── productos-filtros.tsx   # Filtros & búsqueda
+│   ├── productos-tabla.tsx     # Tabla responsive
+│   ├── crear-producto-modal.tsx
+│   ├── editar-producto-modal.tsx
+│   ├── detalle-producto-modal.tsx
+│   ├── traspaso-modal.tsx
+│   ├── ajuste-modal.tsx
+│   └── entrada-modal.tsx
+└── README.md
 ```
 
-## 📝 Convenciones
+## Flujo de datos
 
-### Naming
+### Server responsibilities
 
-- **Domain**: verbo + sustantivo (`calculateStockStatus`)
-- **API**: verbo + recurso (`fetchProducts`)
-- **Components**: sustantivo (`ProductosTabla`)
-- **Formatters**: `format` + tipo (`formatPrice`)
-- **Validators**: `validate` + tipo (`validateStockQuantity`)
+- `page.tsx`: Composición y fetch vía ProductsService
+- `productos-stats.tsx`: Calcula estadísticas (server-side)
+- `loading.tsx`: Skeleton durante carga
 
-### Types
+### Client responsibilities
 
-- ❌ `any`, `as`, `!`
-- ✅ Props tipados
-- ✅ Return types explícitos
-- ✅ Usar tipos del backend
+- `productos-manager.tsx`: Estado, filtros, paginación, modales
+- `productos-filtros.tsx`: UI de filtros
+- `productos-tabla.tsx`: Renderizado de tabla
+- `modals/*`: Operaciones (fetch a APIs)
 
-### Architecture
+## Stack técnico
 
-- ❌ Lógica en UI
-- ❌ Cálculos en API client
-- ❌ React en domain
-- ✅ Separación clara
-- ✅ Single responsibility
+### Formularios
 
-## 🧪 Testing
+- **react-hook-form**: Manejo de forms
+- **@hookform/resolvers/zod**: Validación con Zod
+- **Schemas backend**: Importados desde `types/api/products.ts`
 
-```typescript
-// Domain - fácil de testear
-describe("calculateStockStatus", () => {
-  it("should detect low stock", () => {
-    const result = calculateStockStatus(3, 5);
-    expect(result.isLow).toBe(true);
-  });
-});
+Todos los modals usan:
 
-// Validators - fácil de testear
-describe("validateStockQuantity", () => {
-  it("should reject negative quantities", () => {
-    const result = validateStockQuantity(-1, 10);
-    expect(result.valid).toBe(false);
-  });
+```tsx
+const {
+  register,
+  handleSubmit,
+  formState: { errors },
+} = useForm({
+  resolver: zodResolver(SchemaFromBackend),
 });
 ```
 
-## 🚀 Uso
+### Validación
 
-### Crear producto
+- NO schemas locales
+- NO helpers frontend
+- Toda validación de dominio viene desde `types/api/products.ts`
+- Schemas disponibles:
+  - `CreateProductInputSchema`
+  - `UpdateProductInputSchema`
+  - `InventoryEntryInputSchema`
+  - `InventoryTransferInputSchema`
+  - `InventoryAdjustmentInputSchema`
 
-```typescript
-import { createProduct } from "@/lib/api/products.client";
-import { validateProductData } from "@/lib/domain/products";
+### Dark Mode
 
-// Validar
-const validation = validateProductData(data);
-if (!validation.valid) {
-  // Mostrar errores
-  return;
-}
+- Tokens shadcn exclusivamente
+- `bg-background`, `text-foreground`, `text-muted-foreground`
+- `border-border`, `bg-muted`, `text-destructive`
+- NO colores hardcodeados
 
-// Crear
-const product = await createProduct(data);
-```
+### Loading States
 
-### Filtrar productos
+- `ProductosSkeleton` para carga inicial
+- `Loader2` en modals durante fetch
+- Estados disabled en forms durante submit
 
-```typescript
-import { applyFilters } from "@/lib/domain/products";
+## Patrón responsive
 
-const filtered = applyFilters(products, {
-  search: "proteína",
-  status: "activos",
-  orderBy: "name",
-  order: "asc",
-});
-```
+### Desktop (lg+)
 
-### Calcular estadísticas
+- Tabla completa con todas las columnas
+- Botones con texto
+- 4 cards de stats en grid
+- Filtros avanzados en 3 columnas
 
-```typescript
-import { calculateProductStatistics } from "@/lib/domain/products";
+### Tablet (sm-md)
 
-const stats = calculateProductStatistics(products);
-// { total, active, lowStock, inventoryValue, ... }
-```
+- Tabla con columnas principales
+- Botones compactos
+- 2 cards de stats por fila
+- Filtros en 2 columnas
 
-## ⚠️ Prohibido
+### Mobile (<sm)
 
-1. **No duplicar schemas** - Usar los del backend
-2. **No lógica en UI** - Mover a domain
-3. **No fetch en domain** - Usar API client
-4. **No cálculos en manager** - Usar domain
-5. **No any/as/!** - Tipar correctamente
+- Cards apiladas (no tabla)
+- Botones icon-only con tooltip
+- 2 cards de stats por fila
+- Filtros en 1 columna
+- Paginación simplificada
 
-## ✅ Checklist Cumplido
+## Decisiones importantes
 
-- [x] API client limpio (solo fetch)
-- [x] Domain layer completo
-  - [x] Calculations
-  - [x] Filters
-  - [x] Validators
-  - [x] Formatters
-  - [x] Pagination
-  - [x] Statistics
-- [x] Manager orquesta (no calcula)
-- [x] UI solo presenta
-- [x] Page.tsx usa domain
-- [x] Types del backend
-- [x] Sin any/as/!
-- [x] README completo
+1. **Server/Client split**: Data fetching en Server Component, UI interactiva en Client
+2. **No usar `use client` en stats**: Se calcula server-side
+3. **Filtros en memoria**: No requiere re-fetch, solo re-render
+4. **Paginación client-side**: Dataset pequeño, no justifica server pagination
+5. **Modales lazy**: Solo se montan cuando se abren
+6. **Dominio en inglés**: Backend usa nombres como `warehouseStock`, `salePrice`
+7. **UI en español**: Props como `onClose`, `mensaje`, `productId`
+8. **RHF + Zod**: Todos los forms con validación backend
+9. **TypeScript estricto**: No `any`, no `!`, no `eslint-disable`
+10. **Skeleton loading**: UX mejorada durante carga
 
-## 🔗 Referencias
+## Features
 
-Ver módulos similares para consistencia:
+- ✅ Búsqueda en tiempo real
+- ✅ Filtros múltiples (estado, ordenamiento)
+- ✅ Paginación
+- ✅ Alertas de stock bajo
+- ✅ CRUD completo con RHF + Zod
+- ✅ Operaciones de inventario (traspaso, ajuste, entrada)
+- ✅ Vista detallada con historial
+- ✅ Distinción membresías/productos físicos
+- ✅ Responsive completo
+- ✅ Dark mode support
+- ✅ Loading states
 
-- `app/(dashboard)/ventas`
-- `app/(dashboard)/cortes`
-- `app/(dashboard)/historial-ventas`
-- `lib/domain/inventory`
+## Hooks & Performance
+
+- `useMemo` para filtrado/ordenamiento
+- `useCallback` para handlers (con deps correctas)
+- `useForm` con `zodResolver` para validación
+- `useEffect` con deps array completo
+- No re-renders innecesarios
+
+## Errores comunes evitados
+
+- ❌ Schemas locales duplicados
+- ❌ Validación manual en frontend
+- ❌ Colores hardcodeados
+- ❌ `any` types
+- ❌ Non-null assertions
+- ❌ Lógica de dominio en page.tsx
+- ❌ Variables no usadas
+- ❌ Deps incorrectas en hooks

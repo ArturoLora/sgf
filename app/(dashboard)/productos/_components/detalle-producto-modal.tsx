@@ -1,4 +1,3 @@
-// app/(dashboard)/productos/_components/detalle-producto-modal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,14 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Loader2, Edit, ArrowLeftRight, Plus, Package } from "lucide-react";
-import { fetchProductById } from "@/lib/api/products.client";
-import type { ProductoConMovimientosResponse } from "@/types/api/products";
-import {
-  formatStockWarning,
-  isMembershipProduct,
-  getMovementTypeLabel,
-  formatMovementDescription,
-} from "@/lib/domain/products";
+import type { ProductoResponse } from "@/types/api/products";
+
+interface InventoryMovement {
+  id: number;
+  type: string;
+  quantity: number;
+  location?: string;
+  from?: string;
+  to?: string;
+  notes?: string;
+  createdAt: string;
+  createdBy?: {
+    name: string;
+  };
+}
 
 interface DetalleProductoModalProps {
   productId: number;
@@ -33,15 +39,26 @@ export default function DetalleProductoModal({
   onEntry,
 }: DetalleProductoModalProps) {
   const [loading, setLoading] = useState(true);
-  const [product, setProduct] = useState<ProductoConMovimientosResponse | null>(
-    null,
-  );
+  const [product, setProduct] = useState<ProductoResponse | null>(null);
+  const [movements, setMovements] = useState<InventoryMovement[]>([]);
 
   useEffect(() => {
-    const loadData = async () => {
+    const fetchData = async () => {
       try {
-        const data = await fetchProductById(productId);
-        setProduct(data);
+        const [productRes, movementsRes] = await Promise.all([
+          fetch(`/api/products/${productId}`),
+          fetch(`/api/inventory/movements?productId=${productId}`),
+        ]);
+
+        if (!productRes.ok) throw new Error("Error al cargar producto");
+
+        const productData: ProductoResponse = await productRes.json();
+        setProduct(productData);
+
+        if (movementsRes.ok) {
+          const movementsData: InventoryMovement[] = await movementsRes.json();
+          setMovements(movementsData);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -49,7 +66,7 @@ export default function DetalleProductoModal({
       }
     };
 
-    loadData();
+    fetchData();
   }, [productId]);
 
   if (loading) {
@@ -66,9 +83,48 @@ export default function DetalleProductoModal({
 
   if (!product) return null;
 
-  const isMembership = isMembershipProduct(product);
+  const isMembership =
+    product.name.includes("EFECTIVO") ||
+    product.name === "VISITA" ||
+    product.name.includes("MENSUALIDAD") ||
+    product.name.includes("SEMANA");
+
   const totalStock = product.warehouseStock + product.gymStock;
-  const stockWarning = formatStockWarning(product);
+  const isLowStock = !isMembership && totalStock < product.minStock;
+
+  const getMovementIcon = (type: string) => {
+    switch (type) {
+      case "ENTRY":
+        return (
+          <Package className="h-4 w-4 text-green-600 dark:text-green-400" />
+        );
+      case "TRANSFER":
+        return (
+          <ArrowLeftRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        );
+      case "ADJUSTMENT":
+        return (
+          <Plus className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+        );
+      default:
+        return <Package className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getMovementLabel = (movement: InventoryMovement) => {
+    switch (movement.type) {
+      case "ENTRY":
+        return `Entrada en ${movement.location === "WAREHOUSE" ? "Bodega" : "Gym"}`;
+      case "TRANSFER":
+        return `Traspaso: ${movement.from === "WAREHOUSE" ? "Bodega" : "Gym"} → ${
+          movement.to === "WAREHOUSE" ? "Bodega" : "Gym"
+        }`;
+      case "ADJUSTMENT":
+        return "Ajuste de inventario";
+      default:
+        return "Movimiento";
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -85,6 +141,7 @@ export default function DetalleProductoModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
+          {/* Product Info */}
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -104,16 +161,16 @@ export default function DetalleProductoModal({
                 )}
               </div>
               <p className="text-xl sm:text-2xl font-bold">
-                ${product.salePrice.toFixed(2)}
+                ${Number(product.salePrice).toFixed(2)}
               </p>
             </div>
 
             {!isMembership && (
               <>
-                {stockWarning && (
+                {isLowStock && (
                   <div className="p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
                     <p className="text-sm text-orange-800 dark:text-orange-300 font-medium">
-                      {stockWarning}
+                      ⚠️ Stock bajo mínimo ({product.minStock} unidades)
                     </p>
                   </div>
                 )}
@@ -148,6 +205,7 @@ export default function DetalleProductoModal({
             )}
           </div>
 
+          {/* Actions */}
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => onEdit(product.id)}
@@ -191,31 +249,35 @@ export default function DetalleProductoModal({
             )}
           </div>
 
+          {/* Movement History */}
           {!isMembership && (
             <div className="space-y-3">
               <h4 className="font-semibold text-sm sm:text-base">
                 Historial de Movimientos
               </h4>
 
-              {product.inventoryMovements.length === 0 ? (
+              {movements.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No hay movimientos registrados
                 </p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {product.inventoryMovements.map((movement) => (
+                  {movements.map((movement) => (
                     <div
                       key={movement.id}
                       className="p-3 border rounded-lg hover:bg-muted transition-colors"
                     >
                       <div className="flex items-start gap-3">
+                        <div className="mt-0.5">
+                          {getMovementIcon(movement.type)}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                             <p className="font-medium text-sm">
-                              {formatMovementDescription(movement)}
+                              {getMovementLabel(movement)}
                             </p>
                             <p className="text-xs text-muted-foreground shrink-0">
-                              {new Date(movement.date).toLocaleDateString(
+                              {new Date(movement.createdAt).toLocaleDateString(
                                 "es-MX",
                                 {
                                   day: "2-digit",
@@ -239,9 +301,11 @@ export default function DetalleProductoModal({
                               {movement.notes}
                             </p>
                           )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Por: {movement.user.name}
-                          </p>
+                          {movement.createdBy && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Por: {movement.createdBy.name}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
