@@ -10,96 +10,55 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Phone, Mail, Calendar, CreditCard, TrendingUp, X } from "lucide-react";
 import type { SocioResponse } from "@/types/api/members";
+import {
+  formatearFecha,
+  formatearFechaHora,
+  obtenerLabelMembresia,
+  obtenerEstadoVigencia,
+  calcularEdad,
+} from "@/lib/domain/members";
 
 interface DetalleSocioModalProps {
   member: SocioResponse | null;
   onClose: () => void;
 }
 
-const TIPOS_MEMBRESIA: Record<string, string> = {
-  VISIT: "Visita",
-  WEEK: "Semana",
-  MONTH_STUDENT: "Mes Estudiante",
-  MONTH_GENERAL: "Mes General",
-  QUARTER_STUDENT: "Trimestre Estudiante",
-  QUARTER_GENERAL: "Trimestre General",
-  ANNUAL_STUDENT: "Anual Estudiante",
-  ANNUAL_GENERAL: "Anual General",
-  PROMOTION: "Promoción",
-  REBIRTH: "Renacer",
-  NUTRITION_CONSULTATION: "Consulta Nutrición",
-};
+function VigenciaDetalleBadge({
+  endDate,
+}: {
+  endDate: SocioResponse["endDate"];
+}) {
+  const estado = obtenerEstadoVigencia(endDate);
 
-export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
-  if (!member) return null;
-
-  const formatDate = (date: string | Date | null | undefined) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString("es-MX", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const formatDateTime = (date: string | Date) => {
-    return new Date(date).toLocaleString("es-MX", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getVigenciaBadge = () => {
-    if (!member.endDate) {
+  switch (estado) {
+    case "vigente":
+      return (
+        <Badge className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+          Vigente hasta {formatearFecha(endDate)}
+        </Badge>
+      );
+    case "vencida":
+      return (
+        <Badge
+          variant="destructive"
+          className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
+        >
+          Vencida desde {formatearFecha(endDate)}
+        </Badge>
+      );
+    default:
       return (
         <Badge variant="outline" className="bg-muted">
           Sin membresía
         </Badge>
       );
-    }
+  }
+}
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const end =
-      typeof member.endDate === "string"
-        ? new Date(member.endDate)
-        : member.endDate;
+export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
+  if (!member) return null;
 
-    if (end >= today) {
-      return (
-        <Badge className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
-          Vigente hasta {formatDate(member.endDate)}
-        </Badge>
-      );
-    }
-
-    return (
-      <Badge
-        variant="destructive"
-        className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
-      >
-        Vencida desde {formatDate(member.endDate)}
-      </Badge>
-    );
-  };
-
-  const calcularEdad = () => {
-    if (!member.birthDate) return null;
-    const hoy = new Date();
-    const nacimiento =
-      typeof member.birthDate === "string"
-        ? new Date(member.birthDate)
-        : member.birthDate;
-    let edad = hoy.getFullYear() - nacimiento.getFullYear();
-    const mes = hoy.getMonth() - nacimiento.getMonth();
-    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
-      edad--;
-    }
-    return edad;
-  };
+  const edad = member.birthDate ? calcularEdad(member.birthDate) : null;
 
   return (
     <Dialog open={!!member} onOpenChange={onClose}>
@@ -108,7 +67,7 @@ export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
               <DialogTitle className="text-xl sm:text-2xl mb-2">
-                {member.name || "Sin nombre"}
+                {member.name ?? "Sin nombre"}
               </DialogTitle>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="font-mono">
@@ -153,8 +112,8 @@ export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span>
-                    {formatDate(member.birthDate)}
-                    {calcularEdad() && ` (${calcularEdad()} años)`}
+                    {formatearFecha(member.birthDate)}
+                    {edad !== null && ` (${edad} años)`}
                   </span>
                 </div>
               )}
@@ -172,8 +131,7 @@ export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium">
                     {member.membershipType
-                      ? TIPOS_MEMBRESIA[member.membershipType] ||
-                        member.membershipType
+                      ? obtenerLabelMembresia(member.membershipType)
                       : "Sin membresía activa"}
                   </p>
                   {member.membershipDescription && (
@@ -184,13 +142,15 @@ export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
                 </div>
               </div>
 
-              <div className="pl-7">{getVigenciaBadge()}</div>
+              <div className="pl-7">
+                <VigenciaDetalleBadge endDate={member.endDate} />
+              </div>
 
               {member.startDate && (
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-sm">
-                    Inicio: {formatDate(member.startDate)}
+                    Inicio: {formatearFecha(member.startDate)}
                   </span>
                 </div>
               )}
@@ -219,7 +179,7 @@ export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-sm">
-                    Última visita: {formatDateTime(member.lastVisit)}
+                    Última visita: {formatearFechaHora(member.lastVisit)}
                   </span>
                 </div>
               )}
@@ -234,11 +194,11 @@ export function DetalleSocioModal({ member, onClose }: DetalleSocioModalProps) {
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
                 <span className="font-medium">Creado:</span>{" "}
-                {formatDateTime(member.createdAt)}
+                {formatearFechaHora(member.createdAt)}
               </p>
               <p>
                 <span className="font-medium">Última actualización:</span>{" "}
-                {formatDateTime(member.updatedAt)}
+                {formatearFechaHora(member.updatedAt)}
               </p>
             </div>
           </div>

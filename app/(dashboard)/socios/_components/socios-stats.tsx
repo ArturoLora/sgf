@@ -4,42 +4,14 @@ import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, UserCheck, UserX, TrendingUp } from "lucide-react";
 import type { SocioResponse } from "@/types/api/members";
+import { calcularEstadisticas } from "@/lib/domain/members";
 
 interface SociosStatsProps {
   members: SocioResponse[];
 }
 
 export function SociosStats({ members }: SociosStatsProps) {
-  const stats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const activos = members.filter((m) => m.isActive).length;
-
-    const conMembresia = members.filter((m) => {
-      if (!m.endDate) return false;
-      const endDate =
-        typeof m.endDate === "string" ? new Date(m.endDate) : m.endDate;
-      return endDate >= today;
-    }).length;
-
-    const vencidos = members.filter((m) => {
-      if (!m.endDate) return false;
-      const endDate =
-        typeof m.endDate === "string" ? new Date(m.endDate) : m.endDate;
-      return endDate < today;
-    }).length;
-
-    const totalVisitas = members.reduce((sum, m) => sum + m.totalVisits, 0);
-
-    return {
-      total: members.length,
-      activos,
-      conMembresia,
-      vencidos,
-      totalVisitas,
-    };
-  }, [members]);
+  const stats = useMemo(() => calcularEstadisticas(members), [members]);
 
   return (
     <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">

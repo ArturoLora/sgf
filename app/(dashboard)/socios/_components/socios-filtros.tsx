@@ -13,44 +13,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
-
-export interface SociosFiltros {
-  busqueda: string;
-  estado: "todos" | "activos" | "inactivos";
-  vigencia: "todos" | "vigentes" | "vencidos" | "sin_membresia";
-  tipoMembresia: string;
-  ordenarPor: "numero" | "nombre" | "fecha_registro" | "visitas";
-  orden: "asc" | "desc";
-}
+import {
+  type SociosFiltros,
+  FILTROS_INICIALES,
+  TIPOS_MEMBRESIA,
+} from "@/lib/domain/members";
+import { hayFiltrosActivos } from "@/lib/domain/members";
 
 interface SociosFiltrosProps {
   onFiltrar: (filtros: SociosFiltros) => void;
 }
 
-const TIPOS_MEMBRESIA = [
-  { value: "VISIT", label: "Visita" },
-  { value: "WEEK", label: "Semana" },
-  { value: "MONTH_STUDENT", label: "Mes Estudiante" },
-  { value: "MONTH_GENERAL", label: "Mes General" },
-  { value: "QUARTER_STUDENT", label: "Trimestre Estudiante" },
-  { value: "QUARTER_GENERAL", label: "Trimestre General" },
-  { value: "ANNUAL_STUDENT", label: "Anual Estudiante" },
-  { value: "ANNUAL_GENERAL", label: "Anual General" },
-  { value: "PROMOTION", label: "Promoción" },
-  { value: "REBIRTH", label: "Renacer" },
-  { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición" },
-];
-
 export function SociosFiltrosComponent({ onFiltrar }: SociosFiltrosProps) {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  const [filtros, setFiltros] = useState<SociosFiltros>({
-    busqueda: "",
-    estado: "activos",
-    vigencia: "todos",
-    tipoMembresia: "todos",
-    ordenarPor: "numero",
-    orden: "asc",
-  });
+  const [filtros, setFiltros] = useState<SociosFiltros>(FILTROS_INICIALES);
 
   const handleChange = (key: keyof SociosFiltros, value: string) => {
     const nuevosFiltros = { ...filtros, [key]: value };
@@ -59,23 +35,11 @@ export function SociosFiltrosComponent({ onFiltrar }: SociosFiltrosProps) {
   };
 
   const limpiarFiltros = () => {
-    const filtrosLimpios: SociosFiltros = {
-      busqueda: "",
-      estado: "activos",
-      vigencia: "todos",
-      tipoMembresia: "todos",
-      ordenarPor: "numero",
-      orden: "asc",
-    };
-    setFiltros(filtrosLimpios);
-    onFiltrar(filtrosLimpios);
+    setFiltros(FILTROS_INICIALES);
+    onFiltrar(FILTROS_INICIALES);
   };
 
-  const hayFiltrosActivos =
-    filtros.busqueda ||
-    filtros.estado !== "activos" ||
-    filtros.vigencia !== "todos" ||
-    filtros.tipoMembresia !== "todos";
+  const activos = hayFiltrosActivos(filtros);
 
   return (
     <Card>
@@ -100,7 +64,7 @@ export function SociosFiltrosComponent({ onFiltrar }: SociosFiltrosProps) {
               <Filter className="h-4 w-4" />
               <span className="hidden sm:inline">Filtros</span>
             </Button>
-            {hayFiltrosActivos && (
+            {activos && (
               <Button
                 variant="ghost"
                 onClick={limpiarFiltros}
@@ -113,7 +77,7 @@ export function SociosFiltrosComponent({ onFiltrar }: SociosFiltrosProps) {
           </div>
         </div>
 
-        {/* Filtros rápidos - mobile stacked */}
+        {/* Filtros rápidos */}
         <div className="flex flex-wrap gap-2">
           <Button
             variant={filtros.estado === "activos" ? "default" : "outline"}
@@ -139,7 +103,7 @@ export function SociosFiltrosComponent({ onFiltrar }: SociosFiltrosProps) {
           >
             Vencidos
           </Button>
-          {hayFiltrosActivos && (
+          {activos && (
             <Button
               variant="ghost"
               size="sm"

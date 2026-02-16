@@ -24,26 +24,20 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Calendar, AlertCircle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import type { SocioResponse } from "@/types/api/members";
+import {
+  TIPOS_MEMBRESIA,
+  obtenerLabelMembresia,
+  formatearFecha,
+  calcularFechaFinRenovacion,
+} from "@/lib/domain/members";
+import { buildRenovarMembresiaPayload } from "@/lib/domain/members";
+import { renewMembership } from "@/lib/api/members.client";
 
 interface RenovarMembresiaModalProps {
   member: SocioResponse | null;
   onClose: () => void;
   onSuccess: () => void;
 }
-
-const TIPOS_MEMBRESIA = [
-  { value: "VISIT", label: "Visita", dias: 1 },
-  { value: "WEEK", label: "Semana", dias: 7 },
-  { value: "MONTH_STUDENT", label: "Mes Estudiante", dias: 30 },
-  { value: "MONTH_GENERAL", label: "Mes General", dias: 30 },
-  { value: "QUARTER_STUDENT", label: "Trimestre Estudiante", dias: 90 },
-  { value: "QUARTER_GENERAL", label: "Trimestre General", dias: 90 },
-  { value: "ANNUAL_STUDENT", label: "Anual Estudiante", dias: 365 },
-  { value: "ANNUAL_GENERAL", label: "Anual General", dias: 365 },
-  { value: "PROMOTION", label: "Promoción", dias: 30 },
-  { value: "REBIRTH", label: "Renacer", dias: 30 },
-  { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición", dias: 1 },
-];
 
 export function RenovarMembresiaModal({
   member,
@@ -52,49 +46,28 @@ export function RenovarMembresiaModal({
 }: RenovarMembresiaModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [nuevaFechaFin, setNuevaFechaFin] = useState<string>("");
+  const [nuevaFechaFin, setNuevaFechaFin] = useState("");
 
   const { handleSubmit, setValue, watch, reset } = useForm<RenewMemberInputRaw>(
     {
       resolver: zodResolver(RenewMemberInputSchema),
       defaultValues: {
-        memberId: member?.id || 0,
-        membershipType: member?.membershipType || "",
+        memberId: member?.id ?? 0,
+        membershipType: member?.membershipType ?? "",
       },
     },
   );
 
   const membershipType = watch("membershipType");
 
-  const calcularNuevaFecha = useCallback(
+  const actualizarFechaPreview = useCallback(
     (tipo: string) => {
-      const tipoInfo = TIPOS_MEMBRESIA.find((t) => t.value === tipo);
-      if (!tipoInfo) return;
-
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-
-      let fechaInicio = hoy;
-      if (member?.endDate) {
-        const fechaFinActual =
-          typeof member.endDate === "string"
-            ? new Date(member.endDate)
-            : member.endDate;
-        if (fechaFinActual >= hoy) {
-          fechaInicio = fechaFinActual;
-        }
+      const fecha = calcularFechaFinRenovacion(tipo, member?.endDate);
+      if (fecha) {
+        setNuevaFechaFin(formatearFecha(fecha));
+      } else {
+        setNuevaFechaFin("");
       }
-
-      const fechaFin = new Date(fechaInicio);
-      fechaFin.setDate(fechaFin.getDate() + tipoInfo.dias);
-
-      setNuevaFechaFin(
-        fechaFin.toLocaleDateString("es-MX", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        }),
-      );
     },
     [member?.endDate],
   );
@@ -102,16 +75,16 @@ export function RenovarMembresiaModal({
   useEffect(() => {
     if (member) {
       setValue("memberId", member.id);
-      setValue("membershipType", member.membershipType || "");
+      setValue("membershipType", member.membershipType ?? "");
       if (member.membershipType) {
-        calcularNuevaFecha(member.membershipType);
+        actualizarFechaPreview(member.membershipType);
       }
     }
-  }, [member, setValue, calcularNuevaFecha]);
+  }, [member, setValue, actualizarFechaPreview]);
 
   const handleTipoChange = (tipo: string) => {
     setValue("membershipType", tipo);
-    calcularNuevaFecha(tipo);
+    actualizarFechaPreview(tipo);
     setError("");
   };
 
@@ -121,29 +94,17 @@ export function RenovarMembresiaModal({
     setLoading(true);
     setError("");
 
-    try {
-      const res = await fetch("/api/members/renew", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          memberId: data.memberId,
-          membershipType: data.membershipType,
-          membershipDescription: data.membershipDescription,
-        }),
-      });
+    const payload = buildRenovarMembresiaPayload(data);
+    const result = await renewMembership(payload);
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Error al renovar membresía");
-      }
-
+    if (result.ok) {
       onSuccess();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error);
     }
+
+    setLoading(false);
   };
 
   const handleClose = () => {
@@ -155,11 +116,14 @@ export function RenovarMembresiaModal({
 
   if (!member) return null;
 
-  const esVencida =
-    member.endDate &&
-    (typeof member.endDate === "string"
-      ? new Date(member.endDate) < new Date()
-      : member.endDate < new Date());
+  const esVencida = (() => {
+    if (!member.endDate) return false;
+    const end =
+      typeof member.endDate === "string"
+        ? new Date(member.endDate)
+        : member.endDate;
+    return end < new Date();
+  })();
 
   return (
     <Dialog open={!!member} onOpenChange={handleClose}>
@@ -167,7 +131,7 @@ export function RenovarMembresiaModal({
         <DialogHeader>
           <DialogTitle>Renovar Membresía</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            {member.name || member.memberNumber}
+            {member.name ?? member.memberNumber}
           </p>
         </DialogHeader>
 
@@ -188,9 +152,7 @@ export function RenovarMembresiaModal({
                 </span>
                 <Badge variant={esVencida ? "destructive" : "default"}>
                   {member.membershipType
-                    ? TIPOS_MEMBRESIA.find(
-                        (t) => t.value === member.membershipType,
-                      )?.label || member.membershipType
+                    ? obtenerLabelMembresia(member.membershipType)
                     : "Sin membresía"}
                 </Badge>
               </div>
@@ -213,7 +175,7 @@ export function RenovarMembresiaModal({
                 Nuevo Tipo de Membresía <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={membershipType || ""}
+                value={membershipType ?? ""}
                 onValueChange={handleTipoChange}
               >
                 <SelectTrigger>

@@ -13,6 +13,11 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { SocioResponse } from "@/types/api/members";
+import {
+  formatearFechaCorta,
+  obtenerLabelMembresia,
+  obtenerEstadoVigencia,
+} from "@/lib/domain/members";
 
 interface SociosListaProps {
   members: SocioResponse[];
@@ -25,6 +30,34 @@ interface SociosListaProps {
   onRenovar: (member: SocioResponse) => void;
 }
 
+function VigenciaBadge({ endDate }: { endDate: SocioResponse["endDate"] }) {
+  const estado = obtenerEstadoVigencia(endDate);
+
+  switch (estado) {
+    case "vigente":
+      return (
+        <Badge className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+          Vigente
+        </Badge>
+      );
+    case "vencida":
+      return (
+        <Badge
+          variant="destructive"
+          className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
+        >
+          Vencida
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="outline" className="bg-muted">
+          Sin membresía
+        </Badge>
+      );
+  }
+}
+
 export function SociosLista({
   members,
   loading,
@@ -35,66 +68,6 @@ export function SociosLista({
   onEditar,
   onRenovar,
 }: SociosListaProps) {
-  const formatDate = (date: string | Date | null | undefined) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString("es-MX", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const getVigenciaBadge = (endDate: string | Date | null | undefined) => {
-    if (!endDate) {
-      return (
-        <Badge variant="outline" className="bg-muted">
-          Sin membresía
-        </Badge>
-      );
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const end = typeof endDate === "string" ? new Date(endDate) : endDate;
-
-    if (end >= today) {
-      return (
-        <Badge className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
-          Vigente
-        </Badge>
-      );
-    }
-
-    return (
-      <Badge
-        variant="destructive"
-        className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
-      >
-        Vencida
-      </Badge>
-    );
-  };
-
-  const getTipoMembresiaLabel = (type: string | null) => {
-    if (!type) return "-";
-
-    const labels: Record<string, string> = {
-      VISIT: "Visita",
-      WEEK: "Semana",
-      MONTH_STUDENT: "Mes Estudiante",
-      MONTH_GENERAL: "Mes General",
-      QUARTER_STUDENT: "Trimestre Estudiante",
-      QUARTER_GENERAL: "Trimestre General",
-      ANNUAL_STUDENT: "Anual Estudiante",
-      ANNUAL_GENERAL: "Anual General",
-      PROMOTION: "Promoción",
-      REBIRTH: "Renacer",
-      NUTRITION_CONSULTATION: "Consulta Nutrición",
-    };
-
-    return labels[type] || type;
-  };
-
   if (loading) {
     return (
       <p className="text-center text-muted-foreground py-8">Cargando...</p>
@@ -126,10 +99,10 @@ export function SociosLista({
                   <strong className="text-sm truncate">
                     #{member.memberNumber}
                   </strong>
-                  {getVigenciaBadge(member.endDate)}
+                  <VigenciaBadge endDate={member.endDate} />
                 </div>
                 <p className="font-medium truncate">
-                  {member.name || "Sin nombre"}
+                  {member.name ?? "Sin nombre"}
                 </p>
               </div>
             </div>
@@ -153,7 +126,7 @@ export function SociosLista({
               </div>
               {member.membershipType && (
                 <p className="text-muted-foreground">
-                  {getTipoMembresiaLabel(member.membershipType)}
+                  {obtenerLabelMembresia(member.membershipType)}
                 </p>
               )}
             </div>
@@ -224,10 +197,10 @@ export function SociosLista({
                   </span>
                 </td>
                 <td className="p-3">
-                  <p className="font-medium">{member.name || "Sin nombre"}</p>
+                  <p className="font-medium">{member.name ?? "Sin nombre"}</p>
                   {member.birthDate && (
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(member.birthDate)}
+                      {formatearFechaCorta(member.birthDate)}
                     </p>
                   )}
                 </td>
@@ -247,23 +220,22 @@ export function SociosLista({
                 </td>
                 <td className="p-3">
                   <p className="text-sm font-medium">
-                    {getTipoMembresiaLabel(member.membershipType ?? null)}
+                    {obtenerLabelMembresia(member.membershipType)}
                   </p>
-
                   {member.endDate && (
                     <p className="text-xs text-muted-foreground">
-                      Vence: {formatDate(member.endDate)}
+                      Vence: {formatearFechaCorta(member.endDate)}
                     </p>
                   )}
                 </td>
                 <td className="p-3 text-center">
-                  {getVigenciaBadge(member.endDate)}
+                  <VigenciaBadge endDate={member.endDate} />
                 </td>
                 <td className="p-3 text-center">
                   <span className="font-semibold">{member.totalVisits}</span>
                   {member.lastVisit && (
                     <p className="text-xs text-muted-foreground">
-                      Última: {formatDate(member.lastVisit)}
+                      Última: {formatearFechaCorta(member.lastVisit)}
                     </p>
                   )}
                 </td>

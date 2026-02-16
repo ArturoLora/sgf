@@ -15,7 +15,7 @@ export function SociosSkeleton() {
 
       {/* Stats Cards */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="pt-4 sm:pt-6">
               <div className="flex items-center gap-2 sm:gap-3">
@@ -55,7 +55,7 @@ export function SociosSkeleton() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
+            {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
                 className="flex items-center gap-4 p-4 border rounded-lg"

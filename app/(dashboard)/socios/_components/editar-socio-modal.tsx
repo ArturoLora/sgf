@@ -24,26 +24,16 @@ import {
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { SocioResponse } from "@/types/api/members";
+import { TIPOS_MEMBRESIA } from "@/lib/domain/members";
+import { formatearFechaISO } from "@/lib/domain/members";
+import { buildActualizarSocioPayload } from "@/lib/domain/members";
+import { updateMember } from "@/lib/api/members.client";
 
 interface EditarSocioModalProps {
   member: SocioResponse | null;
   onClose: () => void;
   onSuccess: () => void;
 }
-
-const TIPOS_MEMBRESIA = [
-  { value: "VISIT", label: "Visita" },
-  { value: "WEEK", label: "Semana" },
-  { value: "MONTH_STUDENT", label: "Mes Estudiante" },
-  { value: "MONTH_GENERAL", label: "Mes General" },
-  { value: "QUARTER_STUDENT", label: "Trimestre Estudiante" },
-  { value: "QUARTER_GENERAL", label: "Trimestre General" },
-  { value: "ANNUAL_STUDENT", label: "Anual Estudiante" },
-  { value: "ANNUAL_GENERAL", label: "Anual General" },
-  { value: "PROMOTION", label: "Promoción" },
-  { value: "REBIRTH", label: "Renacer" },
-  { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición" },
-];
 
 export function EditarSocioModal({
   member,
@@ -70,26 +60,14 @@ export function EditarSocioModal({
   useEffect(() => {
     if (member) {
       reset({
-        name: member.name || "",
-        phone: member.phone || "",
-        email: member.email || "",
-        birthDate: member.birthDate
-          ? typeof member.birthDate === "string"
-            ? member.birthDate
-            : member.birthDate.toISOString().split("T")[0]
-          : "",
-        membershipType: member.membershipType || "",
-        membershipDescription: member.membershipDescription || "",
-        startDate: member.startDate
-          ? typeof member.startDate === "string"
-            ? member.startDate
-            : member.startDate.toISOString().split("T")[0]
-          : "",
-        endDate: member.endDate
-          ? typeof member.endDate === "string"
-            ? member.endDate
-            : member.endDate.toISOString().split("T")[0]
-          : "",
+        name: member.name ?? "",
+        phone: member.phone ?? "",
+        email: member.email ?? "",
+        birthDate: formatearFechaISO(member.birthDate),
+        membershipType: member.membershipType ?? "",
+        membershipDescription: member.membershipDescription ?? "",
+        startDate: formatearFechaISO(member.startDate),
+        endDate: formatearFechaISO(member.endDate),
         isActive: member.isActive,
       });
     }
@@ -101,37 +79,17 @@ export function EditarSocioModal({
     setLoading(true);
     setError("");
 
-    try {
-      const payload = {
-        name: data.name || null,
-        phone: data.phone || null,
-        email: data.email || null,
-        birthDate: data.birthDate || null,
-        membershipType: data.membershipType || null,
-        membershipDescription: data.membershipDescription || null,
-        startDate: data.startDate || null,
-        endDate: data.endDate || null,
-        isActive: data.isActive,
-      };
+    const payload = buildActualizarSocioPayload(data);
+    const result = await updateMember(member.id, payload);
 
-      const res = await fetch(`/api/members/${member.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Error al actualizar socio");
-      }
-
+    if (result.ok) {
       onSuccess();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error);
     }
+
+    setLoading(false);
   };
 
   const handleClose = () => {
@@ -213,7 +171,7 @@ export function EditarSocioModal({
             <div className="space-y-2">
               <Label htmlFor="membershipType">Tipo de Membresía</Label>
               <Select
-                value={membershipType || ""}
+                value={membershipType ?? ""}
                 onValueChange={(value) => setValue("membershipType", value)}
               >
                 <SelectTrigger>
@@ -276,7 +234,7 @@ export function EditarSocioModal({
               <input
                 type="checkbox"
                 id="isActive"
-                checked={isActive}
+                checked={isActive ?? false}
                 onChange={(e) => setValue("isActive", e.target.checked)}
                 className="h-4 w-4"
               />

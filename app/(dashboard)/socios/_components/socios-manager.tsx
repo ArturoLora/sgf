@@ -6,13 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 import { SociosStats } from "./socios-stats";
 import { SociosFiltrosComponent } from "./socios-filtros";
-import type { SociosFiltros } from "./socios-filtros";
 import { SociosLista } from "./socios-lista";
 import { CrearSocioModal } from "./crear-socio-modal";
 import { EditarSocioModal } from "./editar-socio-modal";
 import { DetalleSocioModal } from "./detalle-socio-modal";
 import { RenovarMembresiaModal } from "./renovar-membresia-modal";
 import type { SocioResponse } from "@/types/api/members";
+import type { SociosFiltros } from "@/lib/domain/members";
+import {
+  FILTROS_INICIALES,
+  filtrarSocios,
+  paginar,
+} from "@/lib/domain/members";
+import { fetchMembers } from "@/lib/api/members.client";
 
 interface SociosManagerProps {
   initialMembers: SocioResponse[];
@@ -37,122 +43,28 @@ export function SociosManager({ initialMembers }: SociosManagerProps) {
   );
 
   // Filtros
-  const [filtros, setFiltros] = useState<SociosFiltros>({
-    busqueda: "",
-    estado: "activos",
-    vigencia: "todos",
-    tipoMembresia: "todos",
-    ordenarPor: "numero",
-    orden: "asc",
-  });
+  const [filtros, setFiltros] = useState<SociosFiltros>(FILTROS_INICIALES);
 
-  // Recargar datos después de mutaciones
+  // Recargar datos
   const recargarDatos = useCallback(async () => {
     setLoading(true);
-    try {
-      const res = await fetch("/api/members");
-      if (res.ok) {
-        const data = await res.json();
-        setMembers(data);
-      }
-    } catch (err) {
-      console.error("Error al recargar socios:", err);
-    } finally {
-      setLoading(false);
+    const result = await fetchMembers();
+    if (result.ok) {
+      setMembers(result.data);
     }
+    setLoading(false);
   }, []);
 
-  // Aplicar filtros y ordenamiento
-  const membersFiltrados = useMemo(() => {
-    let resultado = [...members];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // Filtrar y ordenar
+  const membersFiltrados = useMemo(
+    () => filtrarSocios(members, filtros),
+    [members, filtros],
+  );
 
-    // Búsqueda
-    if (filtros.busqueda) {
-      const busqueda = filtros.busqueda.toLowerCase();
-      resultado = resultado.filter(
-        (m) =>
-          m.memberNumber.toLowerCase().includes(busqueda) ||
-          m.name?.toLowerCase().includes(busqueda) ||
-          m.phone?.toLowerCase().includes(busqueda) ||
-          m.email?.toLowerCase().includes(busqueda),
-      );
-    }
-
-    // Estado
-    if (filtros.estado !== "todos") {
-      resultado = resultado.filter((m) =>
-        filtros.estado === "activos" ? m.isActive : !m.isActive,
-      );
-    }
-
-    // Vigencia
-    if (filtros.vigencia !== "todos") {
-      resultado = resultado.filter((m) => {
-        if (filtros.vigencia === "sin_membresia") {
-          return !m.membershipType || !m.endDate;
-        }
-        if (!m.endDate) return false;
-        const end =
-          typeof m.endDate === "string" ? new Date(m.endDate) : m.endDate;
-        if (filtros.vigencia === "vigentes") {
-          return end >= today;
-        }
-        return end < today;
-      });
-    }
-
-    // Tipo de membresía
-    if (filtros.tipoMembresia !== "todos") {
-      resultado = resultado.filter(
-        (m) => m.membershipType === filtros.tipoMembresia,
-      );
-    }
-
-    // Ordenamiento
-    resultado.sort((a, b) => {
-      let valorA: string | number;
-      let valorB: string | number;
-
-      switch (filtros.ordenarPor) {
-        case "nombre":
-          valorA = a.name || "";
-          valorB = b.name || "";
-          break;
-        case "fecha_registro":
-          valorA =
-            typeof a.createdAt === "string"
-              ? new Date(a.createdAt).getTime()
-              : a.createdAt.getTime();
-          valorB =
-            typeof b.createdAt === "string"
-              ? new Date(b.createdAt).getTime()
-              : b.createdAt.getTime();
-          break;
-        case "visitas":
-          valorA = a.totalVisits;
-          valorB = b.totalVisits;
-          break;
-        default:
-          valorA = a.memberNumber;
-          valorB = b.memberNumber;
-      }
-
-      if (valorA < valorB) return filtros.orden === "asc" ? -1 : 1;
-      if (valorA > valorB) return filtros.orden === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return resultado;
-  }, [members, filtros]);
-
-  // Paginación
-  const totalPaginas = Math.ceil(membersFiltrados.length / ITEMS_POR_PAGINA);
-  const inicio = (paginaActual - 1) * ITEMS_POR_PAGINA;
-  const membersPaginados = membersFiltrados.slice(
-    inicio,
-    inicio + ITEMS_POR_PAGINA,
+  // Paginar
+  const { items: membersPaginados, totalPaginas } = useMemo(
+    () => paginar(membersFiltrados, paginaActual, ITEMS_POR_PAGINA),
+    [membersFiltrados, paginaActual],
   );
 
   const handleFiltrar = useCallback((nuevosFiltros: SociosFiltros) => {

@@ -23,26 +23,15 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { TIPOS_MEMBRESIA } from "@/lib/domain/members";
+import { buildCrearSocioPayload } from "@/lib/domain/members";
+import { createMember } from "@/lib/api/members.client";
 
 interface CrearSocioModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
-
-const TIPOS_MEMBRESIA = [
-  { value: "VISIT", label: "Visita" },
-  { value: "WEEK", label: "Semana" },
-  { value: "MONTH_STUDENT", label: "Mes Estudiante" },
-  { value: "MONTH_GENERAL", label: "Mes General" },
-  { value: "QUARTER_STUDENT", label: "Trimestre Estudiante" },
-  { value: "QUARTER_GENERAL", label: "Trimestre General" },
-  { value: "ANNUAL_STUDENT", label: "Anual Estudiante" },
-  { value: "ANNUAL_GENERAL", label: "Anual General" },
-  { value: "PROMOTION", label: "Promoción" },
-  { value: "REBIRTH", label: "Renacer" },
-  { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición" },
-];
 
 export function CrearSocioModal({
   open,
@@ -75,45 +64,26 @@ export function CrearSocioModal({
   const membershipType = watch("membershipType");
 
   const onSubmit = async (data: CreateMemberInputRaw) => {
-    setLoading(true);
-    setError("");
-
     if (!data.phone?.trim()) {
       setError("El teléfono es obligatorio");
-      setLoading(false);
       return;
     }
 
-    try {
-      const payload = {
-        memberNumber: data.memberNumber,
-        name: data.name || null,
-        phone: data.phone,
-        email: data.email || null,
-        birthDate: data.birthDate || null,
-        membershipType: data.membershipType || null,
-        membershipDescription: data.membershipDescription || null,
-      };
+    setLoading(true);
+    setError("");
 
-      const res = await fetch("/api/members", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    const payload = buildCrearSocioPayload(data);
+    const result = await createMember(payload);
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Error al crear socio");
-      }
-
+    if (result.ok) {
       onSuccess();
       reset();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error);
     }
+
+    setLoading(false);
   };
 
   const handleClose = () => {
@@ -210,7 +180,7 @@ export function CrearSocioModal({
             <div className="space-y-2">
               <Label htmlFor="membershipType">Tipo de Membresía</Label>
               <Select
-                value={membershipType || ""}
+                value={membershipType ?? ""}
                 onValueChange={(value) => setValue("membershipType", value)}
               >
                 <SelectTrigger>
