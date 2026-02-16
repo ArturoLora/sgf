@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,14 +18,15 @@ import {
 import { X, Loader2 } from "lucide-react";
 import { CreateTransferInputSchema } from "@/types/api/inventory";
 import type { ProductoResponse } from "@/types/api/products";
-import type { Ubicacion } from "@/types/models/movimiento-inventario";
+import { fetchProductById } from "@/lib/api/products.client";
+import {
+  validateTransferQuantity,
+  oppositeLocation,
+  locationLabel,
+  getStockByLocation,
+} from "@/lib/domain/products";
 
-interface TransferFormData {
-  productId: number;
-  quantity: number;
-  destination: string;
-  notes?: string;
-}
+type TransferFormValues = z.infer<typeof CreateTransferInputSchema>;
 
 interface TraspasoModalProps {
   productId: number;
@@ -42,7 +44,7 @@ export default function TraspasoModal({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [product, setProduct] = useState<ProductoResponse | null>(null);
-  const [from, setFrom] = useState<Ubicacion>("WAREHOUSE" as Ubicacion);
+  const [from, setFrom] = useState("WAREHOUSE");
 
   const {
     register,
@@ -50,7 +52,7 @@ export default function TraspasoModal({
     formState: { errors },
     setValue,
     watch,
-  } = useForm<TransferFormData>({
+  } = useForm<TransferFormValues>({
     resolver: zodResolver(CreateTransferInputSchema),
     defaultValues: {
       productId,
@@ -60,14 +62,12 @@ export default function TraspasoModal({
     },
   });
 
-  const destination = watch("destination") as Ubicacion;
+  const destination = watch("destination");
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const loadProduct = async () => {
       try {
-        const response = await fetch(`/api/products/${productId}`);
-        if (!response.ok) throw new Error("Error al cargar producto");
-        const data: ProductoResponse = await response.json();
+        const data = await fetchProductById(productId);
         setProduct(data);
       } catch (err) {
         const message =
@@ -79,23 +79,24 @@ export default function TraspasoModal({
       }
     };
 
-    fetchProduct();
+    loadProduct();
   }, [productId, onClose, onError]);
 
   const handleFromChange = (value: string) => {
-    const newFrom = value as Ubicacion;
-    setFrom(newFrom);
-    setValue("destination", newFrom === "WAREHOUSE" ? "GYM" : "WAREHOUSE");
+    setFrom(value);
+    setValue("destination", oppositeLocation(value));
   };
 
-  const onSubmit = async (data: TransferFormData) => {
+  const onSubmit = async (data: TransferFormValues) => {
     if (!product) return;
 
-    const availableStock =
-      from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
-
-    if (data.quantity > availableStock) {
-      onError(`Stock insuficiente. Disponible: ${availableStock}`);
+    const validationError = validateTransferQuantity(
+      product,
+      from,
+      data.quantity,
+    );
+    if (validationError) {
+      onError(validationError);
       return;
     }
 
@@ -139,8 +140,7 @@ export default function TraspasoModal({
 
   if (!product) return null;
 
-  const availableStock =
-    from === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+  const availableStock = getStockByLocation(product, from);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -202,7 +202,7 @@ export default function TraspasoModal({
             <div className="space-y-2">
               <Label>Hacia</Label>
               <Input
-                value={destination === "WAREHOUSE" ? "Bodega" : "Gym"}
+                value={locationLabel(destination)}
                 disabled
                 className="bg-muted"
               />

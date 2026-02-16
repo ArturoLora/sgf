@@ -3,24 +3,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, ArrowLeftRight, Package } from "lucide-react";
-
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
+import type { ProductoResponse } from "@/types/api/products";
+import { isMembership, getStockStatus } from "@/lib/domain/products";
 
 interface ProductosTablaProps {
-  products: Product[];
+  products: ProductoResponse[];
   onDetail: (id: number) => void;
   onEdit: (id: number) => void;
   onTransfer: (id: number) => void;
   onEntry: (id: number) => void;
-  isMembership: (product: Product) => boolean;
 }
 
 export default function ProductosTabla({
@@ -29,26 +20,7 @@ export default function ProductosTabla({
   onEdit,
   onTransfer,
   onEntry,
-  isMembership,
 }: ProductosTablaProps) {
-  const getStockStatus = (current: number, min: number) => {
-    if (current === 0)
-      return { color: "destructive" as const, text: "Sin stock" };
-    if (current < min)
-      return {
-        color: "outline" as const,
-        text: "Bajo",
-        className:
-          "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
-      };
-    return {
-      color: "default" as const,
-      text: "OK",
-      className:
-        "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
-    };
-  };
-
   return (
     <div className="space-y-3">
       {products.map((product) => {

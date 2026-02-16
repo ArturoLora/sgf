@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,14 +18,16 @@ import {
 import { X, Loader2, Plus, Minus } from "lucide-react";
 import { CreateAdjustmentInputSchema } from "@/types/api/inventory";
 import type { ProductoResponse } from "@/types/api/products";
-import type { Ubicacion } from "@/types/models/movimiento-inventario";
+import { fetchProductById } from "@/lib/api/products.client";
+import {
+  validateAdjustmentQuantity,
+  validateAdjustmentNotes,
+  computeAdjustedQuantity,
+  getStockByLocation,
+  locationLabel,
+} from "@/lib/domain/products";
 
-interface AdjustmentFormData {
-  productId: number;
-  quantity: number;
-  location: string;
-  notes: string;
-}
+type AdjustmentFormValues = z.infer<typeof CreateAdjustmentInputSchema>;
 
 interface AjusteModalProps {
   productId: number;
@@ -50,7 +53,7 @@ export default function AjusteModal({
     formState: { errors },
     setValue,
     watch,
-  } = useForm<AdjustmentFormData>({
+  } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(CreateAdjustmentInputSchema),
     defaultValues: {
       productId,
@@ -60,14 +63,12 @@ export default function AjusteModal({
     },
   });
 
-  const location = watch("location") as Ubicacion;
+  const location = watch("location");
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const loadProduct = async () => {
       try {
-        const response = await fetch(`/api/products/${productId}`);
-        if (!response.ok) throw new Error("Error al cargar producto");
-        const data: ProductoResponse = await response.json();
+        const data = await fetchProductById(productId);
         setProduct(data);
       } catch (err) {
         const message =
@@ -79,30 +80,34 @@ export default function AjusteModal({
       }
     };
 
-    fetchProduct();
+    loadProduct();
   }, [productId, onClose, onError]);
 
-  const onSubmit = async (data: AdjustmentFormData) => {
+  const onSubmit = async (data: AdjustmentFormValues) => {
     if (!product) return;
 
-    const currentStock =
-      data.location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
     const numericQuantity = Number(data.quantity);
 
-    if (type === "DECREASE" && numericQuantity > currentStock) {
-      onError(`Stock insuficiente. Disponible: ${currentStock}`);
+    const notesError = validateAdjustmentNotes(data.notes);
+    if (notesError) {
+      onError(notesError);
       return;
     }
 
-    if (!data.notes || data.notes.trim() === "") {
-      onError("Las notas son requeridas para ajustes");
+    const quantityError = validateAdjustmentQuantity(
+      product,
+      data.location,
+      numericQuantity,
+      type,
+    );
+    if (quantityError) {
+      onError(quantityError);
       return;
     }
 
-    const adjustedQuantity =
-      type === "INCREASE" ? numericQuantity : -numericQuantity;
+    const adjustedQuantity = computeAdjustedQuantity(numericQuantity, type);
 
-    const payload: AdjustmentFormData = {
+    const payload: AdjustmentFormValues = {
       productId: data.productId,
       location: data.location,
       quantity: adjustedQuantity,
@@ -124,9 +129,8 @@ export default function AjusteModal({
       }
 
       const typeLabel = type === "INCREASE" ? "Incremento" : "Decremento";
-      const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
       onSuccess(
-        `${typeLabel} de ${numericQuantity} unidades en ${locationName}`,
+        `${typeLabel} de ${numericQuantity} unidades en ${locationLabel(data.location)}`,
       );
     } catch (err) {
       const message =
@@ -151,8 +155,7 @@ export default function AjusteModal({
 
   if (!product) return null;
 
-  const currentStock =
-    location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+  const currentStock = getStockByLocation(product, location);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -216,8 +219,8 @@ export default function AjusteModal({
                 <Label>Tipo de Ajuste *</Label>
                 <Select
                   value={type}
-                  onValueChange={(value: "INCREASE" | "DECREASE") =>
-                    setType(value)
+                  onValueChange={(value: string) =>
+                    setType(value as "INCREASE" | "DECREASE")
                   }
                   disabled={submitting}
                 >

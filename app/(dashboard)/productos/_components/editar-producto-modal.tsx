@@ -11,9 +11,11 @@ import { Switch } from "@/components/ui/switch";
 import { X, Loader2 } from "lucide-react";
 import {
   UpdateProductInputSchema,
-  type UpdateProductInputRaw,
+  type ActualizarProductoRequest,
   type ProductoResponse,
 } from "@/types/api/products";
+import { fetchProductById, updateProduct } from "@/lib/api/products.client";
+import { isMembership } from "@/lib/domain/products";
 
 interface EditarProductoModalProps {
   productId: number;
@@ -38,22 +40,19 @@ export default function EditarProductoModal({
     formState: { errors },
     setValue,
     watch,
-  } = useForm<UpdateProductInputRaw>({
+  } = useForm<ActualizarProductoRequest>({
     resolver: zodResolver(UpdateProductInputSchema),
   });
 
   const isActive = watch("isActive");
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const loadProduct = async () => {
       try {
-        const response = await fetch(`/api/products/${productId}`);
-        if (!response.ok) throw new Error("Error al cargar producto");
-
-        const data: ProductoResponse = await response.json();
+        const data = await fetchProductById(productId);
         setProduct(data);
         setValue("name", data.name);
-        setValue("salePrice", data.salePrice);
+        setValue("salePrice", Number(data.salePrice));
         setValue("minStock", data.minStock);
         setValue("isActive", data.isActive);
       } catch (err) {
@@ -66,24 +65,22 @@ export default function EditarProductoModal({
       }
     };
 
-    fetchProduct();
+    loadProduct();
   }, [productId, onClose, onError, setValue]);
 
-  const onSubmit = async (data: UpdateProductInputRaw) => {
+  const onSubmit = async (data: ActualizarProductoRequest) => {
     if (!product) return;
 
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/products/${product.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const result = await updateProduct(product.id, data);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Error al actualizar producto");
+      if ("error" in result) {
+        const message =
+          typeof result.error === "string"
+            ? result.error
+            : "Error al actualizar producto";
+        throw new Error(message);
       }
 
       onSuccess(`Producto actualizado: ${data.name}`);
@@ -110,11 +107,7 @@ export default function EditarProductoModal({
 
   if (!product) return null;
 
-  const isMembership =
-    product.name.includes("EFECTIVO") ||
-    product.name === "VISITA" ||
-    product.name.includes("MENSUALIDAD") ||
-    product.name.includes("SEMANA");
+  const isMembershipProduct = isMembership(product);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -136,7 +129,7 @@ export default function EditarProductoModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
-          {!isMembership && (
+          {!isMembershipProduct && (
             <div className="p-3 bg-muted rounded-lg">
               <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
                 <div>
@@ -180,7 +173,7 @@ export default function EditarProductoModal({
                 )}
               </div>
 
-              {!isMembership && (
+              {!isMembershipProduct && (
                 <div className="space-y-2">
                   <Label>Stock Mínimo *</Label>
                   <Input

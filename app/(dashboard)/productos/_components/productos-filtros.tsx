@@ -13,13 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
-
-interface ProductFilters {
-  search: string;
-  status: "todos" | "activos" | "inactivos" | "bajoStock";
-  orderBy: "name" | "salePrice" | "gymStock" | "warehouseStock";
-  order: "asc" | "desc";
-}
+import {
+  DEFAULT_FILTERS,
+  hasActiveFilters,
+  type ProductFilters,
+  type ProductStatusFilter,
+  type ProductOrderBy,
+  type ProductOrder,
+} from "@/lib/domain/products";
 
 interface ProductosFiltrosProps {
   onFilter: (filters: ProductFilters) => void;
@@ -27,12 +28,7 @@ interface ProductosFiltrosProps {
 
 export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<ProductFilters>({
-    search: "",
-    status: "todos",
-    orderBy: "name",
-    order: "asc",
-  });
+  const [filters, setFilters] = useState<ProductFilters>(DEFAULT_FILTERS);
 
   const handleChange = (key: keyof ProductFilters, value: string) => {
     const newFilters = { ...filters, [key]: value };
@@ -41,22 +37,15 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
   };
 
   const clearFilters = () => {
-    const cleanFilters: ProductFilters = {
-      search: "",
-      status: "todos",
-      orderBy: "name",
-      order: "asc",
-    };
-    setFilters(cleanFilters);
-    onFilter(cleanFilters);
+    setFilters(DEFAULT_FILTERS);
+    onFilter(DEFAULT_FILTERS);
   };
 
-  const hasActiveFilters = filters.search || filters.status !== "todos";
+  const active = hasActiveFilters(filters);
 
   return (
     <Card>
       <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {/* Quick search */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -76,7 +65,7 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Filter className="h-4 w-4" />
               <span className="hidden sm:inline">Filtros</span>
             </Button>
-            {hasActiveFilters && (
+            {active && (
               <Button
                 variant="ghost"
                 onClick={clearFilters}
@@ -89,15 +78,14 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
           </div>
         </div>
 
-        {/* Advanced filters */}
         {showFilters && (
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pt-3 sm:pt-4 border-t">
             <div className="space-y-2">
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filters.status}
-                onValueChange={(value: ProductFilters["status"]) =>
-                  handleChange("status", value)
+                onValueChange={(value: string) =>
+                  handleChange("status", value as ProductStatusFilter)
                 }
               >
                 <SelectTrigger>
@@ -116,8 +104,8 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Label className="text-sm">Ordenar Por</Label>
               <Select
                 value={filters.orderBy}
-                onValueChange={(value: ProductFilters["orderBy"]) =>
-                  handleChange("orderBy", value)
+                onValueChange={(value: string) =>
+                  handleChange("orderBy", value as ProductOrderBy)
                 }
               >
                 <SelectTrigger>
@@ -136,8 +124,8 @@ export default function ProductosFiltros({ onFilter }: ProductosFiltrosProps) {
               <Label className="text-sm">Orden</Label>
               <Select
                 value={filters.order}
-                onValueChange={(value: ProductFilters["order"]) =>
-                  handleChange("order", value)
+                onValueChange={(value: string) =>
+                  handleChange("order", value as ProductOrder)
                 }
               >
                 <SelectTrigger>

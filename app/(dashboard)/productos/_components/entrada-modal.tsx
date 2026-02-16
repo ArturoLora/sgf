@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,14 +18,10 @@ import {
 import { X, Loader2 } from "lucide-react";
 import { CreateEntryInputSchema } from "@/types/api/inventory";
 import type { ProductoResponse } from "@/types/api/products";
-import type { Ubicacion } from "@/types/models/movimiento-inventario";
+import { fetchProductById } from "@/lib/api/products.client";
+import { getStockByLocation, locationLabel } from "@/lib/domain/products";
 
-interface EntryFormData {
-  productId: number;
-  quantity: number;
-  location: string;
-  notes?: string;
-}
+type EntryFormValues = z.infer<typeof CreateEntryInputSchema>;
 
 interface EntradaModalProps {
   productId: number;
@@ -49,7 +46,7 @@ export default function EntradaModal({
     formState: { errors },
     setValue,
     watch,
-  } = useForm<EntryFormData>({
+  } = useForm<EntryFormValues>({
     resolver: zodResolver(CreateEntryInputSchema),
     defaultValues: {
       productId,
@@ -59,14 +56,12 @@ export default function EntradaModal({
     },
   });
 
-  const location = watch("location") as Ubicacion;
+  const location = watch("location");
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const loadProduct = async () => {
       try {
-        const response = await fetch(`/api/products/${productId}`);
-        if (!response.ok) throw new Error("Error al cargar producto");
-        const data: ProductoResponse = await response.json();
+        const data = await fetchProductById(productId);
         setProduct(data);
       } catch (err) {
         const message =
@@ -78,10 +73,10 @@ export default function EntradaModal({
       }
     };
 
-    fetchProduct();
+    loadProduct();
   }, [productId, onClose, onError]);
 
-  const onSubmit = async (data: EntryFormData) => {
+  const onSubmit = async (data: EntryFormValues) => {
     if (!product) return;
 
     setSubmitting(true);
@@ -98,9 +93,8 @@ export default function EntradaModal({
         throw new Error(result.error || "Error al registrar entrada");
       }
 
-      const locationName = data.location === "WAREHOUSE" ? "Bodega" : "Gym";
       onSuccess(
-        `Entrada registrada: ${data.quantity} unidades en ${locationName}`,
+        `Entrada registrada: ${data.quantity} unidades en ${locationLabel(data.location)}`,
       );
     } catch (err) {
       const message =
@@ -125,8 +119,7 @@ export default function EntradaModal({
 
   if (!product) return null;
 
-  const currentStock =
-    location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
+  const currentStock = getStockByLocation(product, location);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

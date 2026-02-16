@@ -5,21 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Loader2, Edit, ArrowLeftRight, Plus, Package } from "lucide-react";
-import type { ProductoResponse } from "@/types/api/products";
-
-interface InventoryMovement {
-  id: number;
-  type: string;
-  quantity: number;
-  location?: string;
-  from?: string;
-  to?: string;
-  notes?: string;
-  createdAt: string;
-  createdBy?: {
-    name: string;
-  };
-}
+import type { ProductoConMovimientosResponse } from "@/types/api/products";
+import { fetchProductById } from "@/lib/api/products.client";
+import {
+  isMembership,
+  isLowStock,
+  computeTotalStock,
+  locationLabel,
+} from "@/lib/domain/products";
 
 interface DetalleProductoModalProps {
   productId: number;
@@ -39,26 +32,15 @@ export default function DetalleProductoModal({
   onEntry,
 }: DetalleProductoModalProps) {
   const [loading, setLoading] = useState(true);
-  const [product, setProduct] = useState<ProductoResponse | null>(null);
-  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [product, setProduct] = useState<ProductoConMovimientosResponse | null>(
+    null,
+  );
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
-        const [productRes, movementsRes] = await Promise.all([
-          fetch(`/api/products/${productId}`),
-          fetch(`/api/inventory/movements?productId=${productId}`),
-        ]);
-
-        if (!productRes.ok) throw new Error("Error al cargar producto");
-
-        const productData: ProductoResponse = await productRes.json();
-        setProduct(productData);
-
-        if (movementsRes.ok) {
-          const movementsData: InventoryMovement[] = await movementsRes.json();
-          setMovements(movementsData);
-        }
+        const data = await fetchProductById(productId);
+        setProduct(data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -66,7 +48,7 @@ export default function DetalleProductoModal({
       }
     };
 
-    fetchData();
+    loadData();
   }, [productId]);
 
   if (loading) {
@@ -83,14 +65,9 @@ export default function DetalleProductoModal({
 
   if (!product) return null;
 
-  const isMembership =
-    product.name.includes("EFECTIVO") ||
-    product.name === "VISITA" ||
-    product.name.includes("MENSUALIDAD") ||
-    product.name.includes("SEMANA");
-
-  const totalStock = product.warehouseStock + product.gymStock;
-  const isLowStock = !isMembership && totalStock < product.minStock;
+  const isMembershipProduct = isMembership(product);
+  const totalStock = computeTotalStock(product);
+  const lowStock = !isMembershipProduct && isLowStock(product);
 
   const getMovementIcon = (type: string) => {
     switch (type) {
@@ -111,16 +88,18 @@ export default function DetalleProductoModal({
     }
   };
 
-  const getMovementLabel = (movement: InventoryMovement) => {
+  const getMovementLabel = (
+    movement: ProductoConMovimientosResponse["inventoryMovements"][number],
+  ) => {
     switch (movement.type) {
       case "ENTRY":
-        return `Entrada en ${movement.location === "WAREHOUSE" ? "Bodega" : "Gym"}`;
+        return `Entrada en ${locationLabel(movement.location)}`;
       case "TRANSFER":
-        return `Traspaso: ${movement.from === "WAREHOUSE" ? "Bodega" : "Gym"} → ${
-          movement.to === "WAREHOUSE" ? "Bodega" : "Gym"
-        }`;
+        return `Traspaso: ${locationLabel(movement.location)}`;
       case "ADJUSTMENT":
         return "Ajuste de inventario";
+      case "SALE":
+        return "Venta";
       default:
         return "Movimiento";
     }
@@ -141,7 +120,6 @@ export default function DetalleProductoModal({
         </CardHeader>
 
         <CardContent className="space-y-4 p-4 sm:p-6 overflow-y-auto">
-          {/* Product Info */}
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -151,7 +129,7 @@ export default function DetalleProductoModal({
                     Inactivo
                   </Badge>
                 )}
-                {isMembership && (
+                {isMembershipProduct && (
                   <Badge
                     variant="outline"
                     className="mt-1 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
@@ -165,9 +143,9 @@ export default function DetalleProductoModal({
               </p>
             </div>
 
-            {!isMembership && (
+            {!isMembershipProduct && (
               <>
-                {isLowStock && (
+                {lowStock && (
                   <div className="p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
                     <p className="text-sm text-orange-800 dark:text-orange-300 font-medium">
                       ⚠️ Stock bajo mínimo ({product.minStock} unidades)
@@ -205,7 +183,6 @@ export default function DetalleProductoModal({
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => onEdit(product.id)}
@@ -216,7 +193,7 @@ export default function DetalleProductoModal({
               <Edit className="h-4 w-4" />
               Editar
             </Button>
-            {!isMembership && (
+            {!isMembershipProduct && (
               <>
                 <Button
                   onClick={() => onEntry(product.id)}
@@ -249,20 +226,19 @@ export default function DetalleProductoModal({
             )}
           </div>
 
-          {/* Movement History */}
-          {!isMembership && (
+          {!isMembershipProduct && (
             <div className="space-y-3">
               <h4 className="font-semibold text-sm sm:text-base">
                 Historial de Movimientos
               </h4>
 
-              {movements.length === 0 ? (
+              {product.inventoryMovements.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No hay movimientos registrados
                 </p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {movements.map((movement) => (
+                  {product.inventoryMovements.map((movement) => (
                     <div
                       key={movement.id}
                       className="p-3 border rounded-lg hover:bg-muted transition-colors"
@@ -277,7 +253,7 @@ export default function DetalleProductoModal({
                               {getMovementLabel(movement)}
                             </p>
                             <p className="text-xs text-muted-foreground shrink-0">
-                              {new Date(movement.createdAt).toLocaleDateString(
+                              {new Date(movement.date).toLocaleDateString(
                                 "es-MX",
                                 {
                                   day: "2-digit",
@@ -301,9 +277,9 @@ export default function DetalleProductoModal({
                               {movement.notes}
                             </p>
                           )}
-                          {movement.createdBy && (
+                          {movement.user && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              Por: {movement.createdBy.name}
+                              Por: {movement.user.name}
                             </p>
                           )}
                         </div>

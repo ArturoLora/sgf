@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X, Loader2 } from "lucide-react";
-import {
-  CreateProductInputSchema,
-  type CreateProductInputRaw,
-} from "@/types/api/products";
+import { CreateProductInputSchema } from "@/types/api/products";
+import type { CrearProductoRequest } from "@/types/api/products";
+import { createProduct } from "@/lib/api/products.client";
 
 interface CrearProductoModalProps {
   onClose: () => void;
@@ -30,7 +29,7 @@ export default function CrearProductoModal({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<CreateProductInputRaw>({
+  } = useForm<CrearProductoRequest>({
     resolver: zodResolver(CreateProductInputSchema),
     defaultValues: {
       name: "",
@@ -39,19 +38,17 @@ export default function CrearProductoModal({
     },
   });
 
-  const onSubmit = async (data: CreateProductInputRaw) => {
+  const onSubmit = async (data: CrearProductoRequest) => {
     setSubmitting(true);
     try {
-      const response = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const result = await createProduct(data);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Error al crear producto");
+      if ("error" in result) {
+        const message =
+          typeof result.error === "string"
+            ? result.error
+            : "Error al crear producto";
+        throw new Error(message);
       }
 
       onSuccess(`Producto creado: ${data.name}`);

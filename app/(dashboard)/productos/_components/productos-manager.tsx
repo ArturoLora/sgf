@@ -6,6 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import type { ProductoResponse } from "@/types/api/products";
+import {
+  applyFilters,
+  paginate,
+  computePageNumbers,
+  computeLowStockProducts,
+  DEFAULT_FILTERS,
+  type ProductFilters,
+} from "@/lib/domain/products";
 import ProductosFiltros from "./productos-filtros";
 import ProductosTabla from "./productos-tabla";
 import CrearProductoModal from "./crear-producto-modal";
@@ -15,27 +24,10 @@ import TraspasoModal from "./traspaso-modal";
 import AjusteModal from "./ajuste-modal";
 import EntradaModal from "./entrada-modal";
 
-interface Product {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
-
-interface ProductFilters {
-  search: string;
-  status: "todos" | "activos" | "inactivos" | "bajoStock";
-  orderBy: "name" | "salePrice" | "gymStock" | "warehouseStock";
-  order: "asc" | "desc";
-}
-
 const ITEMS_PER_PAGE = 10;
 
 interface ProductosManagerProps {
-  initialProducts: Product[];
+  initialProducts: ProductoResponse[];
 }
 
 export default function ProductosManager({
@@ -45,7 +37,6 @@ export default function ProductosManager({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Modals state
   const [showCrearModal, setShowCrearModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [detailProductId, setDetailProductId] = useState<number | null>(null);
@@ -57,81 +48,27 @@ export default function ProductosManager({
   );
   const [entryProductId, setEntryProductId] = useState<number | null>(null);
 
-  // Pagination & filters
   const [currentPage, setCurrentPage] = useState(1);
-  const [filters, setFilters] = useState<ProductFilters>({
-    search: "",
-    status: "todos",
-    orderBy: "name",
-    order: "asc",
-  });
+  const [filters, setFilters] = useState<ProductFilters>(DEFAULT_FILTERS);
 
-  // Filter & sort products
-  const filteredProducts = useMemo(() => {
-    let result = [...initialProducts];
+  const filteredProducts = useMemo(
+    () => applyFilters(initialProducts, filters),
+    [initialProducts, filters],
+  );
 
-    // Search
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      result = result.filter((p) => p.name.toLowerCase().includes(search));
-    }
+  const pagination = useMemo(
+    () => paginate(filteredProducts, currentPage, ITEMS_PER_PAGE),
+    [filteredProducts, currentPage],
+  );
 
-    // Status
-    switch (filters.status) {
-      case "activos":
-        result = result.filter((p) => p.isActive);
-        break;
-      case "inactivos":
-        result = result.filter((p) => !p.isActive);
-        break;
-      case "bajoStock":
-        result = result.filter(
-          (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
-        );
-        break;
-    }
+  const pageNumbers = useMemo(
+    () => computePageNumbers(currentPage, pagination.totalPages),
+    [currentPage, pagination.totalPages],
+  );
 
-    // Sort
-    result.sort((a, b) => {
-      let valueA: string | number;
-      let valueB: string | number;
-
-      switch (filters.orderBy) {
-        case "name":
-          valueA = a.name;
-          valueB = b.name;
-          break;
-        case "salePrice":
-          valueA = Number(a.salePrice);
-          valueB = Number(b.salePrice);
-          break;
-        case "gymStock":
-          valueA = a.gymStock;
-          valueB = b.gymStock;
-          break;
-        case "warehouseStock":
-          valueA = a.warehouseStock;
-          valueB = b.warehouseStock;
-          break;
-        default:
-          valueA = a.name;
-          valueB = b.name;
-      }
-
-      if (valueA < valueB) return filters.order === "asc" ? -1 : 1;
-      if (valueA > valueB) return filters.order === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [initialProducts, filters]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedProducts = filteredProducts.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE,
+  const lowStockProducts = useMemo(
+    () => computeLowStockProducts(initialProducts),
+    [initialProducts],
   );
 
   const handleFilter = useCallback((newFilters: ProductFilters) => {
@@ -148,28 +85,8 @@ export default function ProductosManager({
     [router],
   );
 
-  const lowStockProducts = useMemo(
-    () =>
-      initialProducts.filter(
-        (p) =>
-          p.isActive &&
-          (p.gymStock < p.minStock || p.warehouseStock < p.minStock),
-      ),
-    [initialProducts],
-  );
-
-  const isMembership = useCallback((product: Product) => {
-    return (
-      product.name.includes("EFECTIVO") ||
-      product.name === "VISITA" ||
-      product.name.includes("MENSUALIDAD") ||
-      product.name.includes("SEMANA")
-    );
-  }, []);
-
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Messages */}
       {error && (
         <div className="rounded-lg bg-destructive/10 dark:bg-destructive/20 p-3 text-sm text-destructive flex items-center justify-between">
           <span>{error}</span>
@@ -185,7 +102,6 @@ export default function ProductosManager({
         </div>
       )}
 
-      {/* Low stock alert */}
       {lowStockProducts.length > 0 && (
         <Card className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950">
           <CardHeader className="pb-3">
@@ -217,10 +133,8 @@ export default function ProductosManager({
         </Card>
       )}
 
-      {/* Filters */}
       <ProductosFiltros onFilter={handleFilter} />
 
-      {/* Table */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -249,24 +163,18 @@ export default function ProductosManager({
           ) : (
             <>
               <ProductosTabla
-                products={paginatedProducts}
+                products={pagination.items}
                 onDetail={setDetailProductId}
                 onEdit={setEditingProductId}
                 onTransfer={setTransferProductId}
                 onEntry={setEntryProductId}
-                isMembership={isMembership}
               />
 
-              {/* Pagination */}
-              {totalPages > 1 && (
+              {pagination.totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
                   <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                    Mostrando {startIndex + 1}-
-                    {Math.min(
-                      startIndex + ITEMS_PER_PAGE,
-                      filteredProducts.length,
-                    )}{" "}
-                    de {filteredProducts.length}
+                    Mostrando {pagination.startIndex + 1}-{pagination.endIndex}{" "}
+                    de {pagination.total}
                   </p>
                   <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
                     <Button
@@ -280,43 +188,29 @@ export default function ProductosManager({
                       <span className="hidden sm:inline">Anterior</span>
                     </Button>
                     <div className="flex items-center gap-1">
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          let pageNum: number;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = currentPage - 2 + i;
+                      {pageNumbers.map((pageNum) => (
+                        <Button
+                          key={pageNum}
+                          variant={
+                            currentPage === pageNum ? "default" : "outline"
                           }
-
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={
-                                currentPage === pageNum ? "default" : "outline"
-                              }
-                              size="sm"
-                              onClick={() => setCurrentPage(pageNum)}
-                              className="w-9"
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        },
-                      )}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-9"
+                        >
+                          {pageNum}
+                        </Button>
+                      ))}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        setCurrentPage((p) =>
+                          Math.min(pagination.totalPages, p + 1),
+                        )
                       }
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage === pagination.totalPages}
                       className="flex-1 sm:flex-initial"
                     >
                       <span className="hidden sm:inline">Siguiente</span>
@@ -330,7 +224,6 @@ export default function ProductosManager({
         </CardContent>
       </Card>
 
-      {/* Modals */}
       {showCrearModal && (
         <CrearProductoModal
           onClose={() => setShowCrearModal(false)}
@@ -342,7 +235,7 @@ export default function ProductosManager({
         />
       )}
 
-      {editingProductId && (
+      {editingProductId !== null && (
         <EditarProductoModal
           productId={editingProductId}
           onClose={() => setEditingProductId(null)}
@@ -354,7 +247,7 @@ export default function ProductosManager({
         />
       )}
 
-      {detailProductId && (
+      {detailProductId !== null && (
         <DetalleProductoModal
           productId={detailProductId}
           onClose={() => setDetailProductId(null)}
@@ -377,7 +270,7 @@ export default function ProductosManager({
         />
       )}
 
-      {transferProductId && (
+      {transferProductId !== null && (
         <TraspasoModal
           productId={transferProductId}
           onClose={() => setTransferProductId(null)}
@@ -389,7 +282,7 @@ export default function ProductosManager({
         />
       )}
 
-      {adjustmentProductId && (
+      {adjustmentProductId !== null && (
         <AjusteModal
           productId={adjustmentProductId}
           onClose={() => setAdjustmentProductId(null)}
@@ -401,7 +294,7 @@ export default function ProductosManager({
         />
       )}
 
-      {entryProductId && (
+      {entryProductId !== null && (
         <EntradaModal
           productId={entryProductId}
           onClose={() => setEntryProductId(null)}
