@@ -1,4 +1,8 @@
-import type { ReporteStockActual } from "@/types/api/reports";
+// lib/domain/reports/guards.ts
+// Type guards puros para el dominio de reportes
+// SIN dependencias externas
+
+import type { ReporteStockActual } from "./types";
 
 export function isReporteStockActual(
   value: unknown,

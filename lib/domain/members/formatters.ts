@@ -1,3 +1,7 @@
+// lib/domain/members/formatters.ts
+// Funciones puras de formateo para socios
+// SIN dependencias externas
+
 import { TIPOS_MEMBRESIA_MAP } from "./types";
 
 // ==================== DATE FORMATTING ====================

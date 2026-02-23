@@ -1,9 +1,11 @@
 // lib/domain/inventory/filters.ts
+// Filtros puros del dominio de inventario
+// SIN dependencias externas
 
 import type { Producto } from "./calculations";
 
-export type Ubicacion = "todos" | "gym" | "bodega";
-export type Estado = "todos" | "stock_ok" | "bajo_stock" | "sin_stock";
+export type UbicacionFiltro = "todos" | "gym" | "bodega";
+export type EstadoFiltro = "todos" | "stock_ok" | "bajo_stock" | "sin_stock";
 export type OrdenarPor =
   | "nombre"
   | "stockGym"
@@ -14,8 +16,8 @@ export type Orden = "asc" | "desc";
 
 export interface FiltrosInventario {
   busqueda: string;
-  ubicacion: Ubicacion;
-  estado: Estado;
+  ubicacion: UbicacionFiltro;
+  estado: EstadoFiltro;
   ordenarPor: OrdenarPor;
   orden: Orden;
 }
@@ -32,7 +34,7 @@ export function filtrarPorBusqueda(
 
 export function filtrarPorEstado(
   productos: Producto[],
-  estado: Estado,
+  estado: EstadoFiltro,
 ): Producto[] {
   if (estado === "todos") return productos;
 

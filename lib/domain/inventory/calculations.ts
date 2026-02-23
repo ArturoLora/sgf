@@ -1,15 +1,10 @@
 // lib/domain/inventory/calculations.ts
+// Funciones puras de cálculo para inventario
+// SIN dependencias externas
 
-import type { KardexMovimientoResponse } from "@/types/api/inventory";
+import type { TipoInventarioKardex, Ubicacion } from "../shared/types";
 
-export interface StockStats {
-  totalProductos: number;
-  stockBajo: number;
-  sinStock: number;
-  valorTotal: number;
-  stockTotalGym: number;
-  stockTotalBodega: number;
-}
+// ==================== TIPOS INTERNOS ====================
 
 export interface Producto {
   id: number;
@@ -20,6 +15,34 @@ export interface Producto {
   minStock: number;
   isActive: boolean;
 }
+
+export interface KardexMovimiento {
+  id: number;
+  type: TipoInventarioKardex;
+  location: Ubicacion;
+  quantity: number;
+  balance?: number;
+  ticket?: string;
+  unitPrice?: number;
+  total?: number;
+  paymentMethod?: string;
+  notes?: string;
+  isCancelled: boolean;
+  date: Date | string;
+  user: { name: string };
+  member?: { memberNumber: string; name?: string } | null;
+}
+
+export interface StockStats {
+  totalProductos: number;
+  stockBajo: number;
+  sinStock: number;
+  valorTotal: number;
+  stockTotalGym: number;
+  stockTotalBodega: number;
+}
+
+// ==================== CÁLCULOS ====================
 
 export function calcularStatsInventario(productos: Producto[]): StockStats {
   const totalProductos = productos.length;
@@ -63,10 +86,10 @@ export function calcularValorProducto(producto: Producto): number {
 }
 
 export function calcularBalance(
-  movimientos: KardexMovimientoResponse[],
-): KardexMovimientoResponse[] {
+  movimientos: KardexMovimiento[],
+): KardexMovimiento[] {
   let balance = 0;
-  const withBalance: KardexMovimientoResponse[] = [];
+  const withBalance: KardexMovimiento[] = [];
 
   for (const mov of movimientos) {
     balance += mov.quantity;

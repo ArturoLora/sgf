@@ -1,4 +1,6 @@
 // lib/domain/inventory/pagination.ts
+// Paginación pura para inventario
+// SIN dependencias externas
 
 export interface PaginacionInfo {
   paginaActual: number;

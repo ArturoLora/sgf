@@ -1,7 +1,11 @@
-import type { ProductoResponse } from "@/types/api/products";
+// lib/domain/products/validations.ts
+// Validaciones puras para el dominio de productos
+// SIN dependencias externas
+
+import type { Producto } from "./types";
 
 export function validateTransferQuantity(
-  product: ProductoResponse,
+  product: Producto,
   fromLocation: string,
   quantity: number,
 ): string | null {
@@ -20,7 +24,7 @@ export function validateTransferQuantity(
 }
 
 export function validateAdjustmentQuantity(
-  product: ProductoResponse,
+  product: Producto,
   location: string,
   quantity: number,
   type: "INCREASE" | "DECREASE",

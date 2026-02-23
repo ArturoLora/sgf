@@ -1,4 +1,6 @@
 // lib/domain/inventory/formatters.ts
+// Formatters puros del dominio de inventario
+// SIN dependencias externas
 
 import type { Producto } from "./calculations";
 
@@ -48,19 +50,19 @@ export function formatearCantidad(cantidad: number): string {
   return cantidad.toString();
 }
 
-export function esProductoFisico(nombreProducto: string): boolean {
-  const keywords = [
-    "EFECTIVO",
-    "VISITA",
-    "MENSUALIDAD",
-    "SEMANA",
-    "TRIMESTRE",
-    "ANUAL",
-    "PROMOCION",
-    "RENACER",
-  ];
+const KEYWORDS_MEMBRESIA = [
+  "EFECTIVO",
+  "VISITA",
+  "MENSUALIDAD",
+  "SEMANA",
+  "TRIMESTRE",
+  "ANUAL",
+  "PROMOCION",
+  "RENACER",
+];
 
-  return !keywords.some((keyword) =>
+export function esProductoFisico(nombreProducto: string): boolean {
+  return !KEYWORDS_MEMBRESIA.some((keyword) =>
     nombreProducto.toUpperCase().includes(keyword),
   );
 }

@@ -1,6 +1,6 @@
 // lib/domain/sales/history-formatting.ts
 // Funciones puras de formateo para el historial de ventas
-// Sin React, sin UI, sin fetch
+// SIN dependencias externas (no React, no UI, no fetch)
 
 /**
  * Formatea una fecha al formato local mexicano
@@ -17,7 +17,7 @@ export function formatDateMX(date: Date | string): string {
 }
 
 /**
- * Formatea un método de pago para visualización
+ * Formatea un método de pago para visualización.
  * Convierte DEBIT_CARD -> Débito, CREDIT_CARD -> Crédito, etc.
  */
 export function formatPaymentMethod(method?: string): string {

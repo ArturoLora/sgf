@@ -1,23 +1,14 @@
-import type { ProductoResponse } from "@/types/api/products";
+// lib/domain/products/filters.ts
+// Funciones puras de filtrado de productos
+// SIN dependencias externas
 
-export type ProductStatusFilter =
-  | "todos"
-  | "activos"
-  | "inactivos"
-  | "bajoStock";
-export type ProductOrderBy =
-  | "name"
-  | "salePrice"
-  | "gymStock"
-  | "warehouseStock";
-export type ProductOrder = "asc" | "desc";
-
-export interface ProductFilters {
-  search: string;
-  status: ProductStatusFilter;
-  orderBy: ProductOrderBy;
-  order: ProductOrder;
-}
+import type {
+  Producto,
+  ProductFilters,
+  ProductStatusFilter,
+  ProductOrderBy,
+  ProductOrder,
+} from "./types";
 
 export const DEFAULT_FILTERS: ProductFilters = {
   search: "",
@@ -27,18 +18,18 @@ export const DEFAULT_FILTERS: ProductFilters = {
 };
 
 export function filterBySearch(
-  products: ProductoResponse[],
+  products: Producto[],
   search: string,
-): ProductoResponse[] {
+): Producto[] {
   if (!search) return products;
   const lower = search.toLowerCase();
   return products.filter((p) => p.name.toLowerCase().includes(lower));
 }
 
 export function filterByStatus(
-  products: ProductoResponse[],
+  products: Producto[],
   status: ProductStatusFilter,
-): ProductoResponse[] {
+): Producto[] {
   switch (status) {
     case "activos":
       return products.filter((p) => p.isActive);
@@ -54,10 +45,10 @@ export function filterByStatus(
 }
 
 export function sortProducts(
-  products: ProductoResponse[],
+  products: Producto[],
   orderBy: ProductOrderBy,
   order: ProductOrder,
-): ProductoResponse[] {
+): Producto[] {
   const sorted = [...products];
   sorted.sort((a, b) => {
     let valueA: string | number;
@@ -93,9 +84,9 @@ export function sortProducts(
 }
 
 export function applyFilters(
-  products: ProductoResponse[],
+  products: Producto[],
   filters: ProductFilters,
-): ProductoResponse[] {
+): Producto[] {
   let result = filterBySearch(products, filters.search);
   result = filterByStatus(result, filters.status);
   result = sortProducts(result, filters.orderBy, filters.order);

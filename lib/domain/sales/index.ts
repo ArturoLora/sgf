@@ -1,40 +1,12 @@
 // lib/domain/sales/index.ts
+// NOTA: process.ts fue MOVIDO a services/sales.process.ts
+// porque contiene I/O (llama a API client) — viola pureza del dominio
 
-// Calculators (POS)
-export { calculateSubtotal, calculateTotal } from "./calculators";
-
-// Payloads (POS)
-export { buildSalePayloadFromCart } from "./payloads";
-
-// Process (POS)
-export { processSale } from "./process";
-
-// Ticket
-export { generateTicket } from "./ticket";
-
-// History filters
-export {
-  DEFAULT_HISTORY_FILTERS,
-  normalizeDateFilter,
-  hasActiveFilters,
-  buildFiltersWithDateRange,
-} from "./history-filters";
-
-// History calculations
-export { calculateHistorialStats } from "./history-calculations";
-export type { HistorialStats } from "./history-calculations";
-
-// History formatting
-export {
-  formatDateMX,
-  formatPaymentMethod,
-  formatCurrency,
-} from "./history-formatting";
-
-// History pagination
-export {
-  isValidPage,
-  hasPreviousPage,
-  hasNextPage,
-  calculateTotalPages,
-} from "./history-pagination";
+export * from "./types";
+export * from "./calculators";
+export * from "./payloads";
+export * from "./ticket";
+export * from "./history-filters";
+export * from "./history-calculations";
+export * from "./history-formatting";
+export * from "./history-pagination";

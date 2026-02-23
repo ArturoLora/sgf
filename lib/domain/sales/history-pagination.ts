@@ -1,6 +1,6 @@
 // lib/domain/sales/history-pagination.ts
 // Funciones puras de paginación para el historial de ventas
-// Sin React, sin UI, sin fetch
+// SIN dependencias externas (no React, no UI, no fetch)
 
 /**
  * Valida si una página es válida dentro del rango disponible

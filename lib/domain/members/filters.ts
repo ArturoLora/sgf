@@ -1,5 +1,8 @@
-import type { SocioResponse } from "@/types/api/members";
-import type { SociosFiltros } from "./types";
+// lib/domain/members/filters.ts
+// Filtros puros del dominio de socios
+// SIN dependencias externas
+
+import type { Socio, SociosFiltros } from "./types";
 
 // ==================== DATE HELPERS ====================
 
@@ -15,7 +18,7 @@ function todayMidnight(): Date {
 
 // ==================== FILTER FUNCTIONS ====================
 
-function matchesBusqueda(member: SocioResponse, busqueda: string): boolean {
+function matchesBusqueda(member: Socio, busqueda: string): boolean {
   if (!busqueda) return true;
   const term = busqueda.toLowerCase();
   return (
@@ -27,7 +30,7 @@ function matchesBusqueda(member: SocioResponse, busqueda: string): boolean {
 }
 
 function matchesEstado(
-  member: SocioResponse,
+  member: Socio,
   estado: SociosFiltros["estado"],
 ): boolean {
   if (estado === "todos") return true;
@@ -35,7 +38,7 @@ function matchesEstado(
 }
 
 function matchesVigencia(
-  member: SocioResponse,
+  member: Socio,
   vigencia: SociosFiltros["vigencia"],
 ): boolean {
   if (vigencia === "todos") return true;
@@ -52,10 +55,7 @@ function matchesVigencia(
   return vigencia === "vigentes" ? end >= today : end < today;
 }
 
-function matchesTipoMembresia(
-  member: SocioResponse,
-  tipoMembresia: string,
-): boolean {
+function matchesTipoMembresia(member: Socio, tipoMembresia: string): boolean {
   if (tipoMembresia === "todos") return true;
   return member.membershipType === tipoMembresia;
 }
@@ -63,10 +63,10 @@ function matchesTipoMembresia(
 // ==================== SORT ====================
 
 function sortMembers(
-  members: SocioResponse[],
+  members: Socio[],
   ordenarPor: SociosFiltros["ordenarPor"],
   orden: SociosFiltros["orden"],
-): SocioResponse[] {
+): Socio[] {
   const sorted = [...members];
 
   sorted.sort((a, b) => {
@@ -102,9 +102,9 @@ function sortMembers(
 // ==================== MAIN FILTER ====================
 
 export function filtrarSocios(
-  members: SocioResponse[],
+  members: Socio[],
   filtros: SociosFiltros,
-): SocioResponse[] {
+): Socio[] {
   const filtered = members.filter(
     (m) =>
       matchesBusqueda(m, filtros.busqueda) &&

@@ -7,12 +7,14 @@ import {
   Archive,
   Calculator,
   History,
+  BarChart3,
+  LucideIcon,
 } from "lucide-react";
 
 export interface NavRoute {
   label: string;
   href: string;
-  icon: any;
+  icon: LucideIcon;
   adminOnly?: boolean;
 }
 
@@ -29,4 +31,10 @@ export const dashboardRoutes: NavRoute[] = [
   { label: "Productos", href: "/productos", icon: Package },
   { label: "Inventario", href: "/inventario", icon: Archive },
   { label: "Cortes", href: "/cortes", icon: Calculator },
+  {
+    label: "Reportes",
+    href: "/reports",
+    icon: BarChart3,
+    adminOnly: true,
+  },
 ];

@@ -1,5 +1,13 @@
-import type { SocioResponse } from "@/types/api/members";
-import type { SociosEstadisticas, EstadoVigencia } from "./types";
+// lib/domain/members/calculations.ts
+// Funciones puras de cálculo para socios
+// SIN dependencias externas
+
+import type {
+  Socio,
+  SociosEstadisticas,
+  EstadoVigencia,
+  TipoMembresiaInfo,
+} from "./types";
 import { TIPOS_MEMBRESIA } from "./types";
 
 // ==================== DATE HELPERS ====================
@@ -16,9 +24,7 @@ function todayMidnight(): Date {
 
 // ==================== STATS ====================
 
-export function calcularEstadisticas(
-  members: SocioResponse[],
-): SociosEstadisticas {
+export function calcularEstadisticas(members: Socio[]): SociosEstadisticas {
   const today = todayMidnight();
 
   let activos = 0;
@@ -81,7 +87,9 @@ export function calcularFechaFinRenovacion(
   tipoMembresia: string,
   endDateActual: string | Date | undefined,
 ): Date | null {
-  const tipoInfo = TIPOS_MEMBRESIA.find((t) => t.value === tipoMembresia);
+  const tipoInfo: TipoMembresiaInfo | undefined = TIPOS_MEMBRESIA.find(
+    (t) => t.value === tipoMembresia,
+  );
   if (!tipoInfo) return null;
 
   const hoy = todayMidnight();

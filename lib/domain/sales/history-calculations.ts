@@ -1,21 +1,14 @@
 // lib/domain/sales/history-calculations.ts
 // Funciones puras de cálculo para historial de ventas
-// Sin fetch, sin React, sin UI
+// SIN dependencias externas
 
-import type { TicketVentaAgrupado } from "@/types/api/sales";
-
-export interface HistorialStats {
-  totalValue: number;
-  uniqueTickets: number;
-  cancelled: number;
-  totalItems: number;
-}
+import type { TicketAgrupado, HistorialStats } from "./types";
 
 /**
  * Calcula estadísticas agregadas a partir de una lista de tickets
  */
 export function calculateHistorialStats(
-  tickets: TicketVentaAgrupado[],
+  tickets: TicketAgrupado[],
 ): HistorialStats {
   const totalValue = tickets.reduce(
     (sum, ticket) => sum + Number(ticket.total),

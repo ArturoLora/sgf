@@ -1,24 +1,35 @@
 #!/bin/bash
 
-OUTPUT="fe-reports-refactor-$(date +%Y%m%d_%H%M%S).txt"
+OUTPUT="be-phase2-services-context-$(date +%Y%m%d_%H%M%S).txt"
 
-echo "### PROJECT TREE (dashboard + domain + api)" > "$OUTPUT"
+echo "========================================" > "$OUTPUT"
+echo " BACKEND — FASE 2: SERVICES SIMETRÍA" >> "$OUTPUT"
+echo "========================================" >> "$OUTPUT"
 
-tree -L 4 \
-  app/'(dashboard)' \
-  lib/domain \
-  lib/api \
-  types/api \
-  services \
-  -I "node_modules|.next|dist|build|generated" >> "$OUTPUT"
+echo -e "\n### SERVICES TREE\n" >> "$OUTPUT"
+tree services >> "$OUTPUT"
 
-echo -e "\n\n### API REPORT ENDPOINTS\n" >> "$OUTPUT"
-grep -R "report" app/api -n --include="route.ts" >> "$OUTPUT"
+echo -e "\n\n### SERVICES (FULL CONTENT)\n" >> "$OUTPUT"
+for f in services/*.ts; do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
+done
 
-echo -e "\n\n### BACKEND REPORT SERVICES\n" >> "$OUTPUT"
-grep -R "report" services -n --include="*.ts" >> "$OUTPUT"
+echo -e "\n\n### DOMAIN (REFERENCE)\n" >> "$OUTPUT"
+tree lib/domain >> "$OUTPUT"
 
-echo -e "\n\n### REPORT TYPES (SOURCE OF TRUTH)\n" >> "$OUTPUT"
-sed -n '1,20000p' types/api/reports.ts >> "$OUTPUT"
+echo -e "\n\n### DOMAIN TYPES (FULL)\n" >> "$OUTPUT"
+for f in $(find lib/domain -name "types.ts"); do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,2000p' "$f" >> "$OUTPUT"
+done
 
-echo "✅ Export REPORTS completo: $OUTPUT"
+echo -e "\n\n### API ROUTES (REFERENCE)\n" >> "$OUTPUT"
+tree app/api >> "$OUTPUT"
+
+echo -e "\n\n========================================" >> "$OUTPUT"
+echo " SERVICES CONTEXT EXPORT COMPLETED" >> "$OUTPUT"
+echo " FILE: $OUTPUT" >> "$OUTPUT"
+echo "========================================" >> "$OUTPUT"
+
+echo "✅ Backend Phase 2 context export completo: $OUTPUT"

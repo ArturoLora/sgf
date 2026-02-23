@@ -1,24 +1,14 @@
 // lib/domain/shifts/shift-calculations.ts
+// Funciones puras de cálculo para cortes de caja
+// SIN dependencias externas (no @/types/api, no Prisma)
 
-import type { ResumenCorteResponse } from "@/types/api/shifts";
-
-/**
- * Domain Layer - Cálculos de Cortes
- * Responsabilidad: Funciones puras de cálculo
- */
-
-export interface ValoresArqueo {
-  cashAmount: number;
-  debitCardAmount: number;
-  creditCardAmount: number;
-  totalWithdrawals: number;
-}
+import type { ValoresArqueo, ResumenCorte, TipoDiferencia } from "./types";
 
 /**
  * Calcula la diferencia entre el arqueo real y el esperado
  */
 export function calcularDiferencia(
-  resumen: ResumenCorteResponse,
+  resumen: ResumenCorte,
   valores: ValoresArqueo,
 ): number {
   const totalReal =
@@ -36,9 +26,7 @@ export function calcularDiferencia(
 /**
  * Calcula el efectivo esperado en caja
  */
-export function calcularEfectivoEsperado(
-  resumen: ResumenCorteResponse,
-): number {
+export function calcularEfectivoEsperado(resumen: ResumenCorte): number {
   return Number(
     (
       resumen.initialCash +
@@ -58,9 +46,7 @@ export function tieneDiferenciaSignificativa(diferencia: number): boolean {
 /**
  * Determina el tipo de diferencia
  */
-export function tipoDiferencia(
-  diferencia: number,
-): "sobrante" | "faltante" | "sin_diferencia" {
+export function tipoDiferencia(diferencia: number): TipoDiferencia {
   if (!tieneDiferenciaSignificativa(diferencia)) {
     return "sin_diferencia";
   }

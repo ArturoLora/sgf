@@ -1,4 +1,8 @@
-import type { ReporteStockActual } from "@/types/api/reports";
+// lib/domain/reports/calculations.ts
+// Funciones puras de cálculo para reportes
+// SIN dependencias externas
+
+import type { ReporteStockActual } from "./types";
 
 export function getTotalProducts(report: ReporteStockActual): number {
   return report.products.length;

@@ -1,3 +1,7 @@
+// lib/domain/members/types.ts
+// Tipos internos del dominio de socios
+// SIN dependencias externas (no @/types/api, no Prisma)
+
 // ==================== FILTER TYPES ====================
 
 export interface SociosFiltros {
@@ -17,6 +21,26 @@ export const FILTROS_INICIALES: SociosFiltros = {
   ordenarPor: "numero",
   orden: "asc",
 };
+
+// ==================== ENTIDAD SOCIO (INTERNA) ====================
+
+export interface Socio {
+  id: number;
+  memberNumber: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  birthDate?: Date | string;
+  membershipType?: string;
+  membershipDescription?: string;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  totalVisits: number;
+  lastVisit?: Date | string;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
 
 // ==================== MEMBERSHIP TYPES ====================
 
@@ -57,3 +81,38 @@ export interface SociosEstadisticas {
 // ==================== VIGENCIA ====================
 
 export type EstadoVigencia = "vigente" | "vencida" | "sin_membresia";
+
+// ==================== PAYLOADS INTERNOS ====================
+
+export interface CrearSocioInput {
+  memberNumber: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  birthDate?: string;
+  membershipType?: string;
+  membershipDescription?: string;
+  startDate?: string;
+  endDate?: string;
+  paymentMethod?: string;
+}
+
+export interface ActualizarSocioInput {
+  name?: string;
+  phone?: string;
+  email?: string;
+  birthDate?: string;
+  membershipType?: string;
+  membershipDescription?: string;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+}
+
+export interface RenovarMembresiaInput {
+  memberId: number;
+  membershipType: string;
+  membershipDescription?: string;
+  startDate?: string;
+  paymentMethod?: string;
+}

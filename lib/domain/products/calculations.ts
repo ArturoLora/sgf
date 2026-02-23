@@ -1,31 +1,33 @@
-import type { ProductoResponse } from "@/types/api/products";
+// lib/domain/products/calculations.ts
+// Funciones puras de cálculo para productos
+// SIN dependencias externas
 
-export function computeTotalStock(product: ProductoResponse): number {
+import type { Producto, ProductStats, StockStatus } from "./types";
+
+export function computeTotalStock(product: Producto): number {
   return product.warehouseStock + product.gymStock;
 }
 
-export function isLowStock(product: ProductoResponse): boolean {
+export function isLowStock(product: Producto): boolean {
   return (
     product.gymStock < product.minStock ||
     product.warehouseStock < product.minStock
   );
 }
 
-export function computeActiveCount(products: ProductoResponse[]): number {
+export function computeActiveCount(products: Producto[]): number {
   return products.filter((p) => p.isActive).length;
 }
 
-export function computeLowStockCount(products: ProductoResponse[]): number {
+export function computeLowStockCount(products: Producto[]): number {
   return products.filter((p) => p.isActive && isLowStock(p)).length;
 }
 
-export function computeLowStockProducts(
-  products: ProductoResponse[],
-): ProductoResponse[] {
+export function computeLowStockProducts(products: Producto[]): Producto[] {
   return products.filter((p) => p.isActive && isLowStock(p));
 }
 
-export function computeInventoryValue(products: ProductoResponse[]): number {
+export function computeInventoryValue(products: Producto[]): number {
   return products
     .filter((p) => p.isActive)
     .reduce((sum, p) => {
@@ -34,14 +36,7 @@ export function computeInventoryValue(products: ProductoResponse[]): number {
     }, 0);
 }
 
-export interface ProductStats {
-  totalProducts: number;
-  activeProducts: number;
-  lowStockProducts: number;
-  inventoryValue: number;
-}
-
-export function computeStats(products: ProductoResponse[]): ProductStats {
+export function computeStats(products: Producto[]): ProductStats {
   return {
     totalProducts: products.length,
     activeProducts: computeActiveCount(products),
@@ -49,12 +44,6 @@ export function computeStats(products: ProductoResponse[]): ProductStats {
     inventoryValue: computeInventoryValue(products),
   };
 }
-
-export type StockStatus = {
-  color: "destructive" | "outline" | "default";
-  text: string;
-  className?: string;
-};
 
 export function getStockStatus(current: number, min: number): StockStatus {
   if (current === 0) {
@@ -77,7 +66,7 @@ export function getStockStatus(current: number, min: number): StockStatus {
 }
 
 export function getStockByLocation(
-  product: ProductoResponse,
+  product: Producto,
   location: string,
 ): number {
   return location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;

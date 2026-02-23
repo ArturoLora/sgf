@@ -1,3 +1,7 @@
+// lib/domain/reports/formatters.ts
+// Formatters puros para reportes
+// SIN dependencias externas
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",

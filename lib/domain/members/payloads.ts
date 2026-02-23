@@ -1,76 +1,65 @@
+// lib/domain/members/payloads.ts
+// Constructores puros de payloads para socios
+// SIN dependencias externas (no @/types/api, no Prisma, no @/types/models)
+
 import type {
-  CreateMemberInputRaw,
-  UpdateMemberInputRaw,
-  RenewMemberInputRaw,
-  CrearSocioRequest,
-  ActualizarSocioRequest,
-  RenovarMembresiaRequest,
-} from "@/types/api/members";
-import { MetodoPago } from "@/types/models/movimiento-inventario";
-import type { TipoMembresia } from "@/types/models/socio";
+  CrearSocioInput,
+  ActualizarSocioInput,
+  RenovarMembresiaInput,
+} from "./types";
+import { TIPOS_MEMBRESIA } from "./types";
+
+// ==================== VALID VALUE SETS ====================
+
+const METODOS_PAGO_VALIDOS = new Set([
+  "CASH",
+  "DEBIT_CARD",
+  "CREDIT_CARD",
+  "TRANSFER",
+]);
+
+const TIPOS_MEMBRESIA_VALIDOS = new Set(TIPOS_MEMBRESIA.map((t) => t.value));
 
 // ==================== TYPE GUARDS ====================
 
-const METODOS_PAGO: ReadonlySet<string> = new Set(Object.values(MetodoPago));
-
-function isMetodoPago(value: string | undefined): value is MetodoPago {
-  return value !== undefined && METODOS_PAGO.has(value);
+function isMetodoPagoValido(value: string | undefined): boolean {
+  return value !== undefined && METODOS_PAGO_VALIDOS.has(value);
 }
 
-/**
- * All valid TipoMembresia values matching the enum defined in types/models/socio.
- * Kept in sync with the TIPOS_MEMBRESIA constant in types.ts.
- */
-const TIPOS_MEMBRESIA_VALIDOS: ReadonlySet<string> = new Set([
-  "VISIT",
-  "WEEK",
-  "MONTH_STUDENT",
-  "MONTH_GENERAL",
-  "QUARTER_STUDENT",
-  "QUARTER_GENERAL",
-  "ANNUAL_STUDENT",
-  "ANNUAL_GENERAL",
-  "PROMOTION",
-  "REBIRTH",
-  "NUTRITION_CONSULTATION",
-]);
-
-function isTipoMembresia(value: string | undefined): value is TipoMembresia {
+function isTipoMembresiaValido(value: string | undefined): boolean {
   return value !== undefined && TIPOS_MEMBRESIA_VALIDOS.has(value);
 }
 
 // ==================== PAYLOAD BUILDERS ====================
 
-export function buildCrearSocioPayload(
-  data: CreateMemberInputRaw,
-): CrearSocioRequest {
+export function buildCrearSocioPayload(data: CrearSocioInput): CrearSocioInput {
   return {
     memberNumber: data.memberNumber,
     name: data.name || undefined,
     phone: data.phone || undefined,
     email: data.email || undefined,
     birthDate: data.birthDate || undefined,
-    membershipType: isTipoMembresia(data.membershipType)
+    membershipType: isTipoMembresiaValido(data.membershipType)
       ? data.membershipType
       : undefined,
     membershipDescription: data.membershipDescription || undefined,
     startDate: data.startDate || undefined,
     endDate: data.endDate || undefined,
-    paymentMethod: isMetodoPago(data.paymentMethod)
+    paymentMethod: isMetodoPagoValido(data.paymentMethod)
       ? data.paymentMethod
       : undefined,
   };
 }
 
 export function buildActualizarSocioPayload(
-  data: UpdateMemberInputRaw,
-): ActualizarSocioRequest {
+  data: ActualizarSocioInput,
+): ActualizarSocioInput {
   return {
     name: data.name || undefined,
     phone: data.phone || undefined,
     email: data.email || undefined,
     birthDate: data.birthDate || undefined,
-    membershipType: isTipoMembresia(data.membershipType)
+    membershipType: isTipoMembresiaValido(data.membershipType)
       ? data.membershipType
       : undefined,
     membershipDescription: data.membershipDescription || undefined,
@@ -81,9 +70,9 @@ export function buildActualizarSocioPayload(
 }
 
 export function buildRenovarMembresiaPayload(
-  data: RenewMemberInputRaw,
-): RenovarMembresiaRequest {
-  if (!isTipoMembresia(data.membershipType)) {
+  data: RenovarMembresiaInput,
+): RenovarMembresiaInput {
+  if (!isTipoMembresiaValido(data.membershipType)) {
     throw new Error(`Tipo de membresía inválido: ${data.membershipType}`);
   }
 
@@ -92,7 +81,7 @@ export function buildRenovarMembresiaPayload(
     membershipType: data.membershipType,
     membershipDescription: data.membershipDescription || undefined,
     startDate: data.startDate || undefined,
-    paymentMethod: isMetodoPago(data.paymentMethod)
+    paymentMethod: isMetodoPagoValido(data.paymentMethod)
       ? data.paymentMethod
       : undefined,
   };

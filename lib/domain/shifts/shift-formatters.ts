@@ -1,9 +1,6 @@
 // lib/domain/shifts/shift-formatters.ts
-
-/**
- * Domain Layer - Formateadores de Cortes
- * Responsabilidad: Formateo de datos para presentación
- */
+// Formatters puros para cortes de caja
+// SIN dependencias externas
 
 /**
  * Formatea una fecha a formato local español

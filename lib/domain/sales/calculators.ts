@@ -1,15 +1,8 @@
 // lib/domain/sales/calculators.ts
+// Funciones puras de cálculo para ventas (POS)
+// SIN dependencias externas
 
-interface ItemCarrito {
-  producto: {
-    id: number;
-    nombre: string;
-    precioVenta: number;
-    existenciaGym: number;
-  };
-  cantidad: number;
-  precioUnitario: number;
-}
+import type { ItemCarrito } from "./types";
 
 /**
  * Calcula el subtotal de un carrito de compras
