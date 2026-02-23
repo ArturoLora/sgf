@@ -1,35 +1,42 @@
 #!/bin/bash
 
-OUTPUT="be-phase2-services-context-$(date +%Y%m%d_%H%M%S).txt"
+OUTPUT="be-phase3-api-execution-context-$(date +%Y%m%d_%H%M%S).txt"
 
 echo "========================================" > "$OUTPUT"
-echo " BACKEND — FASE 2: SERVICES SIMETRÍA" >> "$OUTPUT"
+echo " BACKEND — FASE 3: API EXECUTION CONTEXT" >> "$OUTPUT"
 echo "========================================" >> "$OUTPUT"
 
-echo -e "\n### SERVICES TREE\n" >> "$OUTPUT"
-tree services >> "$OUTPUT"
+echo -e "\n### API ROUTES — FULL CONTENT\n" >> "$OUTPUT"
 
-echo -e "\n\n### SERVICES (FULL CONTENT)\n" >> "$OUTPUT"
-for f in services/*.ts; do
+# Exportar TODAS las routes completas
+while IFS= read -r f; do
   echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
   sed -n '1,20000p' "$f" >> "$OUTPUT"
-done
-
-echo -e "\n\n### DOMAIN (REFERENCE)\n" >> "$OUTPUT"
-tree lib/domain >> "$OUTPUT"
-
-echo -e "\n\n### DOMAIN TYPES (FULL)\n" >> "$OUTPUT"
-for f in $(find lib/domain -name "types.ts"); do
-  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
-  sed -n '1,2000p' "$f" >> "$OUTPUT"
-done
-
-echo -e "\n\n### API ROUTES (REFERENCE)\n" >> "$OUTPUT"
-tree app/api >> "$OUTPUT"
+done < <(find app/api -name "route.ts" | sort)
 
 echo -e "\n\n========================================" >> "$OUTPUT"
-echo " SERVICES CONTEXT EXPORT COMPLETED" >> "$OUTPUT"
+echo " SERVICES — REFERENCE (READ ONLY)" >> "$OUTPUT"
+echo "========================================" >> "$OUTPUT"
+
+# Exportar services solo como referencia (NO para modificar)
+while IFS= read -r f; do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
+done < <(find services -name "*.ts" | sort)
+
+echo -e "\n\n========================================" >> "$OUTPUT"
+echo " DOMAIN — REFERENCE (READ ONLY)" >> "$OUTPUT"
+echo "========================================" >> "$OUTPUT"
+
+# Exportar domain como referencia arquitectónica
+while IFS= read -r f; do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
+done < <(find lib/domain -name "*.ts" | sort)
+
+echo -e "\n========================================" >> "$OUTPUT"
+echo " API EXECUTION CONTEXT COMPLETED" >> "$OUTPUT"
 echo " FILE: $OUTPUT" >> "$OUTPUT"
 echo "========================================" >> "$OUTPUT"
 
-echo "✅ Backend Phase 2 context export completo: $OUTPUT"
+echo "✅ Backend Phase 3 execution context export completo: $OUTPUT"

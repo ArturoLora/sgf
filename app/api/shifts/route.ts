@@ -1,9 +1,9 @@
 // ===== app/api/shifts/route.ts =====
 
 import { NextRequest, NextResponse } from "next/server";
-import { ShiftsService } from "@/services";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import { ShiftsService } from "@/services";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +28,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const queryRaw = {
       search: searchParams.get("search") || undefined,

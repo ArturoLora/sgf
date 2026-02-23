@@ -1,4 +1,8 @@
+// ===== app/api/products/[id]/route.ts =====
+
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import { ProductsService } from "@/services";
 
 export async function GET(
@@ -6,6 +10,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { id } = await params;
     const productId = ProductsService.parseProductId(id);
     const product = await ProductsService.getProductById(productId);
@@ -22,6 +31,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { id } = await params;
     const productId = ProductsService.parseProductId(id);
     const body = await request.json();
@@ -43,6 +57,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { id } = await params;
     const productId = ProductsService.parseProductId(id);
     const product = await ProductsService.toggleProductStatus(productId);
