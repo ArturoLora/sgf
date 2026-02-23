@@ -153,34 +153,22 @@ function serializeShift(shift: {
 
 async function validateNoOpenShift(cashierId: string): Promise<void> {
   const openShift = await prisma.shift.findFirst({
-    where: {
-      cashierId,
-      closingDate: null,
-    },
+    where: { cashierId, closingDate: null },
   });
-
-  if (openShift) {
-    throw new Error("Ya tienes un corte abierto");
-  }
+  if (openShift) throw new Error("Ya tienes un corte abierto");
 }
 
 async function validateNoSystemOpenShift(): Promise<void> {
   const openShift = await prisma.shift.findFirst({
-    where: {
-      closingDate: null,
-    },
+    where: { closingDate: null },
   });
-
-  if (openShift) {
-    throw new Error("Ya existe un corte abierto en el sistema");
-  }
+  if (openShift) throw new Error("Ya existe un corte abierto en el sistema");
 }
 
 // ==================== PARSING HELPERS ====================
 
 export function parseShiftsQuery(raw: ShiftsQueryInput): GetShiftsParams {
   const validated = ShiftsQuerySchema.parse(raw);
-
   return {
     search: validated.search,
     startDate: parseISODate(validated.startDate),
@@ -231,13 +219,7 @@ export async function openShift(
       notes: data.notes,
     },
     include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
     },
   });
 
@@ -251,21 +233,13 @@ export async function closeShift(
     where: { id: data.shiftId },
     include: {
       inventoryMovements: {
-        where: {
-          type: "SALE",
-          isCancelled: false,
-        },
+        where: { type: "SALE", isCancelled: false },
       },
     },
   });
 
-  if (!shift) {
-    throw new Error("Corte no encontrado");
-  }
-
-  if (shift.closingDate) {
-    throw new Error("El corte ya está cerrado");
-  }
+  if (!shift) throw new Error("Corte no encontrado");
+  if (shift.closingDate) throw new Error("El corte ya está cerrado");
 
   const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
 
@@ -345,13 +319,7 @@ export async function closeShift(
       notes: data.notes || shift.notes,
     },
     include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
     },
   });
 
@@ -372,22 +340,14 @@ export async function getShifts(
   } = {};
 
   if (params?.search) {
-    where.folio = {
-      contains: params.search,
-      mode: "insensitive",
-    };
+    where.folio = { contains: params.search, mode: "insensitive" };
   }
 
   if (params?.startDate && params?.endDate) {
-    where.openingDate = {
-      gte: params.startDate,
-      lte: params.endDate,
-    };
+    where.openingDate = { gte: params.startDate, lte: params.endDate };
   }
 
-  if (params?.cashier) {
-    where.cashierId = params.cashier;
-  }
+  if (params?.cashier) where.cashierId = params.cashier;
 
   if (params?.status === "abiertos") {
     where.closingDate = null;
@@ -403,17 +363,9 @@ export async function getShifts(
   const shifts = await prisma.shift.findMany({
     where,
     include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
     },
-    orderBy: {
-      [orderByField]: orderDirection,
-    },
+    orderBy: { [orderByField]: orderDirection },
     skip: (page - 1) * perPage,
     take: perPage,
   });
@@ -431,9 +383,7 @@ export async function getActiveShift(): Promise<CorteActivoConVentasResponse | n
   const shift = await prisma.shift.findFirst({
     where: { closingDate: null },
     include: {
-      cashier: {
-        select: { id: true, name: true, email: true },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
       inventoryMovements: {
         where: { type: "SALE", isCancelled: false },
         include: {
@@ -461,9 +411,7 @@ export async function getActiveShift(): Promise<CorteActivoConVentasResponse | n
         ? mapPaymentMethod(m.paymentMethod)
         : undefined,
       date: m.date,
-      product: {
-        name: m.product.name,
-      },
+      product: { name: m.product.name },
       member: m.member
         ? {
             memberNumber: m.member.memberNumber,
@@ -480,38 +428,19 @@ export async function getShiftById(
   const shift = await prisma.shift.findUnique({
     where: { id },
     include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
       inventoryMovements: {
-        where: {
-          type: "SALE",
-        },
+        where: { type: "SALE" },
         include: {
-          product: {
-            select: {
-              name: true,
-            },
-          },
-          member: {
-            select: {
-              memberNumber: true,
-              name: true,
-            },
-          },
+          product: { select: { name: true } },
+          member: { select: { memberNumber: true, name: true } },
         },
         orderBy: { date: "asc" },
       },
     },
   });
 
-  if (!shift) {
-    throw new Error("Corte no encontrado");
-  }
+  if (!shift) throw new Error("Corte no encontrado");
 
   const inventoryMovements = shift.inventoryMovements.map((m) => ({
     id: m.id,
@@ -523,9 +452,7 @@ export async function getShiftById(
       ? mapPaymentMethod(m.paymentMethod)
       : undefined,
     date: m.date,
-    product: {
-      name: m.product.name,
-    },
+    product: { name: m.product.name },
     member: m.member
       ? {
           memberNumber: m.member.memberNumber,
@@ -554,13 +481,7 @@ export async function getShiftById(
 export async function getAllShifts(limit?: number): Promise<CorteResponse[]> {
   const shifts = await prisma.shift.findMany({
     include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
     },
     orderBy: { openingDate: "desc" },
     take: limit,
@@ -575,19 +496,10 @@ export async function getShiftsBetweenDates(
 ): Promise<CorteResponse[]> {
   const shifts = await prisma.shift.findMany({
     where: {
-      openingDate: {
-        gte: startDate,
-        lte: endDate,
-      },
+      openingDate: { gte: startDate, lte: endDate },
     },
     include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
     },
     orderBy: { openingDate: "desc" },
   });
@@ -602,13 +514,7 @@ export async function getShiftsByCashier(
   const shifts = await prisma.shift.findMany({
     where: { cashierId },
     include: {
-      cashier: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+      cashier: { select: { id: true, name: true, email: true } },
     },
     orderBy: { openingDate: "desc" },
     take: limit,
@@ -621,17 +527,9 @@ export async function getSalesSummaryByShift(
   shiftId: number,
 ): Promise<ResumenVentasPorProducto[]> {
   const sales = await prisma.inventoryMovement.findMany({
-    where: {
-      shiftId,
-      type: "SALE",
-      isCancelled: false,
-    },
+    where: { shiftId, type: "SALE", isCancelled: false },
     include: {
-      product: {
-        select: {
-          name: true,
-        },
-      },
+      product: { select: { name: true } },
     },
   });
 
@@ -639,11 +537,7 @@ export async function getSalesSummaryByShift(
     (acc, sale) => {
       const name = sale.product.name;
       if (!acc[name]) {
-        acc[name] = {
-          product: name,
-          quantity: 0,
-          total: 0,
-        };
+        acc[name] = { product: name, quantity: 0, total: 0 };
       }
       acc[name].quantity += Math.abs(sale.quantity);
       acc[name].total += Number(sale.total || 0);
@@ -659,11 +553,7 @@ export async function getPaymentMethodSummary(
   shiftId: number,
 ): Promise<ResumenPorFormaPago> {
   const sales = await prisma.inventoryMovement.findMany({
-    where: {
-      shiftId,
-      type: "SALE",
-      isCancelled: false,
-    },
+    where: { shiftId, type: "SALE", isCancelled: false },
   });
 
   const summary = sales.reduce(
@@ -673,12 +563,7 @@ export async function getPaymentMethodSummary(
       acc[method] += total;
       return acc;
     },
-    {
-      CASH: 0,
-      DEBIT_CARD: 0,
-      CREDIT_CARD: 0,
-      TRANSFER: 0,
-    },
+    { CASH: 0, DEBIT_CARD: 0, CREDIT_CARD: 0, TRANSFER: 0 },
   );
 
   return summary;
@@ -691,15 +576,10 @@ export async function getShiftsStatistics(
   const where: { openingDate?: { gte: Date; lte: Date } } = {};
 
   if (startDate && endDate) {
-    where.openingDate = {
-      gte: startDate,
-      lte: endDate,
-    };
+    where.openingDate = { gte: startDate, lte: endDate };
   }
 
-  const shifts = await prisma.shift.findMany({
-    where,
-  });
+  const shifts = await prisma.shift.findMany({ where });
 
   const totalShifts = shifts.length;
   const totalSales = shifts.reduce((sum, s) => sum + Number(s.totalSales), 0);
@@ -709,37 +589,22 @@ export async function getShiftsStatistics(
     0,
   );
 
-  return {
-    totalShifts,
-    totalSales,
-    averageSales,
-    totalDifferences,
-  };
+  return { totalShifts, totalSales, averageSales, totalDifferences };
 }
 
 export async function cancelShift(
   shiftId: number,
   userRole: string,
 ): Promise<{ success: boolean; message: string }> {
-  if (userRole !== "ADMIN") {
+  if (userRole !== "ADMIN")
     throw new Error("Solo un administrador puede cancelar un corte");
-  }
 
-  const shift = await prisma.shift.findUnique({
-    where: { id: shiftId },
-  });
-
-  if (!shift) {
-    throw new Error("Corte no encontrado");
-  }
-
-  if (!shift.closingDate) {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId } });
+  if (!shift) throw new Error("Corte no encontrado");
+  if (!shift.closingDate)
     throw new Error("No se puede cancelar un corte abierto");
-  }
 
-  await prisma.shift.delete({
-    where: { id: shiftId },
-  });
+  await prisma.shift.delete({ where: { id: shiftId } });
 
   return { success: true, message: "Corte cancelado exitosamente" };
 }
@@ -751,17 +616,12 @@ export async function getShiftSummary(
     where: { id: shiftId },
     include: {
       inventoryMovements: {
-        where: {
-          type: "SALE",
-          isCancelled: false,
-        },
+        where: { type: "SALE", isCancelled: false },
       },
     },
   });
 
-  if (!shift) {
-    throw new Error("Corte no encontrado");
-  }
+  if (!shift) throw new Error("Corte no encontrado");
 
   const tickets = new Set(shift.inventoryMovements.map((i) => i.ticket)).size;
 

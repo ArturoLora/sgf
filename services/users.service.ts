@@ -46,10 +46,7 @@ export async function getUserById(userId: string): Promise<UserResponse> {
     },
   });
 
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
-
+  if (!user) throw new Error("Usuario no encontrado");
   return user;
 }
 
@@ -68,9 +65,7 @@ export async function createUser(
     where: { email: data.email },
   });
 
-  if (existingUser) {
-    throw new Error("El correo electrónico ya está registrado");
-  }
+  if (existingUser) throw new Error("El correo electrónico ya está registrado");
 
   const userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
@@ -106,22 +101,15 @@ export async function updateUser(
 ): Promise<UserResponse> {
   validateAdminRole(currentUserRole);
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
-
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("Usuario no encontrado");
 
   if (data.email && data.email !== user.email) {
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
     });
-
-    if (existingUser) {
+    if (existingUser)
       throw new Error("El correo electrónico ya está registrado");
-    }
   }
 
   const updatedUser = await prisma.user.update({
@@ -146,13 +134,8 @@ export async function toggleUserStatus(
 ): Promise<UserResponse> {
   validateAdminRole(currentUserRole);
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
-
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("Usuario no encontrado");
 
   const updatedUser = await prisma.user.update({
     where: { id: userId },

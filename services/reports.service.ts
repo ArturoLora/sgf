@@ -11,7 +11,6 @@ import type {
   ReportPeriodQueryInput,
   DashboardQueryInput,
 } from "@/types/api/reports";
-import { getLowStockProducts } from "./products.service";
 
 export interface ReportPeriodParams {
   startDate: Date;
@@ -33,24 +32,50 @@ export function parseReportPeriodQuery(
   raw: ReportPeriodQueryInput,
 ): ReportPeriodParams {
   const validated = ReportPeriodQuerySchema.parse(raw);
-
   const startDate = new Date(validated.startDate);
   const endDate = new Date(validated.endDate);
-
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()))
     throw new Error("Fechas inválidas");
-  }
-
   return { startDate, endDate };
 }
 
 export function parseDashboardQuery(raw: DashboardQueryInput): DashboardParams {
   const validated = DashboardQuerySchema.parse(raw);
-
   return {
     startDate: validated.startDate ? new Date(validated.startDate) : undefined,
     endDate: validated.endDate ? new Date(validated.endDate) : undefined,
   };
+}
+
+// ==================== INTERNAL: LOW STOCK QUERY ====================
+// Duplica la consulta de products.service intencionalmente para mantener
+// reports como contexto autónomo sin importar otros services.
+
+interface ProductoBajoStockInterno {
+  id: number;
+  name: string;
+  gymStock: number;
+  warehouseStock: number;
+  minStock: number;
+  stockFaltante: { gym: number; warehouse: number };
+}
+
+async function queryLowStockProducts(): Promise<ProductoBajoStockInterno[]> {
+  const products = await prisma.product.findMany({ where: { isActive: true } });
+
+  return products
+    .filter((p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      gymStock: p.gymStock,
+      warehouseStock: p.warehouseStock,
+      minStock: p.minStock,
+      stockFaltante: {
+        gym: Math.max(0, p.minStock - p.gymStock),
+        warehouse: Math.max(0, p.minStock - p.warehouseStock),
+      },
+    }));
 }
 
 // ==================== REPORT SERVICES ====================
@@ -61,18 +86,10 @@ export async function getSalesReportByProduct(
   const sales = await prisma.inventoryMovement.findMany({
     where: {
       type: "SALE",
-      date: {
-        gte: params.startDate,
-        lte: params.endDate,
-      },
+      date: { gte: params.startDate, lte: params.endDate },
     },
     include: {
-      product: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      product: { select: { id: true, name: true } },
     },
   });
 
@@ -117,10 +134,7 @@ export async function getDailySalesReport(
   const sales = await prisma.inventoryMovement.findMany({
     where: {
       type: "SALE",
-      date: {
-        gte: params.startDate,
-        lte: params.endDate,
-      },
+      date: { gte: params.startDate, lte: params.endDate },
     },
   });
 
@@ -136,12 +150,9 @@ export async function getDailySalesReport(
         };
       }
 
-      if (sale.ticket) {
-        acc[date].tickets.add(sale.ticket);
-      }
+      if (sale.ticket) acc[date].tickets.add(sale.ticket);
 
       const total = Number(sale.total || 0);
-
       if (sale.isCancelled) {
         acc[date].totalCancelled += total;
       } else {
@@ -188,7 +199,7 @@ export async function getCurrentStockReport(): Promise<ReporteStockActual> {
     { warehouse: 0, gym: 0, total: 0, totalValue: 0 },
   );
 
-  const lowStock = await getLowStockProducts();
+  const lowStock = await queryLowStockProducts();
 
   return {
     products: products.map((p) => ({
@@ -218,10 +229,7 @@ export async function getDashboardSummary(
         where: {
           type: "SALE",
           isCancelled: false,
-          date: {
-            gte: startDate,
-            lte: endDate,
-          },
+          date: { gte: startDate, lte: endDate },
         },
       }),
       prisma.member.count({ where: { isActive: true } }),
@@ -229,11 +237,7 @@ export async function getDashboardSummary(
       prisma.shift.findFirst({
         where: { closingDate: null },
         include: {
-          cashier: {
-            select: {
-              name: true,
-            },
-          },
+          cashier: { select: { name: true } },
         },
       }),
     ]);
@@ -261,20 +265,13 @@ export async function getDashboardSummary(
       tickets: ticketsToday,
       quantity: salesToday.length,
     },
-    members: {
-      active: activeMembers,
-    },
-    products: {
-      active: activeProducts,
-      lowStock: productsLowStock,
-    },
+    members: { active: activeMembers },
+    products: { active: activeProducts, lowStock: productsLowStock },
     activeShift: activeShift
       ? {
           id: activeShift.id,
           folio: activeShift.folio,
-          cashier: {
-            name: activeShift.cashier.name,
-          },
+          cashier: { name: activeShift.cashier.name },
           openingDate: activeShift.openingDate,
           initialCash: Number(activeShift.initialCash),
         }

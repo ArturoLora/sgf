@@ -58,7 +58,6 @@ export function parseProductsQuery(
   raw: ProductsQueryInput,
 ): SearchProductsParams {
   const validated = ProductsQuerySchema.parse(raw);
-
   return {
     search: validated.search,
     isActive: parseBooleanQuery(validated.isActive),
@@ -70,7 +69,6 @@ export function parseCreateProductInput(
   raw: CreateProductInputRaw,
 ): CrearProductoRequest {
   const validated = CreateProductInputSchema.parse(raw);
-
   return {
     name: validated.name,
     salePrice: validated.salePrice,
@@ -82,7 +80,6 @@ export function parseUpdateProductInput(
   raw: UpdateProductInputRaw,
 ): ActualizarProductoRequest {
   const validated = UpdateProductInputSchema.parse(raw);
-
   return {
     name: validated.name,
     salePrice: validated.salePrice,
@@ -106,10 +103,7 @@ export async function getAllProducts(
   } = {};
 
   if (params?.search) {
-    where.name = {
-      contains: params.search,
-      mode: "insensitive",
-    };
+    where.name = { contains: params.search, mode: "insensitive" };
   }
 
   if (params?.isActive !== undefined) {
@@ -142,25 +136,14 @@ export async function getProductById(
         orderBy: { date: "desc" },
         take: 20,
         include: {
-          user: {
-            select: {
-              name: true,
-            },
-          },
-          member: {
-            select: {
-              memberNumber: true,
-              name: true,
-            },
-          },
+          user: { select: { name: true } },
+          member: { select: { memberNumber: true, name: true } },
         },
       },
     },
   });
 
-  if (!product) {
-    throw new Error("Producto no encontrado");
-  }
+  if (!product) throw new Error("Producto no encontrado");
 
   return {
     ...serializeProduct(product),
@@ -175,9 +158,7 @@ export async function getProductById(
       notes: m.notes ?? undefined,
       isCancelled: m.isCancelled,
       date: m.date,
-      user: {
-        name: m.user.name,
-      },
+      user: { name: m.user.name },
       member: m.member
         ? {
             memberNumber: m.member.memberNumber,
@@ -194,10 +175,7 @@ export async function createProduct(
   const existingProduct = await prisma.product.findUnique({
     where: { name: data.name },
   });
-
-  if (existingProduct) {
-    throw new Error("Ya existe un producto con ese nombre");
-  }
+  if (existingProduct) throw new Error("Ya existe un producto con ese nombre");
 
   const product = await prisma.product.create({
     data: {
@@ -214,42 +192,26 @@ export async function updateProduct(
   id: number,
   data: ActualizarProductoRequest,
 ): Promise<ProductoResponse> {
-  const product = await prisma.product.findUnique({
-    where: { id },
-  });
-
-  if (!product) {
-    throw new Error("Producto no encontrado");
-  }
+  const product = await prisma.product.findUnique({ where: { id } });
+  if (!product) throw new Error("Producto no encontrado");
 
   if (data.name && data.name !== product.name) {
     const existingProduct = await prisma.product.findUnique({
       where: { name: data.name },
     });
-
-    if (existingProduct) {
+    if (existingProduct)
       throw new Error("Ya existe un producto con ese nombre");
-    }
   }
 
-  const updatedProduct = await prisma.product.update({
-    where: { id },
-    data,
-  });
-
+  const updatedProduct = await prisma.product.update({ where: { id }, data });
   return serializeProduct(updatedProduct);
 }
 
 export async function toggleProductStatus(
   id: number,
 ): Promise<ProductoResponse> {
-  const product = await prisma.product.findUnique({
-    where: { id },
-  });
-
-  if (!product) {
-    throw new Error("Producto no encontrado");
-  }
+  const product = await prisma.product.findUnique({ where: { id } });
+  if (!product) throw new Error("Producto no encontrado");
 
   const updatedProduct = await prisma.product.update({
     where: { id },
@@ -271,9 +233,7 @@ export async function getActiveProducts(): Promise<ProductoResponse[]> {
 export async function getLowStockProducts(): Promise<
   ProductoBajoStockResponse[]
 > {
-  const products = await prisma.product.findMany({
-    where: { isActive: true },
-  });
+  const products = await prisma.product.findMany({ where: { isActive: true } });
 
   const result = products.filter(
     (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
@@ -296,19 +256,11 @@ export async function getProductStock(
   productId: number,
   location?: Location,
 ): Promise<StockProductoResponse | number> {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-  });
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) throw new Error("Producto no encontrado");
 
-  if (!product) {
-    throw new Error("Producto no encontrado");
-  }
-
-  if (location === "WAREHOUSE") {
-    return product.warehouseStock;
-  } else if (location === "GYM") {
-    return product.gymStock;
-  }
+  if (location === "WAREHOUSE") return product.warehouseStock;
+  if (location === "GYM") return product.gymStock;
 
   return {
     warehouse: product.warehouseStock,
@@ -358,9 +310,7 @@ export async function getProductsStatistics(): Promise<EstadisticasProductosResp
   const total = await prisma.product.count();
   const active = await prisma.product.count({ where: { isActive: true } });
 
-  const products = await prisma.product.findMany({
-    where: { isActive: true },
-  });
+  const products = await prisma.product.findMany({ where: { isActive: true } });
 
   const lowStockGym = products.filter((p) => p.gymStock < p.minStock).length;
   const lowStockWarehouse = products.filter(
@@ -372,11 +322,5 @@ export async function getProductsStatistics(): Promise<EstadisticasProductosResp
     return sum + Number(p.salePrice) * totalStock;
   }, 0);
 
-  return {
-    total,
-    active,
-    lowStockGym,
-    lowStockWarehouse,
-    inventoryValue,
-  };
+  return { total, active, lowStockGym, lowStockWarehouse, inventoryValue };
 }

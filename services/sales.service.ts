@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { Prisma, PaymentMethod } from "@prisma/client";
 import { serializeDecimal } from "./utils";
+import { MEMBERSHIP_KEYWORDS } from "./membership-helpers";
 import type {
   HistorialVentasResponse,
   ObtenerHistorialVentasQuery,
@@ -32,10 +33,7 @@ interface TicketGroup {
   total: number;
   paymentMethod: PaymentMethod | null;
   cashier: string;
-  member: {
-    memberNumber: string;
-    name: string | null;
-  } | null;
+  member: { memberNumber: string; name: string | null } | null;
   isCancelled: boolean;
   items: Array<{
     id: number;
@@ -102,7 +100,6 @@ export async function getSalesHistory(
     type: "SALE",
   };
 
-  // Apply filters
   if (params.startDate && params.endDate) {
     where.date = {
       gte: params.startDate,
@@ -110,51 +107,30 @@ export async function getSalesHistory(
     };
   }
 
-  if (params.cashier) {
-    where.userId = params.cashier;
-  }
+  if (params.cashier) where.userId = params.cashier;
+  if (params.product) where.productId = params.product;
+  if (params.member) where.memberId = params.member;
+  if (params.paymentMethod) where.paymentMethod = params.paymentMethod;
+  if (params.onlyActive) where.isCancelled = false;
 
-  if (params.product) {
-    where.productId = params.product;
-  }
-
-  if (params.member) {
-    where.memberId = params.member;
-  }
-
-  if (params.paymentMethod) {
-    where.paymentMethod = params.paymentMethod;
-  }
-
-  if (params.onlyActive) {
-    where.isCancelled = false;
-  }
-
-  // Product type filter
   if (params.productType) {
-    const membershipProducts = [
-      "VISITA",
-      "EFECTIVO SEMANA",
-      "EFECTIVO MENSUALIDAD ESTUDIANTE",
-      "EFECTIVO MENSUALIDAD GENERAL",
-      "EFECTIVO TRIMESTRE ESTUDIANTE",
-      "EFECTIVO TRIMESTRE GENERAL",
-      "EFECTIVO ANUAL ESTUDIANTE",
-      "EFECTIVO ANUAL GENERAL",
-    ];
-
     if (params.productType === "membresias") {
       where.product = {
-        name: { in: membershipProducts },
+        OR: MEMBERSHIP_KEYWORDS.map((keyword) => ({
+          name: { contains: keyword, mode: "insensitive" },
+        })),
       };
     } else if (params.productType === "productos") {
       where.product = {
-        name: { notIn: membershipProducts },
+        NOT: {
+          OR: MEMBERSHIP_KEYWORDS.map((keyword) => ({
+            name: { contains: keyword, mode: "insensitive" },
+          })),
+        },
       };
     }
   }
 
-  // Search filter
   if (params.search) {
     where.OR = [
       { ticket: { contains: params.search, mode: "insensitive" } },
@@ -169,7 +145,6 @@ export async function getSalesHistory(
     ];
   }
 
-  // Determine order by clause
   let orderByClause: Prisma.InventoryMovementOrderByWithRelationInput = {
     date: params.order,
   };
@@ -180,7 +155,6 @@ export async function getSalesHistory(
     orderByClause = { ticket: params.order };
   }
 
-  // Get unique tickets count
   const uniqueTickets = await prisma.inventoryMovement.findMany({
     where,
     select: { ticket: true },
@@ -189,7 +163,6 @@ export async function getSalesHistory(
 
   const total = uniqueTickets.length;
 
-  // Get all movements
   const movements = await prisma.inventoryMovement.findMany({
     where,
     orderBy: orderByClause,
@@ -207,7 +180,6 @@ export async function getSalesHistory(
     },
   });
 
-  // Group by ticket
   const groups = new Map<string, TicketGroup>();
 
   for (const m of movements) {
@@ -228,7 +200,6 @@ export async function getSalesHistory(
 
     const g = groups.get(ticket)!;
     g.total += Number(m.total || 0);
-
     g.items.push({
       id: m.id,
       product: m.product,
@@ -237,10 +208,8 @@ export async function getSalesHistory(
     });
   }
 
-  // Convert to array and apply ordering
   const ticketsArray = Array.from(groups.values());
 
-  // Apply ordering to grouped tickets
   if (params.orderBy === "date") {
     ticketsArray.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
@@ -248,9 +217,9 @@ export async function getSalesHistory(
       return params.order === "desc" ? dateB - dateA : dateA - dateB;
     });
   } else if (params.orderBy === "total") {
-    ticketsArray.sort((a, b) => {
-      return params.order === "desc" ? b.total - a.total : a.total - b.total;
-    });
+    ticketsArray.sort((a, b) =>
+      params.order === "desc" ? b.total - a.total : a.total - b.total,
+    );
   } else if (params.orderBy === "ticket") {
     ticketsArray.sort((a, b) => {
       const ticketA = a.ticket || "";
@@ -261,7 +230,6 @@ export async function getSalesHistory(
     });
   }
 
-  // Apply pagination
   const skip = (params.page - 1) * params.perPage;
   const tickets = ticketsArray.slice(skip, skip + params.perPage);
 
@@ -283,14 +251,9 @@ export async function getSaleProducts(): Promise<ProductoVentaResponse[]> {
     where: {
       isActive: true,
       NOT: {
-        OR: [
-          { name: { contains: "EFECTIVO", mode: "insensitive" } },
-          { name: { contains: "VISITA", mode: "insensitive" } },
-          { name: { contains: "MENSUALIDAD", mode: "insensitive" } },
-          { name: { contains: "SEMANA", mode: "insensitive" } },
-          { name: { contains: "TRIMESTRE", mode: "insensitive" } },
-          { name: { contains: "ANUAL", mode: "insensitive" } },
-        ],
+        OR: MEMBERSHIP_KEYWORDS.map((keyword) => ({
+          name: { contains: keyword, mode: "insensitive" },
+        })),
       },
     },
     select: {

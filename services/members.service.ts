@@ -11,7 +11,6 @@ import {
   parseBooleanQuery,
   calculateMembershipDates,
 } from "./utils";
-import { getMembershipProductKeyword } from "./membership-helpers";
 import {
   MembersQuerySchema,
   CreateMemberInputSchema,
@@ -31,6 +30,8 @@ import type {
   ActualizarSocioRequest,
   RenovarMembresiaRequest,
 } from "@/types/api/members";
+
+// ==================== SERIALIZER ====================
 
 function serializeMember(member: {
   id: number;
@@ -80,7 +81,6 @@ export interface SearchMembersParams {
 
 export function parseMembersQuery(raw: MembersQueryInput): SearchMembersParams {
   const validated = MembersQuerySchema.parse(raw);
-
   return {
     search: validated.search,
     isActive: parseBooleanQuery(validated.isActive),
@@ -92,9 +92,7 @@ export function parseCreateMemberInput(
   raw: CreateMemberInputRaw,
 ): CrearSocioRequest {
   const validated = CreateMemberInputSchema.parse(raw);
-
   const parsedMembershipType = parseMembershipType(validated.membershipType);
-
   return {
     memberNumber: validated.memberNumber,
     name: validated.name,
@@ -117,9 +115,7 @@ export function parseUpdateMemberInput(
   raw: UpdateMemberInputRaw,
 ): ActualizarSocioRequest {
   const validated = UpdateMemberInputSchema.parse(raw);
-
   const parsedMembershipType = parseMembershipType(validated.membershipType);
-
   return {
     name: validated.name,
     phone: validated.phone,
@@ -139,12 +135,9 @@ export function parseRenewMemberInput(
   raw: RenewMemberInputRaw,
 ): RenovarMembresiaRequest {
   const validated = RenewMemberInputSchema.parse(raw);
-
   const membershipType = parseMembershipType(validated.membershipType);
-  if (!membershipType) {
+  if (!membershipType)
     throw new Error("membershipType is required for renewal");
-  }
-
   return {
     memberId: validated.memberId,
     membershipType: mapMembershipTypeToApi(membershipType),
@@ -181,13 +174,8 @@ export async function getAllMembers(
     ];
   }
 
-  if (params?.isActive !== undefined) {
-    where.isActive = params.isActive;
-  }
-
-  if (params?.membershipType) {
-    where.membershipType = params.membershipType;
-  }
+  if (params?.isActive !== undefined) where.isActive = params.isActive;
+  if (params?.membershipType) where.membershipType = params.membershipType;
 
   const members = await prisma.member.findMany({
     where,
@@ -208,20 +196,13 @@ export async function getMemberById(
         orderBy: { date: "desc" },
         take: 20,
         include: {
-          product: {
-            select: {
-              name: true,
-              salePrice: true,
-            },
-          },
+          product: { select: { name: true, salePrice: true } },
         },
       },
     },
   });
 
-  if (!member) {
-    throw new Error("Socio no encontrado");
-  }
+  if (!member) throw new Error("Socio no encontrado");
 
   return {
     ...serializeMember(member),
@@ -250,20 +231,13 @@ export async function getMemberByNumber(
         orderBy: { date: "desc" },
         take: 5,
         include: {
-          product: {
-            select: {
-              name: true,
-              salePrice: true,
-            },
-          },
+          product: { select: { name: true, salePrice: true } },
         },
       },
     },
   });
 
-  if (!member) {
-    throw new Error("Socio no encontrado");
-  }
+  if (!member) throw new Error("Socio no encontrado");
 
   return {
     ...serializeMember(member),
@@ -283,15 +257,14 @@ export async function getMemberByNumber(
 
 export async function createMember(
   data: CrearSocioRequest,
-  userId: string,
+  // userId kept in signature for FASE 3 orquestador (inventory movement creation)
+  _userId: string,
 ): Promise<SocioResponse> {
   const existingMember = await prisma.member.findUnique({
     where: { memberNumber: data.memberNumber },
   });
 
-  if (existingMember) {
-    throw new Error("El número de socio ya existe");
-  }
+  if (existingMember) throw new Error("El número de socio ya existe");
 
   const member = await prisma.member.create({
     data: {
@@ -309,55 +282,10 @@ export async function createMember(
     },
   });
 
-  if (data.membershipType && userId) {
-    const prismaType = parseMembershipType(data.membershipType);
-    if (!prismaType) {
-      return serializeMember(member);
-    }
-
-    const keyword = getMembershipProductKeyword(prismaType);
-
-    const product = await prisma.product.findFirst({
-      where: {
-        name: { contains: keyword, mode: "insensitive" },
-        isActive: true,
-      },
-    });
-
-    if (product) {
-      const activeShift = await prisma.shift.findFirst({
-        where: { closingDate: null },
-      });
-
-      const timestamp = Date.now().toString().slice(-6);
-      const random = Math.floor(Math.random() * 100)
-        .toString()
-        .padStart(2, "0");
-      const ticket = `NEW${timestamp}${random}`;
-
-      await prisma.inventoryMovement.create({
-        data: {
-          productId: product.id,
-          type: "SALE",
-          location: "GYM",
-          quantity: -1,
-          ticket,
-          memberId: member.id,
-          userId,
-          unitPrice: product.salePrice,
-          subtotal: product.salePrice,
-          discount: 0,
-          surcharge: 0,
-          total: product.salePrice,
-          paymentMethod: data.paymentMethod
-            ? mapPaymentMethodFromApi(data.paymentMethod)
-            : "CASH",
-          shiftId: activeShift?.id,
-          notes: `Alta de socio: ${data.membershipDescription || data.membershipType}`,
-        },
-      });
-    }
-  }
+  // NOTE FASE 3: La creación del movimiento de inventario (venta de membresía)
+  // asociado al alta de un socio es una operación multi-contexto (members + inventory).
+  // Se manejará en un orquestador de FASE 3. members.service NO crea movimientos
+  // de inventario ni accede a products ni shifts.
 
   return serializeMember(member);
 }
@@ -366,13 +294,8 @@ export async function updateMember(
   id: number,
   data: ActualizarSocioRequest,
 ): Promise<SocioResponse> {
-  const member = await prisma.member.findUnique({
-    where: { id },
-  });
-
-  if (!member) {
-    throw new Error("Socio no encontrado");
-  }
+  const member = await prisma.member.findUnique({ where: { id } });
+  if (!member) throw new Error("Socio no encontrado");
 
   const updatedMember = await prisma.member.update({
     where: { id },
@@ -395,13 +318,8 @@ export async function updateMember(
 }
 
 export async function toggleMemberStatus(id: number): Promise<SocioResponse> {
-  const member = await prisma.member.findUnique({
-    where: { id },
-  });
-
-  if (!member) {
-    throw new Error("Socio no encontrado");
-  }
+  const member = await prisma.member.findUnique({ where: { id } });
+  if (!member) throw new Error("Socio no encontrado");
 
   const updatedMember = await prisma.member.update({
     where: { id },
@@ -412,17 +330,9 @@ export async function toggleMemberStatus(id: number): Promise<SocioResponse> {
 }
 
 export async function registerVisit(memberId: number): Promise<SocioResponse> {
-  const member = await prisma.member.findUnique({
-    where: { id: memberId },
-  });
-
-  if (!member) {
-    throw new Error("Socio no encontrado");
-  }
-
-  if (!member.isActive) {
-    throw new Error("El socio no está activo");
-  }
+  const member = await prisma.member.findUnique({ where: { id: memberId } });
+  if (!member) throw new Error("Socio no encontrado");
+  if (!member.isActive) throw new Error("El socio no está activo");
 
   const updatedMember = await prisma.member.update({
     where: { id: memberId },
@@ -454,13 +364,8 @@ export async function getMembersExpiringSoon(
   const members = await prisma.member.findMany({
     where: {
       isActive: true,
-      endDate: {
-        gte: today,
-        lte: limitDate,
-      },
-      membershipType: {
-        not: "VISIT",
-      },
+      endDate: { gte: today, lte: limitDate },
+      membershipType: { not: "VISIT" },
     },
     orderBy: { endDate: "asc" },
   });
@@ -484,99 +389,44 @@ export async function getMembersStatistics(): Promise<{
     _count: true,
   });
 
-  return {
-    total,
-    active,
-    inactive,
-    byType,
-  };
+  return { total, active, inactive, byType };
 }
 
 export async function renewMembership(
   data: RenovarMembresiaRequest,
-  userId: string,
+  // userId kept in signature for FASE 3 orquestador (inventory movement creation)
+  _userId: string,
 ): Promise<SocioResponse> {
   const member = await prisma.member.findUnique({
     where: { id: data.memberId },
   });
-
-  if (!member) {
-    throw new Error("Socio no encontrado");
-  }
+  if (!member) throw new Error("Socio no encontrado");
 
   const prismaType = parseMembershipType(data.membershipType);
-  if (!prismaType) {
-    throw new Error("membershipType is required for renewal");
-  }
+  if (!prismaType) throw new Error("membershipType is required for renewal");
 
   const dates = calculateMembershipDates(
     prismaType,
     data.startDate ? parseISODate(data.startDate) : undefined,
   );
 
-  const keyword = getMembershipProductKeyword(prismaType);
-
-  const product = await prisma.product.findFirst({
-    where: {
-      name: { contains: keyword, mode: "insensitive" },
+  const updatedMember = await prisma.member.update({
+    where: { id: data.memberId },
+    data: {
+      membershipType: prismaType,
+      membershipDescription: data.membershipDescription,
+      startDate: dates.startDate,
+      endDate: dates.endDate,
       isActive: true,
+      totalVisits: { increment: 1 },
+      lastVisit: new Date(),
     },
   });
 
-  if (!product) {
-    throw new Error(
-      `No se encontró producto para membresía: ${data.membershipType}`,
-    );
-  }
-
-  const activeShift = await prisma.shift.findFirst({
-    where: { closingDate: null },
-  });
-
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 100)
-    .toString()
-    .padStart(2, "0");
-  const ticket = `REN${timestamp}${random}`;
-
-  const updatedMember = await prisma.$transaction(async (tx) => {
-    const renewed = await tx.member.update({
-      where: { id: data.memberId },
-      data: {
-        membershipType: prismaType,
-        membershipDescription: data.membershipDescription,
-        startDate: dates.startDate,
-        endDate: dates.endDate,
-        isActive: true,
-        totalVisits: { increment: 1 },
-        lastVisit: new Date(),
-      },
-    });
-
-    await tx.inventoryMovement.create({
-      data: {
-        productId: product.id,
-        type: "SALE",
-        location: "GYM",
-        quantity: -1,
-        ticket,
-        memberId: data.memberId,
-        userId,
-        unitPrice: product.salePrice,
-        subtotal: product.salePrice,
-        discount: 0,
-        surcharge: 0,
-        total: product.salePrice,
-        paymentMethod: data.paymentMethod
-          ? mapPaymentMethodFromApi(data.paymentMethod)
-          : "CASH",
-        shiftId: activeShift?.id,
-        notes: `Renovación: ${data.membershipDescription || data.membershipType}`,
-      },
-    });
-
-    return renewed;
-  });
+  // NOTE FASE 3: La creación del movimiento de inventario (venta de membresía)
+  // asociado a la renovación es una operación multi-contexto (members + inventory).
+  // Se manejará en un orquestador de FASE 3. members.service NO crea movimientos
+  // de inventario ni accede a products ni shifts.
 
   return serializeMember(updatedMember);
 }
@@ -587,12 +437,8 @@ export async function getExpiredMembers(): Promise<SocioVencidoResponse[]> {
   const members = await prisma.member.findMany({
     where: {
       isActive: true,
-      endDate: {
-        lt: today,
-      },
-      membershipType: {
-        not: "VISIT",
-      },
+      endDate: { lt: today },
+      membershipType: { not: "VISIT" },
     },
     orderBy: { endDate: "desc" },
   });
@@ -619,16 +465,10 @@ export async function getExpiredMembers(): Promise<SocioVencidoResponse[]> {
 export async function verifyMembershipValidity(
   memberId: number,
 ): Promise<VigenciaMembresiaResponse> {
-  const member = await prisma.member.findUnique({
-    where: { id: memberId },
-  });
+  const member = await prisma.member.findUnique({ where: { id: memberId } });
 
   if (!member || !member.endDate || member.membershipType === "VISIT") {
-    return {
-      isValid: false,
-      daysRemaining: 0,
-      endDate: null,
-    };
+    return { isValid: false, daysRemaining: 0, endDate: null };
   }
 
   const today = new Date();
