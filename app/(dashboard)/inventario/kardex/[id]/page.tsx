@@ -1,6 +1,6 @@
 import { requireAuth } from "@/lib/require-role";
 import { ProductsService } from "@/services";
-import { obtenerKardex } from "@/lib/api/inventory.client";
+import { getKardex } from "@/services/inventory.service";
 import { KardexLista } from "../_components/kardex-lista";
 import { notFound } from "next/navigation";
 
@@ -20,7 +20,7 @@ export default async function KardexPage({ params }: KardexPageProps) {
 
   const [product, movimientos] = await Promise.all([
     ProductsService.getProductById(productId),
-    obtenerKardex(productId),
+    getKardex(productId),
   ]);
 
   if (!product) {

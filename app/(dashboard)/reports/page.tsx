@@ -1,6 +1,9 @@
+import { requireAuth } from "@/lib/require-role";
 import { ReportesManager } from "./_components/reportes-manager";
 
-export default function ReportesPage() {
+export default async function ReportesPage() {
+  await requireAuth();
+
   return (
     <div className="space-y-6 p-6">
       <div>
