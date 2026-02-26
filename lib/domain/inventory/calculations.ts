@@ -89,3 +89,18 @@ export function calcularBalance(
 
   return withBalance;
 }
+
+export function validarStockDisponible(
+  producto: Pick<Producto, "gymStock" | "warehouseStock">,
+  cantidad: number,
+  ubicacion: Ubicacion,
+): void {
+  const stockActual =
+    ubicacion === "WAREHOUSE" ? producto.warehouseStock : producto.gymStock;
+
+  if (stockActual < cantidad) {
+    throw new Error(
+      `Stock insuficiente en ${ubicacion}. Disponible: ${stockActual}, Solicitado: ${cantidad}`,
+    );
+  }
+}

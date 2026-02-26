@@ -8,6 +8,10 @@ import {
 } from "./enum-mappers";
 import { isMembershipProduct } from "./membership-helpers";
 import {
+  calcularBalance,
+  validarStockDisponible,
+} from "@/lib/domain/inventory";
+import {
   MovementsQuerySchema,
   CancelledSalesQuerySchema,
 } from "@/types/api/inventory";
@@ -38,22 +42,6 @@ export interface GetMovementsByDateParams {
 export interface GetCancelledSalesParams {
   startDate?: Date;
   endDate?: Date;
-}
-
-interface KardexPrismaRow {
-  id: number;
-  type: InventoryType;
-  location: Location;
-  quantity: number;
-  ticket: string | null;
-  unitPrice: import("@prisma/client/runtime/library").Decimal | null;
-  total: import("@prisma/client/runtime/library").Decimal | null;
-  paymentMethod: PaymentMethod | null;
-  notes: string | null;
-  isCancelled: boolean;
-  date: Date;
-  user: { name: string };
-  member: { memberNumber: string; name: string | null } | null;
 }
 
 // ==================== SERIALIZERS ====================
@@ -267,65 +255,6 @@ function serializeInventoryMovement(movement: {
   throw new Error(`Unknown movement type: ${movement.type}`);
 }
 
-function serializeKardexMovement(
-  row: KardexPrismaRow,
-  balance: number,
-): KardexMovimientoResponse {
-  return {
-    id: row.id,
-    type: mapInventoryTypeToKardex(row.type),
-    location: mapLocation(row.location),
-    quantity: row.quantity,
-    balance,
-    ticket: row.ticket ?? undefined,
-    unitPrice: row.unitPrice !== null ? Number(row.unitPrice) : undefined,
-    total: row.total !== null ? Number(row.total) : undefined,
-    paymentMethod: row.paymentMethod
-      ? mapPaymentMethod(row.paymentMethod)
-      : undefined,
-    notes: row.notes ?? undefined,
-    isCancelled: row.isCancelled,
-    date: row.date,
-    user: { name: row.user.name },
-    member: row.member
-      ? {
-          memberNumber: row.member.memberNumber,
-          name: row.member.name ?? undefined,
-        }
-      : undefined,
-  };
-}
-
-// ==================== STOCK VALIDATION (INTERNAL) ====================
-
-async function validateStock(
-  productId: number,
-  quantity: number,
-  location: Location,
-): Promise<{
-  id: number;
-  name: string;
-  warehouseStock: number;
-  gymStock: number;
-  salePrice: import("@prisma/client/runtime/library").Decimal;
-}> {
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-
-  if (!product) throw new Error("Producto no encontrado");
-
-  if (!isMembershipProduct(product.name)) {
-    const currentStock =
-      location === "WAREHOUSE" ? product.warehouseStock : product.gymStock;
-    if (currentStock < quantity) {
-      throw new Error(
-        `Stock insuficiente en ${location}. Disponible: ${currentStock}, Solicitado: ${quantity}`,
-      );
-    }
-  }
-
-  return product;
-}
-
 // ==================== PARSING HELPERS ====================
 
 export function parseMovementsQuery(
@@ -359,15 +288,23 @@ export async function createSale(
   data: CrearVentaRequest,
   userId: string,
 ): Promise<VentaResponse> {
-  const product = await validateStock(data.productId, data.quantity, "GYM");
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+  });
+
+  if (!product) throw new Error("Producto no encontrado");
+
+  const isMembership = isMembershipProduct(product.name);
+
+  if (!isMembership) {
+    validarStockDisponible(product, data.quantity, "GYM");
+  }
 
   const unitPrice = data.unitPrice || Number(product.salePrice);
   const subtotal = unitPrice * data.quantity;
   const discount = data.discount || 0;
   const surcharge = data.surcharge || 0;
   const total = subtotal - discount + surcharge;
-
-  const isMembership = isMembershipProduct(product.name);
 
   const inventoryMovement = await prisma.$transaction(async (tx) => {
     const movement = await tx.inventoryMovement.create({
@@ -557,7 +494,14 @@ export async function createTransfer(
   userId: string,
 ): Promise<TraspasoResponse> {
   const origin: Location = data.destination === "GYM" ? "WAREHOUSE" : "GYM";
-  const product = await validateStock(data.productId, data.quantity, origin);
+
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+  });
+
+  if (!product) throw new Error("Producto no encontrado");
+
+  validarStockDisponible(product, data.quantity, origin);
 
   const type: InventoryType =
     data.destination === "GYM" ? "TRANSFER_TO_GYM" : "TRANSFER_TO_WAREHOUSE";
@@ -657,7 +601,7 @@ export async function getKardex(
   productId: number,
   limit?: number,
 ): Promise<KardexMovimientoResponse[]> {
-  const movements = await prisma.inventoryMovement.findMany({
+  const rawMovements = await prisma.inventoryMovement.findMany({
     where: { productId },
     select: {
       id: true,
@@ -678,13 +622,50 @@ export async function getKardex(
     take: limit,
   });
 
-  let balance = 0;
-  const serialized: KardexMovimientoResponse[] = [];
+  const domainMovements = rawMovements.map((m) => ({
+    id: m.id,
+    type: mapInventoryTypeToKardex(m.type),
+    location: mapLocation(m.location),
+    quantity: m.quantity,
+    ticket: m.ticket ?? undefined,
+    unitPrice: m.unitPrice !== null ? Number(m.unitPrice) : undefined,
+    total: m.total !== null ? Number(m.total) : undefined,
+    paymentMethod: m.paymentMethod
+      ? mapPaymentMethod(m.paymentMethod)
+      : undefined,
+    notes: m.notes ?? undefined,
+    isCancelled: m.isCancelled,
+    date: m.date,
+    user: { name: m.user.name },
+    // Normalize null → undefined to satisfy KardexMovimientoResponse contract
+    member:
+      m.member != null
+        ? {
+            memberNumber: m.member.memberNumber,
+            name: m.member.name ?? undefined,
+          }
+        : undefined,
+  }));
 
-  for (const movement of movements) {
-    balance += movement.quantity;
-    serialized.push(serializeKardexMovement(movement, balance));
-  }
+  const withBalance = calcularBalance(domainMovements);
+
+  const serialized: KardexMovimientoResponse[] = withBalance.map((m) => ({
+    id: m.id,
+    type: m.type as KardexMovimientoResponse["type"],
+    location: m.location as KardexMovimientoResponse["location"],
+    quantity: m.quantity,
+    balance: m.balance ?? 0,
+    ticket: m.ticket,
+    unitPrice: m.unitPrice,
+    total: m.total,
+    paymentMethod: m.paymentMethod as KardexMovimientoResponse["paymentMethod"],
+    notes: m.notes,
+    isCancelled: m.isCancelled,
+    date: m.date as Date,
+    user: m.user,
+    // m.member is already { memberNumber, name? } | undefined — no null possible here
+    member: m.member ?? undefined,
+  }));
 
   serialized.reverse();
   return serialized;
