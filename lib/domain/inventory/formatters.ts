@@ -2,13 +2,8 @@
 // Formatters puros del dominio de inventario
 // SIN dependencias externas
 
-import type { Producto } from "./calculations";
-
-export type EstadoStock = {
-  variant: "destructive" | "outline" | "default";
-  texto: string;
-  className?: string;
-};
+import type { Producto } from "../products/types";
+import type { EstadoStock } from "../shared/types";
 
 export function formatearEstadoStock(
   actual: number,

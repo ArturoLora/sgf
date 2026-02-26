@@ -2,7 +2,7 @@
 // Filtros puros del dominio de inventario
 // SIN dependencias externas
 
-import type { Producto } from "./calculations";
+import type { Producto } from "../products/types";
 
 export type UbicacionFiltro = "todos" | "gym" | "bodega";
 export type EstadoFiltro = "todos" | "stock_ok" | "bajo_stock" | "sin_stock";

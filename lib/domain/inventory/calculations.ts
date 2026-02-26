@@ -3,18 +3,9 @@
 // SIN dependencias externas
 
 import type { TipoInventarioKardex, Ubicacion } from "../shared/types";
+import type { Producto } from "../products/types";
 
 // ==================== TIPOS INTERNOS ====================
-
-export interface Producto {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-}
 
 export interface KardexMovimiento {
   id: number;

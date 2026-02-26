@@ -1,21 +1,36 @@
 // lib/domain/inventory/pagination.ts
 // Paginación pura para inventario
-// SIN dependencias externas
+// Delega a shared/pagination como única fuente de verdad
 
-export interface PaginacionInfo {
-  paginaActual: number;
-  totalPaginas: number;
-  inicio: number;
-  fin: number;
-  total: number;
-}
+export {
+  paginar,
+  calcularTotalPaginas,
+  calcularPaginasVisibles as obtenerPaginasVisibles,
+  esPaginaValida,
+  hayPaginaAnterior,
+  hayPaginaSiguiente,
+} from "../shared/pagination";
+
+export type { ResultadoPaginacion as PaginacionInfo } from "../shared/pagination";
+
+// Adaptador: calcularPaginacion → interfaz compatible con consumers existentes
+import {
+  paginar as paginarBase,
+  calcularTotalPaginas,
+} from "../shared/pagination";
 
 export function calcularPaginacion(
   totalItems: number,
   paginaActual: number,
   itemsPorPagina: number,
-): PaginacionInfo {
-  const totalPaginas = Math.ceil(totalItems / itemsPorPagina);
+): {
+  paginaActual: number;
+  totalPaginas: number;
+  inicio: number;
+  fin: number;
+  total: number;
+} {
+  const totalPaginas = calcularTotalPaginas(totalItems, itemsPorPagina);
   const inicio = (paginaActual - 1) * itemsPorPagina;
   const fin = Math.min(inicio + itemsPorPagina, totalItems);
 
@@ -26,36 +41,4 @@ export function calcularPaginacion(
     fin,
     total: totalItems,
   };
-}
-
-export function obtenerPaginasVisibles(
-  paginaActual: number,
-  totalPaginas: number,
-  maxPaginas: number = 5,
-): number[] {
-  if (totalPaginas <= maxPaginas) {
-    return Array.from({ length: totalPaginas }, (_, i) => i + 1);
-  }
-
-  if (paginaActual <= 3) {
-    return Array.from({ length: maxPaginas }, (_, i) => i + 1);
-  }
-
-  if (paginaActual >= totalPaginas - 2) {
-    return Array.from(
-      { length: maxPaginas },
-      (_, i) => totalPaginas - maxPaginas + i + 1,
-    );
-  }
-
-  return Array.from({ length: maxPaginas }, (_, i) => paginaActual - 2 + i);
-}
-
-export function paginar<T>(
-  items: T[],
-  paginaActual: number,
-  itemsPorPagina: number,
-): T[] {
-  const inicio = (paginaActual - 1) * itemsPorPagina;
-  return items.slice(inicio, inicio + itemsPorPagina);
 }
