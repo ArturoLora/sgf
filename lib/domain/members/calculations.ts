@@ -9,6 +9,8 @@ import type {
   TipoMembresiaInfo,
 } from "./types";
 import { TIPOS_MEMBRESIA } from "./types";
+import { paginar as paginarShared } from "../shared/pagination";
+import type { ResultadoPaginacion } from "../shared/pagination";
 
 // ==================== DATE HELPERS ====================
 
@@ -114,11 +116,6 @@ export function paginar<T>(
   items: T[],
   pagina: number,
   itemsPorPagina: number,
-): { items: T[]; totalPaginas: number } {
-  const totalPaginas = Math.max(1, Math.ceil(items.length / itemsPorPagina));
-  const inicio = (pagina - 1) * itemsPorPagina;
-  return {
-    items: items.slice(inicio, inicio + itemsPorPagina),
-    totalPaginas,
-  };
+): ResultadoPaginacion<T> {
+  return paginarShared(items, pagina, itemsPorPagina);
 }

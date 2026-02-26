@@ -1,6 +1,11 @@
 // lib/domain/members/filters.ts
 // Filtros puros del dominio de socios
 // SIN dependencias externas
+//
+// NOTA: Este módulo depende implícitamente de `new Date()` (tiempo del sistema)
+// para evaluar vigencia. Esta es una excepción documentada a la pureza estricta:
+// los filtros de vigencia son inherentemente relativos al instante de ejecución.
+// No se introduce I/O externo; `new Date()` es la única fuente de no-determinismo.
 
 import type { Socio, SociosFiltros } from "./types";
 
