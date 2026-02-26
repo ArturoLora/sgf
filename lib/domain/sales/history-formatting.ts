@@ -1,24 +1,21 @@
 // lib/domain/sales/history-formatting.ts
-// Funciones puras de formateo para el historial de ventas
-// SIN dependencias externas (no React, no UI, no fetch)
+// Formateo del historial de ventas
+// FASE 7C: funciones genéricas delegadas a shared
+// Lógica específica de ventas permanece aquí
+
+import { formatearFechaHora, formatearDecimal } from "../shared/formatters";
 
 /**
- * Formatea una fecha al formato local mexicano
+ * Formatea una fecha al formato local mexicano.
+ * Delegado a shared/formatters.formatearFechaHora
  */
 export function formatDateMX(date: Date | string): string {
-  const dateObj = typeof date === "string" ? new Date(date) : date;
-  return dateObj.toLocaleString("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatearFechaHora(date);
 }
 
 /**
  * Formatea un método de pago para visualización.
- * Convierte DEBIT_CARD -> Débito, CREDIT_CARD -> Crédito, etc.
+ * Lógica específica del dominio de ventas.
  */
 export function formatPaymentMethod(method?: string): string {
   if (!method) return "";
@@ -26,9 +23,9 @@ export function formatPaymentMethod(method?: string): string {
 }
 
 /**
- * Formatea un número a moneda mexicana
+ * Formatea un número a dos decimales sin símbolo.
+ * Delegado a shared/formatters.formatearDecimal
  */
 export function formatCurrency(amount: number | string): string {
-  const num = typeof amount === "string" ? Number(amount) : amount;
-  return num.toFixed(2);
+  return formatearDecimal(amount);
 }
