@@ -1,6 +1,8 @@
 // lib/domain/reports/formatters.ts
 // Formatters puros para reportes
-// SIN dependencias externas
+// Delega formateo genérico a shared; mantiene lógica específica de reports
+
+import { formatearMoneda } from "../shared/formatters";
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("es-MX", {
