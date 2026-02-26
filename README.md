@@ -163,3 +163,12 @@ The primary engineering goals are:
 Architecture debt is tracked explicitly. Any deviation from the constitution that cannot be resolved immediately is documented in an ADR, which records what was broken, why, and the conditions under which it should be reverted.
 
 The goal is not a perfect system on day one. It is a system that degrades with intent rather than by accident.
+
+## Portfolio Note
+
+This repository is part of my professional portfolio and showcases
+real-world architectural decisions, not a tutorial or template.
+
+## License
+
+MIT License — see LICENSE file for details.
