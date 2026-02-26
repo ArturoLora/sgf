@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,27 +18,24 @@ import {
 import { X, Loader2 } from "lucide-react";
 import { CreateEntryInputSchema } from "@/types/api/inventory";
 import type { ProductoResponse } from "@/types/api/products";
-import { fetchProductById } from "@/lib/api/products.client";
 import { getStockByLocation, locationLabel } from "@/lib/domain/products";
 
 type EntryFormValues = z.infer<typeof CreateEntryInputSchema>;
 
 interface EntradaModalProps {
-  productId: number;
+  product: ProductoResponse;
   onClose: () => void;
   onSuccess: (mensaje: string) => void;
   onError: (error: string) => void;
 }
 
 export default function EntradaModal({
-  productId,
+  product,
   onClose,
   onSuccess,
   onError,
 }: EntradaModalProps) {
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [product, setProduct] = useState<ProductoResponse | null>(null);
 
   const {
     register,
@@ -49,7 +46,7 @@ export default function EntradaModal({
   } = useForm<EntryFormValues>({
     resolver: zodResolver(CreateEntryInputSchema),
     defaultValues: {
-      productId,
+      productId: product.id,
       location: "WAREHOUSE",
       quantity: 0,
       notes: "",
@@ -58,27 +55,7 @@ export default function EntradaModal({
 
   const location = watch("location");
 
-  useEffect(() => {
-    const loadProduct = async () => {
-      try {
-        const data = await fetchProductById(productId);
-        setProduct(data);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Error al cargar producto";
-        onError(message);
-        onClose();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProduct();
-  }, [productId, onClose, onError]);
-
   const onSubmit = async (data: EntryFormValues) => {
-    if (!product) return;
-
     setSubmitting(true);
     try {
       const response = await fetch("/api/inventory/entry", {
@@ -104,20 +81,6 @@ export default function EntradaModal({
       setSubmitting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <Card className="w-full max-w-lg">
-          <CardContent className="p-6 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!product) return null;
 
   const currentStock = getStockByLocation(product, location);
 

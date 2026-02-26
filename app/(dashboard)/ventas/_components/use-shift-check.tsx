@@ -1,30 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+export interface ShiftCheckState {
+  hasActiveShift: boolean | null;
+  loadingShift: boolean;
+}
 
-export function useShiftCheck() {
-  const [hasActiveShift, setHasActiveShift] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * Pure derived hook — no I/O.
+ * Extracts shift-related flags from state owned by the Manager/Container.
+ * All fetching is orchestrated by VentasContainer.
+ */
+export function useShiftCheck(state: ShiftCheckState): {
+  hasActiveShift: boolean | null;
+  loadingShift: boolean;
+  isShiftReady: boolean;
+  canSell: boolean;
+} {
+  const { hasActiveShift, loadingShift } = state;
 
-  useEffect(() => {
-    checkActiveShift();
-  }, []);
-
-  const checkActiveShift = async () => {
-    try {
-      const res = await fetch("/api/shifts/active");
-      if (!res.ok) {
-        setHasActiveShift(false);
-        return;
-      }
-      const data = await res.json();
-      setHasActiveShift(!!data);
-    } catch {
-      setHasActiveShift(false);
-    } finally {
-      setLoading(false);
-    }
+  return {
+    hasActiveShift,
+    loadingShift,
+    isShiftReady: !loadingShift && hasActiveShift !== null,
+    canSell: hasActiveShift === true,
   };
-
-  return { hasActiveShift, loading, recheckShift: checkActiveShift };
 }

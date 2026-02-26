@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -9,14 +9,13 @@ import VentasForm from "./ventas-form";
 import ProductoItem from "./producto-item";
 import ResumenVenta from "./resumen-venta";
 import FinalizarVentaModal from "./finalizar-venta-modal";
-import { useShiftCheck } from "./use-shift-check";
 import {
   calculateSubtotal,
   calculateTotal,
 } from "@/lib/domain/sales/calculators";
 import { generateTicket } from "@/lib/domain/sales/ticket";
 import { buildSalePayloadFromCart } from "@/lib/domain/sales/payloads";
-import { processSale } from "@/lib/domain/sales/process";
+import { createSale } from "@/lib/api/sales.client";
 import type { MetodoPago } from "@/types/models/movimiento-inventario";
 
 interface Producto {
@@ -40,7 +39,9 @@ interface VentasContainerProps {
 export default function VentasContainer({
   initialProductos,
 }: VentasContainerProps) {
-  const { hasActiveShift, loading } = useShiftCheck();
+  const [hasActiveShift, setHasActiveShift] = useState<boolean | null>(null);
+  const [loadingShift, setLoadingShift] = useState(true);
+
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [clienteId, setClienteId] = useState<number | null>(null);
   const [descuento, setDescuento] = useState(0);
@@ -51,6 +52,26 @@ export default function VentasContainer({
     ticket: string;
     total: number;
   } | null>(null);
+
+  useEffect(() => {
+    const checkActiveShift = async () => {
+      try {
+        const res = await fetch("/api/shifts/active");
+        if (!res.ok) {
+          setHasActiveShift(false);
+          return;
+        }
+        const data = await res.json();
+        setHasActiveShift(!!data);
+      } catch {
+        setHasActiveShift(false);
+      } finally {
+        setLoadingShift(false);
+      }
+    };
+
+    checkActiveShift();
+  }, []);
 
   const agregarAlCarrito = (producto: Producto) => {
     if (!hasActiveShift) {
@@ -140,7 +161,12 @@ export default function VentasContainer({
         ticket,
       });
 
-      await processSale(payloads);
+      for (const payload of payloads) {
+        await createSale({
+          ...payload,
+          paymentMethod: payload.paymentMethod as MetodoPago,
+        });
+      }
 
       setVentaCompletada({
         ticket,
@@ -170,7 +196,7 @@ export default function VentasContainer({
   const subtotal = calculateSubtotal(carrito);
   const total = calculateTotal(subtotal, descuento, recargo);
 
-  if (loading) {
+  if (loadingShift) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">

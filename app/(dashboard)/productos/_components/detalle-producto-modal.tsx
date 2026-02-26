@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Loader2, Edit, ArrowLeftRight, Plus, Package } from "lucide-react";
+import { X, Edit, ArrowLeftRight, Plus, Package } from "lucide-react";
 import type { ProductoConMovimientosResponse } from "@/types/api/products";
-import { fetchProductById } from "@/lib/api/products.client";
 import {
   isMembership,
   isLowStock,
@@ -15,7 +13,7 @@ import {
 } from "@/lib/domain/products";
 
 interface DetalleProductoModalProps {
-  productId: number;
+  product: ProductoConMovimientosResponse;
   onClose: () => void;
   onEdit: (id: number) => void;
   onTransfer: (id: number) => void;
@@ -24,47 +22,13 @@ interface DetalleProductoModalProps {
 }
 
 export default function DetalleProductoModal({
-  productId,
+  product,
   onClose,
   onEdit,
   onTransfer,
   onAdjustment,
   onEntry,
 }: DetalleProductoModalProps) {
-  const [loading, setLoading] = useState(true);
-  const [product, setProduct] = useState<ProductoConMovimientosResponse | null>(
-    null,
-  );
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const data = await fetchProductById(productId);
-        setProduct(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [productId]);
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <Card className="w-full max-w-2xl">
-          <CardContent className="p-6 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!product) return null;
-
   const isMembershipProduct = isMembership(product);
   const totalStock = computeTotalStock(product);
   const lowStock = !isMembershipProduct && isLowStock(product);

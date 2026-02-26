@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,25 +14,23 @@ import {
   type ActualizarProductoRequest,
   type ProductoResponse,
 } from "@/types/api/products";
-import { fetchProductById, updateProduct } from "@/lib/api/products.client";
+import { updateProduct } from "@/lib/api/products.client";
 import { isMembership } from "@/lib/domain/products";
 
 interface EditarProductoModalProps {
-  productId: number;
+  product: ProductoResponse;
   onClose: () => void;
   onSuccess: (mensaje: string) => void;
   onError: (error: string) => void;
 }
 
 export default function EditarProductoModal({
-  productId,
+  product,
   onClose,
   onSuccess,
   onError,
 }: EditarProductoModalProps) {
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [product, setProduct] = useState<ProductoResponse | null>(null);
 
   const {
     register,
@@ -42,35 +40,17 @@ export default function EditarProductoModal({
     watch,
   } = useForm<ActualizarProductoRequest>({
     resolver: zodResolver(UpdateProductInputSchema),
+    defaultValues: {
+      name: product.name,
+      salePrice: Number(product.salePrice),
+      minStock: product.minStock,
+      isActive: product.isActive,
+    },
   });
 
   const isActive = watch("isActive");
 
-  useEffect(() => {
-    const loadProduct = async () => {
-      try {
-        const data = await fetchProductById(productId);
-        setProduct(data);
-        setValue("name", data.name);
-        setValue("salePrice", Number(data.salePrice));
-        setValue("minStock", data.minStock);
-        setValue("isActive", data.isActive);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Error al cargar producto";
-        onError(message);
-        onClose();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProduct();
-  }, [productId, onClose, onError, setValue]);
-
   const onSubmit = async (data: ActualizarProductoRequest) => {
-    if (!product) return;
-
     setSubmitting(true);
     try {
       const result = await updateProduct(product.id, data);
@@ -92,20 +72,6 @@ export default function EditarProductoModal({
       setSubmitting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <Card className="w-full max-w-lg">
-          <CardContent className="p-6 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!product) return null;
 
   const isMembershipProduct = isMembership(product);
 

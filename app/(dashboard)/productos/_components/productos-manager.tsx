@@ -6,15 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import type { ProductoResponse } from "@/types/api/products";
+import type {
+  ProductoResponse,
+  ProductoConMovimientosResponse,
+} from "@/types/api/products";
 import {
   applyFilters,
-  paginate,
-  computePageNumbers,
   computeLowStockProducts,
   DEFAULT_FILTERS,
   type ProductFilters,
 } from "@/lib/domain/products";
+import {
+  paginar,
+  calcularPaginasVisibles,
+} from "@/lib/domain/shared/pagination";
+import { fetchProductById } from "@/lib/api/products.client";
 import ProductosFiltros from "./productos-filtros";
 import ProductosTabla from "./productos-tabla";
 import CrearProductoModal from "./crear-producto-modal";
@@ -38,32 +44,42 @@ export default function ProductosManager({
   const [success, setSuccess] = useState("");
 
   const [showCrearModal, setShowCrearModal] = useState(false);
-  const [editingProductId, setEditingProductId] = useState<number | null>(null);
-  const [detailProductId, setDetailProductId] = useState<number | null>(null);
-  const [transferProductId, setTransferProductId] = useState<number | null>(
-    null,
-  );
-  const [adjustmentProductId, setAdjustmentProductId] = useState<number | null>(
-    null,
-  );
-  const [entryProductId, setEntryProductId] = useState<number | null>(null);
+
+  // Hydrated product state for modals
+  // fetchProductById returns ProductoConMovimientosResponse (superset of ProductoResponse)
+  const [editingProduct, setEditingProduct] =
+    useState<ProductoConMovimientosResponse | null>(null);
+  const [detailProduct, setDetailProduct] =
+    useState<ProductoConMovimientosResponse | null>(null);
+  const [transferProduct, setTransferProduct] =
+    useState<ProductoConMovimientosResponse | null>(null);
+  const [adjustmentProduct, setAdjustmentProduct] =
+    useState<ProductoConMovimientosResponse | null>(null);
+  const [entryProduct, setEntryProduct] =
+    useState<ProductoConMovimientosResponse | null>(null);
+
+  // Loading states for hydration
+  const [loadingProductId, setLoadingProductId] = useState<number | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<ProductFilters>(DEFAULT_FILTERS);
 
+  // applyFilters accepts ProductoResponse[] and filters by domain logic.
+  // The result is cast to ProductoResponse[] because paginar<T> is generic
+  // and the input array originates from initialProducts: ProductoResponse[].
   const filteredProducts = useMemo(
-    () => applyFilters(initialProducts, filters),
+    () => applyFilters(initialProducts, filters) as ProductoResponse[],
     [initialProducts, filters],
   );
 
   const pagination = useMemo(
-    () => paginate(filteredProducts, currentPage, ITEMS_PER_PAGE),
+    () => paginar(filteredProducts, currentPage, ITEMS_PER_PAGE),
     [filteredProducts, currentPage],
   );
 
   const pageNumbers = useMemo(
-    () => computePageNumbers(currentPage, pagination.totalPages),
-    [currentPage, pagination.totalPages],
+    () => calcularPaginasVisibles(currentPage, pagination.totalPaginas),
+    [currentPage, pagination.totalPaginas],
   );
 
   const lowStockProducts = useMemo(
@@ -84,6 +100,77 @@ export default function ProductosManager({
     },
     [router],
   );
+
+  // Orchestrated hydration: Manager fetches product, then opens modal with data
+  const handleOpenDetail = useCallback(async (productId: number) => {
+    setLoadingProductId(productId);
+    try {
+      const data = await fetchProductById(productId);
+      setDetailProduct(data);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al cargar producto";
+      setError(message);
+    } finally {
+      setLoadingProductId(null);
+    }
+  }, []);
+
+  const handleOpenEdit = useCallback(async (productId: number) => {
+    setLoadingProductId(productId);
+    try {
+      const data = await fetchProductById(productId);
+      setEditingProduct(data);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al cargar producto";
+      setError(message);
+    } finally {
+      setLoadingProductId(null);
+    }
+  }, []);
+
+  const handleOpenTransfer = useCallback(async (productId: number) => {
+    setLoadingProductId(productId);
+    try {
+      const data = await fetchProductById(productId);
+      setTransferProduct(data);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al cargar producto";
+      setError(message);
+    } finally {
+      setLoadingProductId(null);
+    }
+  }, []);
+
+  const handleOpenEntry = useCallback(async (productId: number) => {
+    setLoadingProductId(productId);
+    try {
+      const data = await fetchProductById(productId);
+      setEntryProduct(data);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al cargar producto";
+      setError(message);
+    } finally {
+      setLoadingProductId(null);
+    }
+  }, []);
+
+  const handleOpenAdjustment = useCallback(async (productId: number) => {
+    setLoadingProductId(productId);
+    try {
+      const data = await fetchProductById(productId);
+      setAdjustmentProduct(data);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al cargar producto";
+      setError(message);
+    } finally {
+      setLoadingProductId(null);
+    }
+  }, []);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -118,7 +205,7 @@ export default function ProductosManager({
                   key={product.id}
                   variant="outline"
                   className="bg-background cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900"
-                  onClick={() => setDetailProductId(product.id)}
+                  onClick={() => handleOpenDetail(product.id)}
                 >
                   {product.name}
                 </Badge>
@@ -164,17 +251,18 @@ export default function ProductosManager({
             <>
               <ProductosTabla
                 products={pagination.items}
-                onDetail={setDetailProductId}
-                onEdit={setEditingProductId}
-                onTransfer={setTransferProductId}
-                onEntry={setEntryProductId}
+                onDetail={handleOpenDetail}
+                onEdit={handleOpenEdit}
+                onTransfer={handleOpenTransfer}
+                onEntry={handleOpenEntry}
+                loadingProductId={loadingProductId}
               />
 
-              {pagination.totalPages > 1 && (
+              {pagination.totalPaginas > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t">
                   <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                    Mostrando {pagination.startIndex + 1}-{pagination.endIndex}{" "}
-                    de {pagination.total}
+                    Mostrando {pagination.inicio + 1}-{pagination.fin} de{" "}
+                    {pagination.total}
                   </p>
                   <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
                     <Button
@@ -207,10 +295,10 @@ export default function ProductosManager({
                       size="sm"
                       onClick={() =>
                         setCurrentPage((p) =>
-                          Math.min(pagination.totalPages, p + 1),
+                          Math.min(pagination.totalPaginas, p + 1),
                         )
                       }
-                      disabled={currentPage === pagination.totalPages}
+                      disabled={currentPage === pagination.totalPaginas}
                       className="flex-1 sm:flex-initial"
                     >
                       <span className="hidden sm:inline">Siguiente</span>
@@ -235,71 +323,71 @@ export default function ProductosManager({
         />
       )}
 
-      {editingProductId !== null && (
+      {editingProduct !== null && (
         <EditarProductoModal
-          productId={editingProductId}
-          onClose={() => setEditingProductId(null)}
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
           onSuccess={(msg) => {
-            setEditingProductId(null);
+            setEditingProduct(null);
             handleSuccess(msg);
           }}
           onError={setError}
         />
       )}
 
-      {detailProductId !== null && (
+      {detailProduct !== null && (
         <DetalleProductoModal
-          productId={detailProductId}
-          onClose={() => setDetailProductId(null)}
+          product={detailProduct}
+          onClose={() => setDetailProduct(null)}
           onEdit={(id) => {
-            setDetailProductId(null);
-            setEditingProductId(id);
+            setDetailProduct(null);
+            handleOpenEdit(id);
           }}
           onTransfer={(id) => {
-            setDetailProductId(null);
-            setTransferProductId(id);
+            setDetailProduct(null);
+            handleOpenTransfer(id);
           }}
           onAdjustment={(id) => {
-            setDetailProductId(null);
-            setAdjustmentProductId(id);
+            setDetailProduct(null);
+            handleOpenAdjustment(id);
           }}
           onEntry={(id) => {
-            setDetailProductId(null);
-            setEntryProductId(id);
+            setDetailProduct(null);
+            handleOpenEntry(id);
           }}
         />
       )}
 
-      {transferProductId !== null && (
+      {transferProduct !== null && (
         <TraspasoModal
-          productId={transferProductId}
-          onClose={() => setTransferProductId(null)}
+          product={transferProduct}
+          onClose={() => setTransferProduct(null)}
           onSuccess={(msg) => {
-            setTransferProductId(null);
+            setTransferProduct(null);
             handleSuccess(msg);
           }}
           onError={setError}
         />
       )}
 
-      {adjustmentProductId !== null && (
+      {adjustmentProduct !== null && (
         <AjusteModal
-          productId={adjustmentProductId}
-          onClose={() => setAdjustmentProductId(null)}
+          product={adjustmentProduct}
+          onClose={() => setAdjustmentProduct(null)}
           onSuccess={(msg) => {
-            setAdjustmentProductId(null);
+            setAdjustmentProduct(null);
             handleSuccess(msg);
           }}
           onError={setError}
         />
       )}
 
-      {entryProductId !== null && (
+      {entryProduct !== null && (
         <EntradaModal
-          productId={entryProductId}
-          onClose={() => setEntryProductId(null)}
+          product={entryProduct}
+          onClose={() => setEntryProduct(null)}
           onSuccess={(msg) => {
-            setEntryProductId(null);
+            setEntryProduct(null);
             handleSuccess(msg);
           }}
           onError={setError}

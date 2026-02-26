@@ -1,39 +1,48 @@
 #!/bin/bash
 
-OUTPUT="fe-phase4-execution-context-$(date +%Y%m%d_%H%M%S).txt"
+OUTPUT="fe-phase5-orchestration-context-$(date +%Y%m%d_%H%M%S).txt"
 
 echo "========================================" > "$OUTPUT"
-echo " FRONTEND — FASE 4: EXECUTION CONTEXT" >> "$OUTPUT"
+echo " FRONTEND — FASE 5: MANAGER ORCHESTRATION CONTEXT" >> "$OUTPUT"
 echo "========================================" >> "$OUTPUT"
 
-echo -e "\n### DASHBOARD TREE\n" >> "$OUTPUT"
-tree -L 4 app/'(dashboard)' >> "$OUTPUT"
+echo -e "\n### FRONTEND TREE (dashboard only)\n" >> "$OUTPUT"
+tree -L 6 app/'(dashboard)' \
+  -I "node_modules|.next|dist|build|generated" >> "$OUTPUT"
 
-echo -e "\n\n### SERVER PAGES (page.tsx)\n" >> "$OUTPUT"
-for f in $(find app/'(dashboard)' -name "page.tsx"); do
+echo -e "\n\n### PRODUCTOS MODULE (FULL)\n" >> "$OUTPUT"
+for f in app/'(dashboard)'/productos/_components/*.tsx; do
   echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
   sed -n '1,20000p' "$f" >> "$OUTPUT"
 done
 
-echo -e "\n\n### MANAGERS / CONTAINERS\n" >> "$OUTPUT"
-grep -R -i "manager\|container" app/'(dashboard)' \
-  --include="*.tsx" -n >> "$OUTPUT"
+echo -e "\n\n### VENTAS MODULE (FULL)\n" >> "$OUTPUT"
+for f in app/'(dashboard)'/ventas/_components/*.tsx; do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
+done
 
-echo -e "\n\n### CLIENT FETCHES (ANTI-PATTERN)\n" >> "$OUTPUT"
-grep -R "fetch(" app/'(dashboard)' \
-  --include="*.tsx" -n >> "$OUTPUT"
+echo -e "\n\n### SOCIOS MODULE (FULL)\n" >> "$OUTPUT"
+for f in app/'(dashboard)'/socios/_components/*.tsx; do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
+done
 
-echo -e "\n\n### MODALS (CHECK FETCH & DATA FLOW)\n" >> "$OUTPUT"
-grep -R "modal" app/'(dashboard)' \
-  --include="*.tsx" -n >> "$OUTPUT"
+echo -e "\n\n### CORTES MODULE (FULL)\n" >> "$OUTPUT"
+for f in app/'(dashboard)'/cortes/_components/*.tsx; do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
+done
 
-echo -e "\n\n### API CLIENT USAGE\n" >> "$OUTPUT"
-grep -R "@/lib/api" app/'(dashboard)' \
-  --include="*.tsx" -n >> "$OUTPUT"
+echo -e "\n\n### API CLIENTS (REFERENCE)\n" >> "$OUTPUT"
+for f in lib/api/*.ts; do
+  echo -e "\n--- FILE: $f ---\n" >> "$OUTPUT"
+  sed -n '1,20000p' "$f" >> "$OUTPUT"
+done
 
 echo -e "\n========================================" >> "$OUTPUT"
-echo " FRONTEND EXECUTION CONTEXT COMPLETED" >> "$OUTPUT"
+echo " FASE 5 CONTEXT EXPORT COMPLETED" >> "$OUTPUT"
 echo " FILE: $OUTPUT" >> "$OUTPUT"
 echo "========================================" >> "$OUTPUT"
 
-echo "✅ Frontend Phase 4 execution context export completo: $OUTPUT"
+echo "✅ Frontend Phase 5 execution context export completo: $OUTPUT"

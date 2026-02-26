@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit, ArrowLeftRight, Package } from "lucide-react";
+import { Eye, Edit, ArrowLeftRight, Package, Loader2 } from "lucide-react";
 import type { ProductoResponse } from "@/types/api/products";
 import { isMembership, getStockStatus } from "@/lib/domain/products";
 
@@ -12,6 +12,7 @@ interface ProductosTablaProps {
   onEdit: (id: number) => void;
   onTransfer: (id: number) => void;
   onEntry: (id: number) => void;
+  loadingProductId?: number | null;
 }
 
 export default function ProductosTabla({
@@ -20,6 +21,7 @@ export default function ProductosTabla({
   onEdit,
   onTransfer,
   onEntry,
+  loadingProductId,
 }: ProductosTablaProps) {
   return (
     <div className="space-y-3">
@@ -30,6 +32,7 @@ export default function ProductosTabla({
           product.minStock,
         );
         const isMembershipProduct = isMembership(product);
+        const isLoading = loadingProductId === product.id;
 
         return (
           <div
@@ -122,18 +125,28 @@ export default function ProductosTabla({
                     onClick={() => onTransfer(product.id)}
                     variant="outline"
                     size="sm"
+                    disabled={isLoading}
                     className="gap-2 flex-1 sm:flex-initial"
                   >
-                    <ArrowLeftRight className="h-4 w-4" />
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowLeftRight className="h-4 w-4" />
+                    )}
                     <span className="hidden sm:inline">Traspaso</span>
                   </Button>
                   <Button
                     onClick={() => onEntry(product.id)}
                     variant="outline"
                     size="sm"
+                    disabled={isLoading}
                     className="gap-2 flex-1 sm:flex-initial"
                   >
-                    <Package className="h-4 w-4" />
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Package className="h-4 w-4" />
+                    )}
                     <span className="hidden sm:inline">Entrada</span>
                   </Button>
                 </>
@@ -142,18 +155,28 @@ export default function ProductosTabla({
                 onClick={() => onDetail(product.id)}
                 variant="outline"
                 size="sm"
+                disabled={isLoading}
                 className="gap-2 flex-1 sm:flex-initial"
               >
-                <Eye className="h-4 w-4" />
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
                 <span className="hidden sm:inline">Ver</span>
               </Button>
               <Button
                 onClick={() => onEdit(product.id)}
                 variant="outline"
                 size="sm"
+                disabled={isLoading}
                 className="gap-2 flex-1 sm:flex-initial"
               >
-                <Edit className="h-4 w-4" />
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Edit className="h-4 w-4" />
+                )}
                 <span className="hidden sm:inline">Editar</span>
               </Button>
             </div>
