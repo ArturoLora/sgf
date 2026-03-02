@@ -2,6 +2,10 @@ import { z } from "zod";
 import type { Ubicacion, MetodoPago } from "../models/movimiento-inventario";
 import type { MovimientoInventario } from "../models/movimiento-inventario";
 
+// FASE 9B: TipoInventarioKardex es la fuente de verdad en lib/domain/shared/types.ts
+// KardexInventoryType se mantiene como alias de compatibilidad pública — NO redefinir.
+import type { TipoInventarioKardex } from "../../lib/domain/shared/types";
+
 // ==================== ZOD SCHEMAS ====================
 
 export const MovementsQuerySchema = z.object({
@@ -183,7 +187,10 @@ export type MovimientoInventarioResponse =
 
 // ==================== KARDEX TYPES ====================
 
-export type KardexInventoryType = "SALE" | "ENTRY" | "TRANSFER" | "ADJUSTMENT";
+// FASE 9B [ALTA-1]: KardexInventoryType era una redefinición de TipoInventarioKardex.
+// Se elimina la definición local. El alias re-exporta el tipo canónico del dominio.
+// Contratos existentes que importen KardexInventoryType NO se rompen.
+export type KardexInventoryType = TipoInventarioKardex;
 
 export interface KardexMovimientoResponse {
   id: number;

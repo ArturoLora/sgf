@@ -1,13 +1,27 @@
 import { z } from "zod";
 import type { MetodoPago } from "../models/movimiento-inventario";
 
+// FASE 9B [ALTA-4]: TicketVentaAgrupado vs TicketAgrupado (lib/domain/sales/types.ts).
+//
+// Divergencia detectada en FASE 9A:
+//   - Dominio (TicketAgrupado):  member?: { memberNumber: string; name?: string | null } | null
+//   - API (TicketVentaAgrupado): member?: { memberNumber: string; name?: string }
+//
+// Resolución: el dominio es la fuente semántica. El campo `name` puede ser
+// null (registro sin nombre) — la API estaba silenciando ese null de forma incorrecta.
+// TicketVentaAgrupado se alinea con la definición del dominio.
+//
+// Contratos de frontera (HTTP responses) deben serializar null como ausencia de campo
+// o null explícito — ambos son válidos JSON. El cambio es compatible hacia atrás
+// para consumidores que ya manejaban undefined; sólo afecta a consumidores que
+// asumían que name nunca sería null (deuda del consumidor, no del contrato).
+
 // ==================== ZOD SCHEMAS ====================
 
 export const TicketParamsSchema = z.object({
   ticket: z.string(),
 });
 
-// Schema para filtros de historial de ventas
 export const HistorialVentasFiltersSchema = z.object({
   search: z.string().optional(),
   startDate: z.string().optional(),
@@ -75,6 +89,8 @@ export interface ItemVentaTicket {
   total: number;
 }
 
+// FASE 9B [ALTA-4]: Alineado con TicketAgrupado del dominio.
+// member.name acepta string | null | undefined (coherente con la BD y el dominio).
 export interface TicketVentaAgrupado {
   ticket: string;
   date: Date;
@@ -83,7 +99,7 @@ export interface TicketVentaAgrupado {
   cashier: string;
   member?: {
     memberNumber: string;
-    name?: string;
+    name?: string | null;
   };
   isCancelled: boolean;
   items: ItemVentaTicket[];
@@ -104,7 +120,7 @@ export interface DetalleTicketResponse {
   paymentMethod?: MetodoPago;
   member?: {
     memberNumber: string;
-    name?: string;
+    name?: string | null;
   };
   isCancelled: boolean;
   cancellationReason?: string;

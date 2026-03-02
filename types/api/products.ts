@@ -1,6 +1,23 @@
 import { z } from "zod";
 import type { Ubicacion } from "../models/movimiento-inventario";
 
+// FASE 9B [ALTA-2]: ProductoBajoStockResponse estaba duplicado entre
+// types/api/products.ts y lib/domain/reports/types.ts (ProductoBajoStock).
+// Fuente de verdad semántica: lib/domain/reports/types.ts (ProductoBajoStock).
+// Este DTO re-exporta la forma del dominio sin redefinirla.
+//
+// FASE 9B [MEDIA-2]: ProductoResponse vs lib/domain/products/types.ts (Producto).
+// ProductoResponse es un DTO de frontera legítimo: agrega createdAt/updatedAt
+// que la entidad de dominio marca como opcionales. Se mantiene como DTO propio
+// pero se documenta la relación para evitar drift futuro.
+//
+// FASE 9B [MEDIA-3]: EstadisticasProductosResponse vs lib/domain/products/types.ts (ProductStats).
+// ProductStats (dominio) = { totalProducts, activeProducts, lowStockProducts, inventoryValue }.
+// EstadisticasProductosResponse agrega lowStockGym/lowStockWarehouse diferenciados → extensión legítima.
+// Se documenta la deuda para revisión futura si el dominio absorbe ese detalle.
+
+import type { ProductoBajoStock } from "../../lib/domain/reports/types";
+
 // ==================== ZOD SCHEMAS ====================
 
 export const ProductsQuerySchema = z.object({
@@ -61,6 +78,9 @@ export interface ActualizarProductoRequest {
 
 // ==================== RESPONSE TYPES ====================
 
+// DEUDA [MEDIA-2]: ProductoResponse extiende implícitamente Producto del dominio.
+// Diferencias intencionales: createdAt/updatedAt son obligatorios aquí (el dominio los marca opcionales).
+// Si el dominio evoluciona para requerirlos, este DTO puede simplificarse a alias.
 export interface ProductoResponse {
   id: number;
   name: string;
@@ -101,6 +121,10 @@ export interface StockProductoResponse {
   total: number;
 }
 
+// DEUDA [MEDIA-3]: EstadisticasProductosResponse extiende ProductStats del dominio.
+// ProductStats = { totalProducts, activeProducts, lowStockProducts, inventoryValue }.
+// Este DTO agrega lowStockGym y lowStockWarehouse (desglose por ubicación) — extensión legítima.
+// Relación: total ↔ totalProducts, active ↔ activeProducts, inventoryValue ↔ inventoryValue.
 export interface EstadisticasProductosResponse {
   total: number;
   active: number;
@@ -109,14 +133,7 @@ export interface EstadisticasProductosResponse {
   inventoryValue: number;
 }
 
-export interface ProductoBajoStockResponse {
-  id: number;
-  name: string;
-  gymStock: number;
-  warehouseStock: number;
-  minStock: number;
-  stockFaltante: {
-    gym: number;
-    warehouse: number;
-  };
-}
+// FASE 9B [ALTA-2]: ProductoBajoStockResponse es alias del tipo canónico del dominio.
+// lib/domain/reports/types.ts#ProductoBajoStock es la única definición semántica.
+// El alias mantiene el nombre público del contrato API sin duplicar la estructura.
+export type ProductoBajoStockResponse = ProductoBajoStock;

@@ -1,5 +1,17 @@
 import { z } from "zod";
-import { ProductoBajoStockResponse } from "./products";
+
+// FASE 9B [ALTA-3]: ReporteStockActual estaba duplicado entre
+// types/api/reports.ts y lib/domain/reports/types.ts.
+// Fuente de verdad semántica: lib/domain/reports/types.ts.
+// Este módulo re-exporta el tipo del dominio; el DTO de API es idéntico
+// en estructura → no hay justificación para redefinirlo.
+//
+// NOTA: ProductoBajoStockResponse se importa desde types/api/products.ts
+// (que a su vez es alias de lib/domain/reports/types.ts#ProductoBajoStock).
+// Esto elimina la dependencia circular que existía previamente.
+
+import type { ReporteStockActual as _ReporteStockActualDomain } from "../../lib/domain/reports/types";
+import type { ProductoBajoStockResponse } from "./products";
 
 // ==================== ZOD SCHEMAS ====================
 
@@ -92,23 +104,14 @@ export interface ReporteMovimientosInventario {
   }>;
 }
 
-export interface ReporteStockActual {
-  products: Array<{
-    id: number;
-    name: string;
-    warehouseStock: number;
-    gymStock: number;
-    minStock: number;
-    salePrice: number;
-  }>;
-  stockSummary: {
-    warehouse: number;
-    gym: number;
-    total: number;
-    totalValue: number;
-  };
-  lowStock: ProductoBajoStockResponse[];
-}
+// FASE 9B [ALTA-3]: ReporteStockActual — alias del tipo canónico del dominio.
+// La estructura del dominio (ProductoStock, ResumenStock, ProductoBajoStock)
+// es idéntica a lo que este DTO exponía. El campo `lowStock` usa
+// ProductoBajoStockResponse (alias de ProductoBajoStock) para coherencia de API.
+//
+// Si en el futuro el dominio y la API divergen, reemplazar el alias
+// por una interfaz propia que extienda o adapte _ReporteStockActualDomain.
+export type ReporteStockActual = _ReporteStockActualDomain;
 
 export interface ReporteSociosPorMembresia {
   membershipType: string;
