@@ -11,6 +11,8 @@ import type {
   ReportPeriodQueryInput,
   DashboardQueryInput,
 } from "@/types/api/reports";
+// FASE 8D: Delegación a dominio
+import { formatearFechaISO } from "@/lib/domain/shared/formatters";
 
 export interface ReportPeriodParams {
   startDate: Date;
@@ -22,9 +24,8 @@ export interface DashboardParams {
   endDate?: Date;
 }
 
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
+// FASE 8D: formatDate delegado a lib/domain/shared/formatters → formatearFechaISO
+// La función local se elimina; se usa directamente el helper de dominio compartido.
 
 // ==================== PARSING HELPERS ====================
 
@@ -50,6 +51,9 @@ export function parseDashboardQuery(raw: DashboardQueryInput): DashboardParams {
 // ==================== INTERNAL: LOW STOCK QUERY ====================
 // Duplica la consulta de products.service intencionalmente para mantener
 // reports como contexto autónomo sin importar otros services.
+//
+// DEUDA ACEPTADA (FASE 8D): No existe función de dominio equivalente para
+// queryLowStockProducts. La lógica de filtrado y mapeo permanece en el service.
 
 interface ProductoBajoStockInterno {
   id: number;
@@ -140,7 +144,8 @@ export async function getDailySalesReport(
 
   const salesByDay = sales.reduce(
     (acc, sale) => {
-      const date = formatDate(sale.date);
+      // FASE 8D: formatDate delegado a formatearFechaISO (lib/domain/shared/formatters)
+      const date = formatearFechaISO(sale.date);
       if (!acc[date]) {
         acc[date] = {
           date,
@@ -188,6 +193,11 @@ export async function getCurrentStockReport(): Promise<ReporteStockActual> {
     orderBy: { name: "asc" },
   });
 
+  // DEUDA ACEPTADA (FASE 8D): No existe función de dominio que encapsule
+  // la construcción del stockSummary completo desde un array de productos Prisma.
+  // lib/domain/reports/calculations provee getTotalStockValue y getTotalUnits,
+  // pero operan sobre ReporteStockActual ya construido, no sobre el array raw.
+  // La lógica de reduce permanece en el service.
   const stockSummary = products.reduce(
     (acc, p) => {
       acc.warehouse += p.warehouseStock;
@@ -249,6 +259,9 @@ export async function getDashboardSummary(
 
   const ticketsToday = new Set(salesToday.map((v) => v.ticket)).size;
 
+  // DEUDA ACEPTADA (FASE 8D): No existe función de dominio equivalente para
+  // contar productos bajo stock usando campos relacionales de Prisma (lt: fields.minStock).
+  // La query ORM permanece en el service.
   const productsLowStock = await prisma.product.count({
     where: {
       isActive: true,
