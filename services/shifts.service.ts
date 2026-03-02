@@ -1,3 +1,35 @@
+// services/shifts.service.ts
+// FASE 8E — SERVICE AUDIT COMPLETADO
+//
+// RESULTADO DE AUDITORÍA:
+// ✅ No se encontraron duplicaciones delegables al dominio.
+//
+// ANÁLISIS DE DOMINIO DISPONIBLE (lib/domain/shifts):
+//
+// 1. calcularDiferencia(resumen, valores) → shift-calculations.ts
+//    DEUDA ACEPTADA: El service calcula `difference` con datos de entrada del usuario
+//    (data.cashAmount, data.debitCardAmount, data.creditCardAmount) mientras que
+//    calcularDiferencia espera un ResumenCorte con totalSales del sistema.
+//    Los contratos difieren; delegar requeriría construir un objeto intermedio artificial
+//    sin beneficio semántico real.
+//
+// 2. calcularEfectivoEsperado(resumen) → shift-calculations.ts
+//    DEUDA ACEPTADA: El cálculo `expectedCash = Number(shift.initialCash) + cashAmount - totalWithdrawals`
+//    es structuralmente idéntico pero `cashAmount` aquí es efectivo calculado del inventario,
+//    no el campo homónimo de ResumenCorte. Construir el objeto solo para delegar 1 línea
+//    introduce acoplamiento sin valor.
+//
+// 3. formatearFechaCorte / formatearFechaLarga / formatearMontoCorte → shift-formatters.ts
+//    NO APLICA: Los formatters son para capa de presentación (UI/frontend).
+//    El service no formatea fechas ni montos — devuelve tipos nativos (Date, number).
+//
+// 4. tieneDiferenciaSignificativa / tipoDiferencia → shift-calculations.ts
+//    NO APLICA: El service no evalúa significancia de diferencias; eso es lógica de UI.
+//
+// CONCLUSIÓN: El service es I/O puro de DB vía Prisma. Toda la lógica de cálculo
+// que contiene es necesariamente acoplada a los datos de Prisma y no tiene equivalente
+// semánticamente idéntico en el dominio. No procede ninguna delegación.
+
 import { prisma } from "@/lib/db";
 import { mapPaymentMethod } from "./enum-mappers";
 import { parseISODate, parseIntParam } from "./utils";
@@ -292,8 +324,18 @@ export async function closeShift(
     (data.debitCardAmount || 0) +
     (data.creditCardAmount || 0) -
     totalWithdrawals;
+
+  // DEUDA ACEPTADA: calcularEfectivoEsperado() en lib/domain/shifts/shift-calculations.ts
+  // tiene estructura equivalente pero recibe ResumenCorte con cashAmount del sistema,
+  // mientras que aquí cashAmount es ventas en efectivo calculadas del inventario.
+  // Construir el objeto solo para delegar 1 línea introduce acoplamiento sin valor.
   const expectedCash =
     Number(shift.initialCash) + cashAmount - totalWithdrawals;
+
+  // DEUDA ACEPTADA: calcularDiferencia() en lib/domain/shifts/shift-calculations.ts
+  // recibe ValoresArqueo con los montos del usuario vs ResumenCorte del sistema.
+  // Aquí `difference` puede venir explícitamente de `data.difference` (override manual),
+  // lo cual no está modelado en la función de dominio. Los contratos difieren.
   const difference =
     data.difference !== undefined ? data.difference : totalCash - expectedCash;
 
