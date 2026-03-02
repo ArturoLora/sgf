@@ -30,6 +30,7 @@ import type {
   ActualizarSocioRequest,
   RenovarMembresiaRequest,
 } from "@/types/api/members";
+import { obtenerEstadoVigencia } from "@/lib/domain/members";
 
 // ==================== SERIALIZER ====================
 
@@ -445,11 +446,15 @@ export async function getExpiredMembers(): Promise<SocioVencidoResponse[]> {
 
   return members.map((m) => {
     const serialized = serializeMember(m);
-    const daysExpired = m.endDate
-      ? Math.floor(
-          (today.getTime() - m.endDate.getTime()) / (1000 * 60 * 60 * 24),
-        )
-      : 0;
+
+    // Delegate vigencia evaluation to domain
+    const estadoVigencia = obtenerEstadoVigencia(m.endDate ?? undefined);
+    const daysExpired =
+      estadoVigencia === "vencida" && m.endDate
+        ? Math.floor(
+            (today.getTime() - m.endDate.getTime()) / (1000 * 60 * 60 * 24),
+          )
+        : 0;
 
     return {
       id: serialized.id,
@@ -471,13 +476,17 @@ export async function verifyMembershipValidity(
     return { isValid: false, daysRemaining: 0, endDate: null };
   }
 
-  const today = new Date();
+  // Delegate vigencia state to domain
+  const estadoVigencia = obtenerEstadoVigencia(member.endDate);
+  const isValid = estadoVigencia === "vigente";
+
   const endDate = new Date(member.endDate);
+  const today = new Date();
   const difference = endDate.getTime() - today.getTime();
   const daysRemaining = Math.ceil(difference / (1000 * 60 * 60 * 24));
 
   return {
-    isValid: daysRemaining > 0,
+    isValid,
     daysRemaining: Math.max(0, daysRemaining),
     endDate,
   };
