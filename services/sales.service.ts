@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { Prisma, PaymentMethod } from "@prisma/client";
 import { serializeDecimal } from "./utils";
 import { MEMBERSHIP_KEYWORDS } from "./membership-helpers";
+import { paginar, calcularTotalPaginas } from "@/lib/domain/shared/pagination";
 import type {
   HistorialVentasResponse,
   ObtenerHistorialVentasQuery,
@@ -210,6 +211,8 @@ export async function getSalesHistory(
 
   const ticketsArray = Array.from(groups.values());
 
+  // DEUDA ACEPTADA: lógica de ordenamiento de tickets no existe en lib/domain/sales.
+  // Candidata a extraer como sortTickets() en lib/domain/sales/history-calculations.ts en futura fase.
   if (params.orderBy === "date") {
     ticketsArray.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
@@ -230,8 +233,8 @@ export async function getSalesHistory(
     });
   }
 
-  const skip = (params.page - 1) * params.perPage;
-  const tickets = ticketsArray.slice(skip, skip + params.perPage);
+  // Delegado a lib/domain/shared/pagination.paginar()
+  const { items: tickets } = paginar(ticketsArray, params.page, params.perPage);
 
   const serialized = serializeDecimal(tickets);
 
@@ -240,7 +243,8 @@ export async function getSalesHistory(
     total,
     page: params.page,
     perPage: params.perPage,
-    totalPages: Math.ceil(total / params.perPage),
+    // Delegado a lib/domain/shared/pagination.calcularTotalPaginas()
+    totalPages: calcularTotalPaginas(total, params.perPage),
   };
 }
 
