@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { ShiftsService } from "@/services";
+import { OpenShiftSchema } from "@/types/api/shifts";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const shift = await ShiftsService.openShift(body, session.user.id);
+    const validated = OpenShiftSchema.parse(body);
+    const shift = await ShiftsService.openShift(validated, session.user.id);
 
     return NextResponse.json(shift, { status: 201 });
   } catch (error) {

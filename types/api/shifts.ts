@@ -1,16 +1,7 @@
 import { z } from "zod";
 import type { MetodoPago } from "../models/movimiento-inventario";
 
-// FASE 9B [MEDIA-1]: ResumenCorteResponse vs ResumenCorte (lib/domain/shifts/types.ts).
-//
-// Análisis de estructuras:
-//   Dominio ResumenCorte:       { initialCash, ticketCount, totalSales, cashAmount,
-//                                  debitCardAmount, creditCardAmount, totalWithdrawals }
-//   API ResumenCorteResponse:   idéntica estructura — sin campos adicionales.
-//
-// Resolución: ResumenCorteResponse se convierte en alias del tipo de dominio.
-// El nombre público del contrato se preserva; la definición local se elimina.
-
+// FASE 9B [MEDIA-1]: ResumenCorteResponse es alias del tipo canónico del dominio.
 import type { ResumenCorte as _ResumenCorteDomain } from "../../lib/domain/shifts/types";
 
 // ==================== ZOD SCHEMAS ====================
@@ -70,14 +61,17 @@ export interface AbrirCorteRequest {
   notes?: string;
 }
 
+// F10-A12/A13: cashAmount, debitCardAmount, creditCardAmount y difference
+// alineados como opcionales con CloseShiftSchema y el comportamiento
+// real del service (usa || 0 y calcula difference cuando no viene en el payload).
 export interface CerrarCorteRequest {
   shiftId: number;
-  cashAmount: number;
-  debitCardAmount: number;
-  creditCardAmount: number;
+  cashAmount?: number;
+  debitCardAmount?: number;
+  creditCardAmount?: number;
   totalWithdrawals?: number;
   withdrawalsConcept?: string;
-  difference: number;
+  difference?: number;
   notes?: string;
 }
 
@@ -172,8 +166,7 @@ export type CorteConVentasResponse =
 
 // ==================== SUMMARY TYPES ====================
 
-// FASE 9B [MEDIA-1]: ResumenCorteResponse era idéntico a ResumenCorte del dominio.
-// Alias — el nombre público del contrato se preserva sin redefinición.
+// FASE 9B [MEDIA-1]: alias del tipo canónico del dominio.
 export type ResumenCorteResponse = _ResumenCorteDomain;
 
 export interface ListaCortesResponse {

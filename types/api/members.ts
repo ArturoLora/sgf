@@ -1,13 +1,15 @@
 import { z } from "zod";
 import type { TipoMembresia } from "../models/socio";
+import { TipoMembresia as TipoMembresiaEnum } from "../models/socio";
 import type { MetodoPago } from "../models/movimiento-inventario";
+import { MetodoPago as MetodoPagoEnum } from "../models/movimiento-inventario";
 
 // ==================== ZOD SCHEMAS ====================
 
 export const MembersQuerySchema = z.object({
   search: z.string().optional(),
   isActive: z.string().optional(),
-  membershipType: z.string().optional(),
+  membershipType: z.nativeEnum(TipoMembresiaEnum).optional(),
 });
 
 export const CreateMemberInputSchema = z.object({
@@ -16,13 +18,11 @@ export const CreateMemberInputSchema = z.object({
   phone: z.string().optional(),
   email: z.string().optional(),
   birthDate: z.string().optional(),
-  membershipType: z.string().optional(),
+  membershipType: z.nativeEnum(TipoMembresiaEnum).optional(),
   membershipDescription: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  paymentMethod: z
-    .enum(["CASH", "DEBIT_CARD", "CREDIT_CARD", "TRANSFER"])
-    .optional(),
+  paymentMethod: z.nativeEnum(MetodoPagoEnum).optional(),
 });
 
 export const UpdateMemberInputSchema = z.object({
@@ -30,7 +30,7 @@ export const UpdateMemberInputSchema = z.object({
   phone: z.string().optional(),
   email: z.string().optional(),
   birthDate: z.string().optional(),
-  membershipType: z.string().optional(),
+  membershipType: z.nativeEnum(TipoMembresiaEnum).optional(),
   membershipDescription: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -39,12 +39,10 @@ export const UpdateMemberInputSchema = z.object({
 
 export const RenewMemberInputSchema = z.object({
   memberId: z.number(),
-  membershipType: z.string(),
+  membershipType: z.nativeEnum(TipoMembresiaEnum),
   membershipDescription: z.string().optional(),
   startDate: z.string().optional(),
-  paymentMethod: z
-    .enum(["CASH", "DEBIT_CARD", "CREDIT_CARD", "TRANSFER"])
-    .optional(),
+  paymentMethod: z.nativeEnum(MetodoPagoEnum).optional(),
 });
 
 // ==================== INFERRED TYPES ====================

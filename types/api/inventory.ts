@@ -6,6 +6,21 @@ import type { MovimientoInventario } from "../models/movimiento-inventario";
 // KardexInventoryType se mantiene como alias de compatibilidad pública — NO redefinir.
 import type { TipoInventarioKardex } from "../../lib/domain/shared/types";
 
+// ==================== ENUM LITERALS (frontera API) ====================
+// Los valores literales duplican intencionalmente MetodoPago y Ubicacion del dominio.
+// Esto endurece la frontera HTTP sin importar enums de dominio en la capa de validación.
+// Si el dominio agrega valores, estos schemas deben actualizarse de forma explícita
+// y consciente — ese acoplamiento explícito es el objetivo del hardening.
+
+const METODO_PAGO_VALUES = [
+  "CASH",
+  "DEBIT_CARD",
+  "CREDIT_CARD",
+  "TRANSFER",
+] as const;
+
+const UBICACION_VALUES = ["WAREHOUSE", "GYM"] as const;
+
 // ==================== ZOD SCHEMAS ====================
 
 export const MovementsQuerySchema = z.object({
@@ -18,6 +33,9 @@ export const CancelledSalesQuerySchema = z.object({
   endDate: z.string().optional(),
 });
 
+// F10-A8: paymentMethod era z.string() — reemplazado por z.enum con valores de MetodoPago.
+// F10: Los campos numéricos opcionales (discount, surcharge, unitPrice) se mantienen opcionales
+//      consistente con CrearVentaRequest donde son opcionales.
 export const CreateSaleInputSchema = z.object({
   productId: z.number(),
   quantity: z.number(),
@@ -25,30 +43,33 @@ export const CreateSaleInputSchema = z.object({
   unitPrice: z.number().optional(),
   discount: z.number().optional(),
   surcharge: z.number().optional(),
-  paymentMethod: z.string(),
+  paymentMethod: z.enum(METODO_PAGO_VALUES),
   ticket: z.string(),
   shiftId: z.number().optional(),
   notes: z.string().optional(),
 });
 
+// F10-A9: location era z.string() — reemplazado por z.enum con valores de Ubicacion.
 export const CreateEntryInputSchema = z.object({
   productId: z.number(),
   quantity: z.number(),
-  location: z.string(),
+  location: z.enum(UBICACION_VALUES),
   notes: z.string().optional(),
 });
 
+// F10-A10: destination era z.string() — reemplazado por z.enum con valores de Ubicacion.
 export const CreateTransferInputSchema = z.object({
   productId: z.number(),
   quantity: z.number(),
-  destination: z.string(),
+  destination: z.enum(UBICACION_VALUES),
   notes: z.string().optional(),
 });
 
+// F10-A11: location era z.string() — reemplazado por z.enum con valores de Ubicacion.
 export const CreateAdjustmentInputSchema = z.object({
   productId: z.number(),
   quantity: z.number(),
-  location: z.string(),
+  location: z.enum(UBICACION_VALUES),
   notes: z.string(),
 });
 
