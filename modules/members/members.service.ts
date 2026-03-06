@@ -30,7 +30,7 @@ import type {
   ActualizarSocioRequest,
   RenovarMembresiaRequest,
 } from "@/types/api/members";
-import { obtenerEstadoVigencia } from "@/lib/domain/members";
+import { obtenerEstadoVigencia } from "@/modules/members/domain";
 
 // ==================== SERIALIZER ====================
 

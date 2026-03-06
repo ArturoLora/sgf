@@ -6,8 +6,8 @@ import type {
   CrearSocioInput,
   ActualizarSocioInput,
   RenovarMembresiaInput,
-} from "./types";
-import { TipoMembresia, TIPOS_MEMBRESIA } from "./types";
+} from "../types";
+import { TipoMembresia, TIPOS_MEMBRESIA } from "../types";
 
 // ==================== VALID VALUE SETS ====================
 

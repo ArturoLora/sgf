@@ -7,10 +7,10 @@ import type {
   SociosEstadisticas,
   EstadoVigencia,
   TipoMembresiaInfo,
-} from "./types";
-import { TIPOS_MEMBRESIA } from "./types";
-import { paginar as paginarShared } from "../shared/pagination";
-import type { ResultadoPaginacion } from "../shared/pagination";
+} from "../types";
+import { TIPOS_MEMBRESIA } from "../types";
+import { paginar as paginarShared } from "../../../lib/domain/shared/pagination";
+import type { ResultadoPaginacion } from "../../../lib/domain/shared/pagination";
 
 // ==================== DATE HELPERS ====================
 

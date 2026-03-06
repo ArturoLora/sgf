@@ -30,8 +30,8 @@ import {
   obtenerLabelMembresia,
   formatearFecha,
   calcularFechaFinRenovacion,
-} from "@/lib/domain/members";
-import { buildRenovarMembresiaPayload } from "@/lib/domain/members";
+} from "@/modules/members/domain";
+import { buildRenovarMembresiaPayload } from "@/modules/members/domain";
 import { renewMembership } from "@/lib/api/members.client";
 
 interface RenovarMembresiaModalProps {

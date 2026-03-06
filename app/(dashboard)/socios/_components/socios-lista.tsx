@@ -17,7 +17,7 @@ import {
   formatearFechaCorta,
   obtenerLabelMembresia,
   obtenerEstadoVigencia,
-} from "@/lib/domain/members";
+} from "@/modules/members/domain";
 
 interface SociosListaProps {
   members: SocioResponse[];

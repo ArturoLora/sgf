@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
-import { TIPOS_MEMBRESIA } from "@/lib/domain/members";
-import { buildCrearSocioPayload } from "@/lib/domain/members";
+import { TIPOS_MEMBRESIA } from "@/modules/members/domain";
+import { buildCrearSocioPayload } from "@/modules/members/domain";
 import { createMember } from "@/lib/api/members.client";
 import { TipoMembresia } from "@/types/models/socio";
 

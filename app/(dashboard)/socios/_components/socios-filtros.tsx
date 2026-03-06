@@ -17,8 +17,8 @@ import {
   type SociosFiltros,
   FILTROS_INICIALES,
   TIPOS_MEMBRESIA,
-} from "@/lib/domain/members";
-import { hayFiltrosActivos } from "@/lib/domain/members";
+} from "@/modules/members/domain";
+import { hayFiltrosActivos } from "@/modules/members/domain";
 
 interface SociosFiltrosProps {
   onFiltrar: (filtros: SociosFiltros) => void;

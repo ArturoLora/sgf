@@ -7,7 +7,7 @@
 // los filtros de vigencia son inherentemente relativos al instante de ejecución.
 // No se introduce I/O externo; `new Date()` es la única fuente de no-determinismo.
 
-import type { Socio, SociosFiltros } from "./types";
+import type { Socio, SociosFiltros } from "../types";
 
 // ==================== DATE HELPERS ====================
 

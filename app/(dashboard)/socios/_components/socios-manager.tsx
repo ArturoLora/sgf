@@ -12,12 +12,12 @@ import { EditarSocioModal } from "./editar-socio-modal";
 import { DetalleSocioModal } from "./detalle-socio-modal";
 import { RenovarMembresiaModal } from "./renovar-membresia-modal";
 import type { SocioResponse } from "@/types/api/members";
-import type { SociosFiltros } from "@/lib/domain/members";
+import type { SociosFiltros } from "@/modules/members/domain";
 import {
   FILTROS_INICIALES,
   filtrarSocios,
   paginar,
-} from "@/lib/domain/members";
+} from "@/modules/members/domain";
 import { fetchMembers } from "@/lib/api/members.client";
 
 interface SociosManagerProps {

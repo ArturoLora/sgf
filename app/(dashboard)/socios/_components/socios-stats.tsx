@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, UserCheck, UserX, TrendingUp } from "lucide-react";
 import type { SocioResponse } from "@/types/api/members";
-import { calcularEstadisticas } from "@/lib/domain/members";
+import { calcularEstadisticas } from "@/modules/members/domain";
 
 interface SociosStatsProps {
   members: SocioResponse[];

@@ -7,8 +7,8 @@ import {
   formatearFechaCorta as _formatearFechaCorta,
   formatearFechaHora as _formatearFechaHora,
   formatearFechaISO as _formatearFechaISO,
-} from "../shared/formatters";
-import { TIPOS_MEMBRESIA_MAP } from "./types";
+} from "@/lib/domain/shared/formatters";
+import { TIPOS_MEMBRESIA_MAP } from "../types";
 
 // ==================== DATE FORMATTING ====================
 

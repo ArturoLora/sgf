@@ -16,7 +16,7 @@ import {
   obtenerLabelMembresia,
   obtenerEstadoVigencia,
   calcularEdad,
-} from "@/lib/domain/members";
+} from "@/modules/members/domain";
 
 interface DetalleSocioModalProps {
   member: SocioResponse | null;

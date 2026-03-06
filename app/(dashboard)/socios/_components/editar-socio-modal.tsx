@@ -25,9 +25,9 @@ import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { SocioResponse } from "@/types/api/members";
 import { TipoMembresia } from "@/types/models/socio";
-import { TIPOS_MEMBRESIA } from "@/lib/domain/members";
-import { formatearFechaISO } from "@/lib/domain/members";
-import { buildActualizarSocioPayload } from "@/lib/domain/members";
+import { TIPOS_MEMBRESIA } from "@/modules/members/domain";
+import { formatearFechaISO } from "@/modules/members/domain";
+import { buildActualizarSocioPayload } from "@/modules/members/domain";
 import { updateMember } from "@/lib/api/members.client";
 
 interface EditarSocioModalProps {
