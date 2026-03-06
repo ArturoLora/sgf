@@ -16,8 +16,8 @@ import {
   calcularPaginacion,
   obtenerPaginasVisibles,
   paginar,
-  type Producto,
-} from "@/lib/domain/inventory";
+} from "@/modules/inventory/domain";
+import type { Producto } from "@/types/models/producto";
 
 interface InventarioManagerProps {
   productos: Producto[];
@@ -52,10 +52,14 @@ export function InventarioManager({ productos }: InventarioManagerProps) {
     [productosFiltrados.length, paginaActual],
   );
 
-  const productosPaginados = useMemo(
-    () => paginar(productosFiltrados, paginaActual, ITEMS_POR_PAGINA),
-    [productosFiltrados, paginaActual],
-  );
+  const productosPaginados = useMemo(() => {
+    const resultado = paginar(
+      productosFiltrados,
+      paginaActual,
+      ITEMS_POR_PAGINA,
+    );
+    return Array.isArray(resultado) ? resultado : resultado.items;
+  }, [productosFiltrados, paginaActual]);
 
   const paginasVisibles = useMemo(
     () => obtenerPaginasVisibles(paginaActual, paginacion.totalPaginas),

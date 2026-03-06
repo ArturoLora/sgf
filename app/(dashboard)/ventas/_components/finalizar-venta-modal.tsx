@@ -19,9 +19,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, CheckCircle } from "lucide-react";
-import { CreateSaleInputSchema } from "@/types/api/inventory";
+import { CreateSaleInputSchema } from "@/modules/inventory/types";
 import type { z } from "zod";
-import type { MetodoPago } from "@/types/models/movimiento-inventario";
+import { MetodoPago } from "@/types/models/movimiento-inventario";
 
 interface ItemCarrito {
   producto: {
@@ -65,14 +65,14 @@ export default function FinalizarVentaModal({
   const { handleSubmit, watch, setValue } = useForm<PaymentMethodForm>({
     resolver: zodResolver(paymentMethodSchema),
     defaultValues: {
-      paymentMethod: "CASH",
+      paymentMethod: MetodoPago.CASH,
     },
   });
 
-  const metodoPago = watch("paymentMethod");
+  const metodoPago = watch("paymentMethod") as MetodoPago;
 
   const handleFormSubmit = () => {
-    onConfirmar(metodoPago as MetodoPago);
+    onConfirmar(metodoPago);
   };
 
   return (
@@ -131,16 +131,24 @@ export default function FinalizarVentaModal({
               <Label>Método de Pago</Label>
               <Select
                 value={metodoPago}
-                onValueChange={(value) => setValue("paymentMethod", value)}
+                onValueChange={(value) =>
+                  setValue("paymentMethod", value as MetodoPago)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CASH">Efectivo</SelectItem>
-                  <SelectItem value="DEBIT_CARD">Tarjeta Débito</SelectItem>
-                  <SelectItem value="CREDIT_CARD">Tarjeta Crédito</SelectItem>
-                  <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                  <SelectItem value={MetodoPago.CASH}>Efectivo</SelectItem>
+                  <SelectItem value={MetodoPago.DEBIT_CARD}>
+                    Tarjeta Débito
+                  </SelectItem>
+                  <SelectItem value={MetodoPago.CREDIT_CARD}>
+                    Tarjeta Crédito
+                  </SelectItem>
+                  <SelectItem value={MetodoPago.TRANSFER}>
+                    Transferencia
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

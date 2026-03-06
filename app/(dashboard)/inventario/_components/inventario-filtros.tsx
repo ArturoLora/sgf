@@ -1,3 +1,4 @@
+// app/(dashboard)/inventario/_components/inventario-filtros.tsx
 "use client";
 
 import { useState } from "react";
@@ -14,16 +15,16 @@ import {
 } from "@/components/ui/select";
 import { Search, X, Filter } from "lucide-react";
 import type {
-  Ubicacion,
-  Estado,
+  UbicacionFiltro,
+  EstadoFiltro,
   OrdenarPor,
   Orden,
-} from "@/lib/domain/inventory/filters";
+} from "@/modules/inventory/domain/filters";
 
 export interface FiltrosInventario {
   busqueda: string;
-  ubicacion: Ubicacion;
-  estado: Estado;
+  ubicacion: UbicacionFiltro;
+  estado: EstadoFiltro;
   ordenarPor: OrdenarPor;
   orden: Orden;
 }
@@ -99,7 +100,7 @@ export function InventarioFiltros({
               <Label className="text-sm">Ubicación</Label>
               <Select
                 value={filtros.ubicacion}
-                onValueChange={(value: Ubicacion) =>
+                onValueChange={(value: UbicacionFiltro) =>
                   handleChange("ubicacion", value)
                 }
               >
@@ -118,7 +119,9 @@ export function InventarioFiltros({
               <Label className="text-sm">Estado</Label>
               <Select
                 value={filtros.estado}
-                onValueChange={(value: Estado) => handleChange("estado", value)}
+                onValueChange={(value: EstadoFiltro) =>
+                  handleChange("estado", value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />

@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Package, AlertCircle, TrendingUp, DollarSign } from "lucide-react";
-import { formatearValor } from "@/lib/domain/inventory";
+import { formatearValor } from "@/modules/inventory/domain";
 
 interface InventarioStatsProps {
   totalProductos: number;

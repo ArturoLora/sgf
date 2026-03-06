@@ -2,6 +2,14 @@
 // Tipos internos del dominio de socios
 // SIN dependencias externas (no @/types/api, no Prisma)
 
+// ==================== ENTIDAD SOCIO (reexportada desde types/models) ====================
+
+export type { Socio } from "@/types/models/socio";
+import { TipoMembresia } from "@/types/models/socio";
+export { TipoMembresia };
+import { MetodoPago } from "@/types/models/movimiento-inventario";
+export { MetodoPago };
+
 // ==================== FILTER TYPES ====================
 
 export interface SociosFiltros {
@@ -22,46 +30,38 @@ export const FILTROS_INICIALES: SociosFiltros = {
   orden: "asc",
 };
 
-// ==================== ENTIDAD SOCIO (INTERNA) ====================
-
-export interface Socio {
-  id: number;
-  memberNumber: string;
-  name?: string;
-  phone?: string;
-  email?: string;
-  birthDate?: Date | string;
-  membershipType?: string;
-  membershipDescription?: string;
-  startDate?: Date | string;
-  endDate?: Date | string;
-  totalVisits: number;
-  lastVisit?: Date | string;
-  isActive: boolean;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-}
-
 // ==================== MEMBERSHIP TYPES ====================
 
 export interface TipoMembresiaInfo {
-  value: string;
+  value: TipoMembresia;
   label: string;
   dias: number;
 }
 
 export const TIPOS_MEMBRESIA: TipoMembresiaInfo[] = [
-  { value: "VISIT", label: "Visita", dias: 1 },
-  { value: "WEEK", label: "Semana", dias: 7 },
-  { value: "MONTH_STUDENT", label: "Mes Estudiante", dias: 30 },
-  { value: "MONTH_GENERAL", label: "Mes General", dias: 30 },
-  { value: "QUARTER_STUDENT", label: "Trimestre Estudiante", dias: 90 },
-  { value: "QUARTER_GENERAL", label: "Trimestre General", dias: 90 },
-  { value: "ANNUAL_STUDENT", label: "Anual Estudiante", dias: 365 },
-  { value: "ANNUAL_GENERAL", label: "Anual General", dias: 365 },
-  { value: "PROMOTION", label: "Promoción", dias: 30 },
-  { value: "REBIRTH", label: "Renacer", dias: 30 },
-  { value: "NUTRITION_CONSULTATION", label: "Consulta Nutrición", dias: 1 },
+  { value: TipoMembresia.VISIT, label: "Visita", dias: 1 },
+  { value: TipoMembresia.WEEK, label: "Semana", dias: 7 },
+  { value: TipoMembresia.MONTH_STUDENT, label: "Mes Estudiante", dias: 30 },
+  { value: TipoMembresia.MONTH_GENERAL, label: "Mes General", dias: 30 },
+  {
+    value: TipoMembresia.QUARTER_STUDENT,
+    label: "Trimestre Estudiante",
+    dias: 90,
+  },
+  {
+    value: TipoMembresia.QUARTER_GENERAL,
+    label: "Trimestre General",
+    dias: 90,
+  },
+  { value: TipoMembresia.ANNUAL_STUDENT, label: "Anual Estudiante", dias: 365 },
+  { value: TipoMembresia.ANNUAL_GENERAL, label: "Anual General", dias: 365 },
+  { value: TipoMembresia.PROMOTION, label: "Promoción", dias: 30 },
+  { value: TipoMembresia.REBIRTH, label: "Renacer", dias: 30 },
+  {
+    value: TipoMembresia.NUTRITION_CONSULTATION,
+    label: "Consulta Nutrición",
+    dias: 1,
+  },
 ];
 
 export const TIPOS_MEMBRESIA_MAP: Record<string, string> = Object.fromEntries(
@@ -90,11 +90,11 @@ export interface CrearSocioInput {
   phone?: string;
   email?: string;
   birthDate?: string;
-  membershipType?: string;
+  membershipType?: TipoMembresia;
   membershipDescription?: string;
   startDate?: string;
   endDate?: string;
-  paymentMethod?: string;
+  paymentMethod?: MetodoPago;
 }
 
 export interface ActualizarSocioInput {
@@ -102,7 +102,7 @@ export interface ActualizarSocioInput {
   phone?: string;
   email?: string;
   birthDate?: string;
-  membershipType?: string;
+  membershipType?: TipoMembresia;
   membershipDescription?: string;
   startDate?: string;
   endDate?: string;
@@ -111,8 +111,8 @@ export interface ActualizarSocioInput {
 
 export interface RenovarMembresiaInput {
   memberId: number;
-  membershipType: string;
+  membershipType: TipoMembresia;
   membershipDescription?: string;
   startDate?: string;
-  paymentMethod?: string;
+  paymentMethod?: MetodoPago;
 }

@@ -16,8 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Loader2, Plus, Minus } from "lucide-react";
-import { CreateAdjustmentInputSchema } from "@/types/api/inventory";
+import { CreateAdjustmentInputSchema } from "@/modules/inventory/types";
 import type { ProductoResponse } from "@/types/api/products";
+import { Ubicacion } from "@/types/models/movimiento-inventario";
 import {
   validateAdjustmentQuantity,
   validateAdjustmentNotes,
@@ -54,7 +55,7 @@ export default function AjusteModal({
     resolver: zodResolver(CreateAdjustmentInputSchema),
     defaultValues: {
       productId: product.id,
-      location: "WAREHOUSE",
+      location: Ubicacion.WAREHOUSE,
       quantity: 0,
       notes: "",
     },
@@ -162,15 +163,17 @@ export default function AjusteModal({
                 <Label>Ubicación *</Label>
                 <Select
                   value={location}
-                  onValueChange={(value: string) => setValue("location", value)}
+                  onValueChange={(value: Ubicacion) =>
+                    setValue("location", value)
+                  }
                   disabled={submitting}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="WAREHOUSE">Bodega</SelectItem>
-                    <SelectItem value="GYM">Gym</SelectItem>
+                    <SelectItem value={Ubicacion.WAREHOUSE}>Bodega</SelectItem>
+                    <SelectItem value={Ubicacion.GYM}>Gym</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
@@ -182,8 +185,8 @@ export default function AjusteModal({
                 <Label>Tipo de Ajuste *</Label>
                 <Select
                   value={type}
-                  onValueChange={(value: string) =>
-                    setType(value as "INCREASE" | "DECREASE")
+                  onValueChange={(value: "INCREASE" | "DECREASE") =>
+                    setType(value)
                   }
                   disabled={submitting}
                 >

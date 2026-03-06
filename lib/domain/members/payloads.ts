@@ -7,7 +7,7 @@ import type {
   ActualizarSocioInput,
   RenovarMembresiaInput,
 } from "./types";
-import { TIPOS_MEMBRESIA } from "./types";
+import { TipoMembresia, TIPOS_MEMBRESIA } from "./types";
 
 // ==================== VALID VALUE SETS ====================
 
@@ -18,7 +18,9 @@ const METODOS_PAGO_VALIDOS = new Set([
   "TRANSFER",
 ]);
 
-const TIPOS_MEMBRESIA_VALIDOS = new Set(TIPOS_MEMBRESIA.map((t) => t.value));
+const TIPOS_MEMBRESIA_VALIDOS = new Set<string>(
+  TIPOS_MEMBRESIA.map((t) => t.value),
+);
 
 // ==================== TYPE GUARDS ====================
 
@@ -26,7 +28,9 @@ function isMetodoPagoValido(value: string | undefined): boolean {
   return value !== undefined && METODOS_PAGO_VALIDOS.has(value);
 }
 
-function isTipoMembresiaValido(value: string | undefined): boolean {
+function isTipoMembresiaValido(
+  value: string | undefined,
+): value is TipoMembresia {
   return value !== undefined && TIPOS_MEMBRESIA_VALIDOS.has(value);
 }
 

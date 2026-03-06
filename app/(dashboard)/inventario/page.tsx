@@ -1,7 +1,7 @@
 import { requireAuth } from "@/lib/require-role";
 import { ProductsService } from "@/services";
 import { InventarioManager } from "./_components/inventario-manager";
-import { filtrarProductosFisicos } from "@/lib/domain/inventory";
+import { filtrarProductosFisicos } from "@/modules/inventory/domain";
 
 export default async function InventarioPage() {
   await requireAuth();

@@ -25,7 +25,7 @@ import {
   verificarCorteActivo,
   cargarResumenCorte,
   cargarDetalleCorte,
-} from "@/lib/domain/shifts";
+} from "@/lib/api/shifts.client";
 
 interface Cajero {
   id: string;

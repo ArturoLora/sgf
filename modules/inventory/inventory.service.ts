@@ -1,20 +1,20 @@
 import { prisma } from "@/lib/db";
 import { InventoryType, Location, PaymentMethod } from "@prisma/client";
-import { parseIntParam, parseISODate } from "./utils";
+import { parseIntParam, parseISODate } from "../../services/utils";
 import {
   mapLocation,
   mapPaymentMethod,
   mapInventoryTypeToKardex,
-} from "./enum-mappers";
-import { isMembershipProduct } from "./membership-helpers";
+} from "../../services/enum-mappers";
+import { isMembershipProduct } from "../../services/membership-helpers";
 import {
   calcularBalance,
   validarStockDisponible,
-} from "@/lib/domain/inventory";
+} from "@/modules/inventory/domain";
 import {
   MovementsQuerySchema,
   CancelledSalesQuerySchema,
-} from "@/types/api/inventory";
+} from "@/modules/inventory/types";
 import type {
   CrearVentaRequest,
   CrearEntradaRequest,
@@ -29,7 +29,7 @@ import type {
   KardexMovimientoResponse,
   MovementsQueryInput,
   CancelledSalesQueryInput,
-} from "@/types/api/inventory";
+} from "@/modules/inventory/types";
 import type { DetalleTicketResponse, ItemVentaTicket } from "@/types/api/sales";
 
 // ==================== INTERNAL TYPES ====================

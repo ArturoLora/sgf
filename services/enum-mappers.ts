@@ -11,7 +11,7 @@ import {
   MetodoPago,
   TipoMembresia,
 } from "@/types/models";
-import type { KardexInventoryType } from "@/types/api/inventory";
+import type { KardexInventoryType } from "@/modules/inventory/types";
 
 // ==================== INVENTORY TYPE MAPPING ====================
 

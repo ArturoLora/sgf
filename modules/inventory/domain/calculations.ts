@@ -2,8 +2,11 @@
 // Funciones puras de cálculo para inventario
 // SIN dependencias externas
 
-import type { TipoInventarioKardex, Ubicacion } from "../shared/types";
-import type { Producto } from "../products/types";
+import type {
+  TipoInventarioKardex,
+  Ubicacion,
+} from "../../../lib/domain/shared/types";
+import type { Producto } from "../../../lib/domain/products/types";
 
 // ==================== TIPOS INTERNOS ====================
 

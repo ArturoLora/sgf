@@ -1,7 +1,7 @@
 // lib/api/sales.client.ts
 import type { ProductoResponse } from "@/types/api/products";
 import type { CorteActivoResponse } from "@/types/api/shifts";
-import type { CrearVentaRequest, VentaCreada } from "@/types/api/inventory";
+import type { CrearVentaRequest, VentaCreada } from "@/modules/inventory/types";
 import type {
   HistorialVentasResponse,
   DetalleTicketResponse,

@@ -9,15 +9,15 @@ export {
   esPaginaValida,
   hayPaginaAnterior,
   hayPaginaSiguiente,
-} from "../shared/pagination";
+} from "../../../lib/domain/shared/pagination";
 
-export type { ResultadoPaginacion as PaginacionInfo } from "../shared/pagination";
+export type { ResultadoPaginacion as PaginacionInfo } from "../../../lib/domain/shared/pagination";
 
 // Adaptador: calcularPaginacion → interfaz compatible con consumers existentes
 import {
   paginar as paginarBase,
   calcularTotalPaginas,
-} from "../shared/pagination";
+} from "../../../lib/domain/shared/pagination";
 
 export function calcularPaginacion(
   totalItems: number,

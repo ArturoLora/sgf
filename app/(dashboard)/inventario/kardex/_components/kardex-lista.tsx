@@ -9,8 +9,8 @@ import {
   ArrowRightLeft,
   X,
 } from "lucide-react";
-import type { KardexMovimientoResponse } from "@/types/api/inventory";
-import { formatearPrecio, formatearValor } from "@/lib/domain/inventory";
+import type { KardexMovimientoResponse } from "@/modules/inventory/types";
+import { formatearPrecio, formatearValor } from "@/modules/inventory/domain";
 
 interface KardexListaProps {
   movimientos: KardexMovimientoResponse[];

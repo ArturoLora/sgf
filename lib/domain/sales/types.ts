@@ -70,7 +70,7 @@ export interface TicketAgrupado {
   ticket: string;
   date: Date | string;
   total: number;
-  paymentMethod?: string;
+  paymentMethod?: MetodoPago;
   cashier: string;
   member?: {
     memberNumber: string;

@@ -3,18 +3,11 @@
 // SIN dependencias externas (no @/types/api, no Prisma)
 
 // ==================== ENTIDAD PRODUCTO ====================
+// La entidad Producto vive en types/models/producto.ts (fuente de verdad).
+// Se re-exporta aquí para que los consumidores del dominio puedan importarla
+// desde un único punto sin romper la encapsulación del módulo.
 
-export interface Producto {
-  id: number;
-  name: string;
-  salePrice: number;
-  warehouseStock: number;
-  gymStock: number;
-  minStock: number;
-  isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+export type { Producto } from "@/types/models/producto";
 
 // ==================== FILTROS ====================
 

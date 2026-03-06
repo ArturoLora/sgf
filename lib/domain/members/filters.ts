@@ -11,8 +11,11 @@ import type { Socio, SociosFiltros } from "./types";
 
 // ==================== DATE HELPERS ====================
 
-function parseDate(date: string | Date): Date {
-  return typeof date === "string" ? new Date(date) : date;
+// El modelo canónico (types/models/socio.ts) usa Date para todos los campos de fecha.
+// parseDate ya no necesita aceptar string: las entidades persistidas llegan como Date.
+// No acepta undefined porque los call sites siempre hacen guard antes de llamar.
+function parseDate(date: Date): Date {
+  return date;
 }
 
 function todayMidnight(): Date {
@@ -52,9 +55,11 @@ function matchesVigencia(
     return !member.membershipType || !member.endDate;
   }
 
+  // Guard: si no hay endDate, no aplica a vigentes/vencidos
   if (!member.endDate) return false;
 
   const today = todayMidnight();
+  // member.endDate es Date aquí (guard pasado), parseDate recibe Date
   const end = parseDate(member.endDate);
 
   return vigencia === "vigentes" ? end >= today : end < today;
@@ -84,6 +89,7 @@ function sortMembers(
         valorB = b.name ?? "";
         break;
       case "fecha_registro":
+        // createdAt: Date (no-optional en el modelo canónico), parseDate recibe Date
         valorA = parseDate(a.createdAt).getTime();
         valorB = parseDate(b.createdAt).getTime();
         break;

@@ -1,6 +1,6 @@
 import { requireAuth } from "@/lib/require-role";
 import { ProductsService } from "@/services";
-import { getKardex } from "@/services/inventory.service";
+import { getKardex } from "@/modules/inventory/inventory.service";
 import { KardexLista } from "../_components/kardex-lista";
 import { notFound } from "next/navigation";
 

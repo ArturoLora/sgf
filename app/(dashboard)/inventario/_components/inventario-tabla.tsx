@@ -10,8 +10,8 @@ import {
   formatearValor,
   calcularStockTotal,
   calcularValorProducto,
-  type Producto,
-} from "@/lib/domain/inventory";
+} from "@/modules/inventory/domain";
+import type { Producto } from "@/types/models/producto";
 
 interface InventarioTablaProps {
   productos: Producto[];

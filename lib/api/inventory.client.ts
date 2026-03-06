@@ -12,7 +12,7 @@ import type {
   AjusteResponse,
   MovimientoInventarioResponse,
   KardexMovimientoResponse,
-} from "@/types/api/inventory";
+} from "@/modules/inventory/types";
 
 const BASE_URL = "/api/inventory";
 

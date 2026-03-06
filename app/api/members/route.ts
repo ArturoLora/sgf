@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { MembersService } from "@/services";
+import { MembersQuerySchema } from "@/types/api/members";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +20,8 @@ export async function GET(request: NextRequest) {
       membershipType: searchParams.get("membershipType") || undefined,
     };
 
-    const params = MembersService.parseMembersQuery(queryRaw);
+    const queryValidated = MembersQuerySchema.parse(queryRaw);
+    const params = MembersService.parseMembersQuery(queryValidated);
     const members = await MembersService.getAllMembers(params);
     return NextResponse.json(members);
   } catch (error) {

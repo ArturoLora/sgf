@@ -16,8 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Loader2 } from "lucide-react";
-import { CreateTransferInputSchema } from "@/types/api/inventory";
+import { CreateTransferInputSchema } from "@/modules/inventory/types";
 import type { ProductoResponse } from "@/types/api/products";
+import { Ubicacion } from "@/types/models/movimiento-inventario";
 import {
   validateTransferQuantity,
   oppositeLocation,
@@ -41,7 +42,7 @@ export default function TraspasoModal({
   onError,
 }: TraspasoModalProps) {
   const [submitting, setSubmitting] = useState(false);
-  const [from, setFrom] = useState("WAREHOUSE");
+  const [from, setFrom] = useState<Ubicacion>(Ubicacion.WAREHOUSE);
 
   const {
     register,
@@ -53,7 +54,7 @@ export default function TraspasoModal({
     resolver: zodResolver(CreateTransferInputSchema),
     defaultValues: {
       productId: product.id,
-      destination: "GYM",
+      destination: Ubicacion.GYM,
       quantity: 0,
       notes: "",
     },
@@ -61,9 +62,9 @@ export default function TraspasoModal({
 
   const destination = watch("destination");
 
-  const handleFromChange = (value: string) => {
+  const handleFromChange = (value: Ubicacion) => {
     setFrom(value);
-    setValue("destination", oppositeLocation(value));
+    setValue("destination", oppositeLocation(value) as Ubicacion);
   };
 
   const onSubmit = async (data: TransferFormValues) => {
@@ -146,15 +147,15 @@ export default function TraspasoModal({
               <Label>Desde</Label>
               <Select
                 value={from}
-                onValueChange={handleFromChange}
+                onValueChange={(value: Ubicacion) => handleFromChange(value)}
                 disabled={submitting}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="WAREHOUSE">Bodega</SelectItem>
-                  <SelectItem value="GYM">Gym</SelectItem>
+                  <SelectItem value={Ubicacion.WAREHOUSE}>Bodega</SelectItem>
+                  <SelectItem value={Ubicacion.GYM}>Gym</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">

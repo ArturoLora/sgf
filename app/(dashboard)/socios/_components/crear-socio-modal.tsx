@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateMemberInputSchema } from "@/types/api/members";
 import type { CreateMemberInputRaw } from "@/types/api/members";
@@ -26,6 +26,7 @@ import { useState } from "react";
 import { TIPOS_MEMBRESIA } from "@/lib/domain/members";
 import { buildCrearSocioPayload } from "@/lib/domain/members";
 import { createMember } from "@/lib/api/members.client";
+import { TipoMembresia } from "@/types/models/socio";
 
 interface CrearSocioModalProps {
   open: boolean;
@@ -45,7 +46,7 @@ export function CrearSocioModal({
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
     reset,
   } = useForm<CreateMemberInputRaw>({
@@ -56,12 +57,12 @@ export function CrearSocioModal({
       phone: "",
       email: "",
       birthDate: "",
-      membershipType: "",
+      membershipType: undefined,
       membershipDescription: "",
     },
   });
 
-  const membershipType = watch("membershipType");
+  const membershipType = useWatch({ control, name: "membershipType" });
 
   const onSubmit = async (data: CreateMemberInputRaw) => {
     if (!data.phone?.trim()) {
@@ -181,7 +182,9 @@ export function CrearSocioModal({
               <Label htmlFor="membershipType">Tipo de Membresía</Label>
               <Select
                 value={membershipType ?? ""}
-                onValueChange={(value) => setValue("membershipType", value)}
+                onValueChange={(value) =>
+                  setValue("membershipType", value as TipoMembresia)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar tipo" />

@@ -2,8 +2,8 @@
 // Formatters puros del dominio de inventario
 // SIN dependencias externas
 
-import type { Producto } from "../products/types";
-import type { EstadoStock } from "../shared/types";
+import type { Producto } from "../../../lib/domain/products/types";
+import type { EstadoStock } from "../../../lib/domain/shared/types";
 
 export function formatearEstadoStock(
   actual: number,

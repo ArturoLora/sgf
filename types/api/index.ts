@@ -27,7 +27,7 @@ export type {
   TraspasoCreado,
   AjusteCreado,
   VentaCancelada,
-} from "./inventory";
+} from "../../modules/inventory/types";
 
 // Sales
 export type {

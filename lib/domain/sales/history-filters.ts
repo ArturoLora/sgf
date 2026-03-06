@@ -1,8 +1,8 @@
 // lib/domain/sales/history-filters.ts
 // Funciones puras de dominio para filtros de historial de ventas
-// SIN dependencias externas (no fetch, no React, no UI, no @/types/api)
+// SIN dependencias externas (no fetch, no React, no UI)
 
-import type { HistorialVentasFilters } from "./types";
+import type { HistorialVentasFilters } from "@/types/api/sales";
 
 /**
  * Valores por defecto para los filtros del historial

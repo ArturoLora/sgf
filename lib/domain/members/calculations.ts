@@ -14,8 +14,12 @@ import type { ResultadoPaginacion } from "../shared/pagination";
 
 // ==================== DATE HELPERS ====================
 
-function parseDate(date: string | Date): Date {
-  return typeof date === "string" ? new Date(date) : date;
+// El modelo canónico (types/models/socio.ts) usa Date para todos los campos de fecha.
+// parseDate ya no necesita aceptar string: las entidades persistidas llegan como Date.
+// Se mantiene el caso undefined para campos opcionales (birthDate?, startDate?, etc.)
+function parseDate(date: Date | undefined): Date {
+  if (!date) return new Date(NaN);
+  return date;
 }
 
 function todayMidnight(): Date {
@@ -60,7 +64,7 @@ export function calcularEstadisticas(members: Socio[]): SociosEstadisticas {
 // ==================== VIGENCIA ====================
 
 export function obtenerEstadoVigencia(
-  endDate: string | Date | undefined,
+  endDate: Date | undefined,
 ): EstadoVigencia {
   if (!endDate) return "sin_membresia";
 
@@ -72,7 +76,9 @@ export function obtenerEstadoVigencia(
 
 // ==================== AGE ====================
 
-export function calcularEdad(birthDate: string | Date): number {
+export function calcularEdad(birthDate: Date): number {
+  // birthDate es Date no-nullable según el modelo canónico.
+  // parseDate se usa solo para normalizar por si la instancia llegara inválida.
   const nacimiento = parseDate(birthDate);
   const hoy = new Date();
   let edad = hoy.getFullYear() - nacimiento.getFullYear();
@@ -87,7 +93,7 @@ export function calcularEdad(birthDate: string | Date): number {
 
 export function calcularFechaFinRenovacion(
   tipoMembresia: string,
-  endDateActual: string | Date | undefined,
+  endDateActual: Date | undefined,
 ): Date | null {
   const tipoInfo: TipoMembresiaInfo | undefined = TIPOS_MEMBRESIA.find(
     (t) => t.value === tipoMembresia,

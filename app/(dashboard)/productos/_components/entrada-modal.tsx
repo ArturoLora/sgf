@@ -16,8 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Loader2 } from "lucide-react";
-import { CreateEntryInputSchema } from "@/types/api/inventory";
+import { CreateEntryInputSchema } from "@/modules/inventory/types";
 import type { ProductoResponse } from "@/types/api/products";
+import { Ubicacion } from "@/types/models/movimiento-inventario";
 import { getStockByLocation, locationLabel } from "@/lib/domain/products";
 
 type EntryFormValues = z.infer<typeof CreateEntryInputSchema>;
@@ -47,7 +48,7 @@ export default function EntradaModal({
     resolver: zodResolver(CreateEntryInputSchema),
     defaultValues: {
       productId: product.id,
-      location: "WAREHOUSE",
+      location: Ubicacion.WAREHOUSE,
       quantity: 0,
       notes: "",
     },
@@ -125,15 +126,17 @@ export default function EntradaModal({
               <Label>Ubicación *</Label>
               <Select
                 value={location}
-                onValueChange={(value: string) => setValue("location", value)}
+                onValueChange={(value: Ubicacion) =>
+                  setValue("location", value)
+                }
                 disabled={submitting}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="WAREHOUSE">Bodega</SelectItem>
-                  <SelectItem value="GYM">Gym</SelectItem>
+                  <SelectItem value={Ubicacion.WAREHOUSE}>Bodega</SelectItem>
+                  <SelectItem value={Ubicacion.GYM}>Gym</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">

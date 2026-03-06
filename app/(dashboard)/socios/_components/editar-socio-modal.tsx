@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { UpdateMemberInputSchema } from "@/types/api/members";
 import type { UpdateMemberInputRaw } from "@/types/api/members";
@@ -24,6 +24,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { SocioResponse } from "@/types/api/members";
+import { TipoMembresia } from "@/types/models/socio";
 import { TIPOS_MEMBRESIA } from "@/lib/domain/members";
 import { formatearFechaISO } from "@/lib/domain/members";
 import { buildActualizarSocioPayload } from "@/lib/domain/members";
@@ -47,15 +48,15 @@ export function EditarSocioModal({
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
     reset,
   } = useForm<UpdateMemberInputRaw>({
     resolver: zodResolver(UpdateMemberInputSchema),
   });
 
-  const membershipType = watch("membershipType");
-  const isActive = watch("isActive");
+  const membershipType = useWatch({ control, name: "membershipType" });
+  const isActive = useWatch({ control, name: "isActive" });
 
   useEffect(() => {
     if (member) {
@@ -64,7 +65,7 @@ export function EditarSocioModal({
         phone: member.phone ?? "",
         email: member.email ?? "",
         birthDate: formatearFechaISO(member.birthDate),
-        membershipType: member.membershipType ?? "",
+        membershipType: member.membershipType ?? undefined,
         membershipDescription: member.membershipDescription ?? "",
         startDate: formatearFechaISO(member.startDate),
         endDate: formatearFechaISO(member.endDate),
@@ -172,7 +173,9 @@ export function EditarSocioModal({
               <Label htmlFor="membershipType">Tipo de Membresía</Label>
               <Select
                 value={membershipType ?? ""}
-                onValueChange={(value) => setValue("membershipType", value)}
+                onValueChange={(value) =>
+                  setValue("membershipType", value as TipoMembresia)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sin membresía" />

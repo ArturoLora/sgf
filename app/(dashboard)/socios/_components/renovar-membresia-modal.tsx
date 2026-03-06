@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RenewMemberInputSchema } from "@/types/api/members";
 import type { RenewMemberInputRaw } from "@/types/api/members";
@@ -22,8 +22,9 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Calendar, AlertCircle } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { SocioResponse } from "@/types/api/members";
+import { TipoMembresia } from "@/types/models/socio";
 import {
   TIPOS_MEMBRESIA,
   obtenerLabelMembresia,
@@ -46,45 +47,34 @@ export function RenovarMembresiaModal({
 }: RenovarMembresiaModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [nuevaFechaFin, setNuevaFechaFin] = useState("");
-
-  const { handleSubmit, setValue, watch, reset } = useForm<RenewMemberInputRaw>(
-    {
+  const { handleSubmit, setValue, control, reset } =
+    useForm<RenewMemberInputRaw>({
       resolver: zodResolver(RenewMemberInputSchema),
       defaultValues: {
         memberId: member?.id ?? 0,
-        membershipType: member?.membershipType ?? "",
+        membershipType: member?.membershipType ?? undefined,
       },
-    },
-  );
+    });
 
-  const membershipType = watch("membershipType");
+  const membershipType = useWatch({ control, name: "membershipType" });
 
-  const actualizarFechaPreview = useCallback(
-    (tipo: string) => {
-      const fecha = calcularFechaFinRenovacion(tipo, member?.endDate);
-      if (fecha) {
-        setNuevaFechaFin(formatearFecha(fecha));
-      } else {
-        setNuevaFechaFin("");
-      }
-    },
-    [member?.endDate],
-  );
+  const nuevaFechaFin = useMemo(() => {
+    if (!membershipType) return "";
+    const fecha = calcularFechaFinRenovacion(membershipType, member?.endDate);
+    return fecha ? formatearFecha(fecha) : "";
+  }, [membershipType, member?.endDate]);
 
   useEffect(() => {
     if (member) {
       setValue("memberId", member.id);
-      setValue("membershipType", member.membershipType ?? "");
       if (member.membershipType) {
-        actualizarFechaPreview(member.membershipType);
+        setValue("membershipType", member.membershipType);
       }
     }
-  }, [member, setValue, actualizarFechaPreview]);
+  }, [member, setValue]);
 
-  const handleTipoChange = (tipo: string) => {
+  const handleTipoChange = (tipo: TipoMembresia) => {
     setValue("membershipType", tipo);
-    actualizarFechaPreview(tipo);
     setError("");
   };
 
@@ -110,7 +100,6 @@ export function RenovarMembresiaModal({
   const handleClose = () => {
     reset();
     setError("");
-    setNuevaFechaFin("");
     onClose();
   };
 
@@ -176,7 +165,9 @@ export function RenovarMembresiaModal({
               </Label>
               <Select
                 value={membershipType ?? ""}
-                onValueChange={handleTipoChange}
+                onValueChange={(value) =>
+                  handleTipoChange(value as TipoMembresia)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar tipo" />

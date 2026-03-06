@@ -1,6 +1,9 @@
 import { z } from "zod";
-import type { Ubicacion, MetodoPago } from "../models/movimiento-inventario";
-import type { MovimientoInventario } from "../models/movimiento-inventario";
+import type {
+  Ubicacion,
+  MetodoPago,
+} from "../../types/models/movimiento-inventario";
+import type { MovimientoInventario } from "../../types/models/movimiento-inventario";
 
 // FASE 9B: TipoInventarioKardex es la fuente de verdad en lib/domain/shared/types.ts
 // KardexInventoryType se mantiene como alias de compatibilidad pública — NO redefinir.

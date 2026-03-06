@@ -115,3 +115,124 @@ export async function fetchResumenCorte(
 
   return res.json();
 }
+
+// ==================== NAMED OPERATIONS (used by React components) ====================
+
+/**
+ * Abre un nuevo corte de caja.
+ */
+export async function abrirCorte(
+  data: OpenShiftInput,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await fetchAbrirCorte(data);
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Error al abrir corte",
+    };
+  }
+}
+
+/**
+ * Cierra el corte de caja activo.
+ */
+export async function cerrarCorte(
+  data: CloseShiftInput,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await fetchCerrarCorte(data);
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Error al cerrar corte",
+    };
+  }
+}
+
+/**
+ * Carga la lista paginada de cortes con filtros opcionales.
+ */
+export async function cargarCortes(
+  params?: BuscarCortesQuery,
+): Promise<{ success: boolean; data?: ListaCortesResponse; error?: string }> {
+  try {
+    const data = await fetchCortes(params);
+    return { success: true, data };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Error al cargar cortes",
+    };
+  }
+}
+
+/**
+ * Verifica si existe un corte activo en el sistema.
+ */
+export async function verificarCorteActivo(): Promise<{
+  success: boolean;
+  corte?: CorteActivoConVentasResponse;
+  error?: string;
+}> {
+  try {
+    const corte = await fetchCorteActivo();
+    return { success: true, corte: corte ?? undefined };
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        err instanceof Error ? err.message : "Error al verificar corte activo",
+    };
+  }
+}
+
+/**
+ * Carga el resumen de un corte para el modal de cierre.
+ */
+export async function cargarResumenCorte(
+  corteId: number,
+): Promise<{
+  success: boolean;
+  resumen?: ResumenCorteResponse;
+  error?: string;
+}> {
+  try {
+    const resumen = await fetchResumenCorte(corteId);
+    return { success: true, resumen };
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        err instanceof Error
+          ? err.message
+          : "Error al cargar resumen del corte",
+    };
+  }
+}
+
+/**
+ * Carga el detalle completo de un corte para el modal de detalle.
+ */
+export async function cargarDetalleCorte(
+  corteId: number,
+): Promise<{
+  success: boolean;
+  corte?: CorteConVentasResponse;
+  error?: string;
+}> {
+  try {
+    const corte = await fetchCorteById(corteId);
+    return { success: true, corte };
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        err instanceof Error
+          ? err.message
+          : "Error al cargar detalle del corte",
+    };
+  }
+}
