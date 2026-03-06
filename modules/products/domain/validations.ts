@@ -2,7 +2,7 @@
 // Validaciones puras para el dominio de productos
 // SIN dependencias externas
 
-import type { Producto } from "./types";
+import type { Producto } from "../types";
 
 export function validateTransferQuantity(
   product: Producto,

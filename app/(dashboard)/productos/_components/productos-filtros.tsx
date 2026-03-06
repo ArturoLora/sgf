@@ -20,7 +20,7 @@ import {
   type ProductStatusFilter,
   type ProductOrderBy,
   type ProductOrder,
-} from "@/lib/domain/products";
+} from "@/modules/products/domain";
 
 interface ProductosFiltrosProps {
   onFilter: (filters: ProductFilters) => void;

@@ -15,7 +15,7 @@ import {
   computeLowStockProducts,
   DEFAULT_FILTERS,
   type ProductFilters,
-} from "@/lib/domain/products";
+} from "@/modules/products/domain";
 import {
   paginar,
   calcularPaginasVisibles,

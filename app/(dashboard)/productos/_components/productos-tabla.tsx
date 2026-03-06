@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, ArrowLeftRight, Package, Loader2 } from "lucide-react";
 import type { ProductoResponse } from "@/types/api/products";
-import { isMembership, getStockStatus } from "@/lib/domain/products";
+import { isMembership, getStockStatus } from "@/modules/products/domain";
 
 interface ProductosTablaProps {
   products: ProductoResponse[];

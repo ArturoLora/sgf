@@ -19,7 +19,7 @@ import { X, Loader2 } from "lucide-react";
 import { CreateEntryInputSchema } from "@/modules/inventory/types";
 import type { ProductoResponse } from "@/types/api/products";
 import { Ubicacion } from "@/types/models/movimiento-inventario";
-import { getStockByLocation, locationLabel } from "@/lib/domain/products";
+import { getStockByLocation, locationLabel } from "@/modules/products/domain";
 
 type EntryFormValues = z.infer<typeof CreateEntryInputSchema>;
 

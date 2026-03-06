@@ -2,8 +2,11 @@
 // Helpers puros para el dominio de productos
 // SIN dependencias externas
 
-import type { Producto } from "./types";
-import { paginar, calcularPaginasVisibles } from "../shared/pagination";
+import type { Producto } from "../types";
+import {
+  paginar,
+  calcularPaginasVisibles,
+} from "@/lib/domain/shared/pagination";
 
 const MEMBERSHIP_PATTERNS = [
   "EFECTIVO",
@@ -39,4 +42,4 @@ export function movementTypeLabel(type: string): string {
 
 // Re-export paginación desde shared para compatibilidad
 export { paginar as paginate, calcularPaginasVisibles as computePageNumbers };
-export type { ResultadoPaginacion as PaginationResult } from "../shared/pagination";
+export type { ResultadoPaginacion as PaginationResult } from "@/lib/domain/shared/pagination";

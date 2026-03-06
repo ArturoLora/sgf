@@ -2,7 +2,7 @@
 // Funciones puras de cálculo para productos
 // SIN dependencias externas
 
-import type { Producto, ProductStats, StockStatus } from "./types";
+import type { Producto, ProductStats, StockStatus } from "../types";
 
 export function computeTotalStock(product: Producto): number {
   return product.warehouseStock + product.gymStock;

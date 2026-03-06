@@ -6,7 +6,7 @@ import type {
   TipoInventarioKardex,
   Ubicacion,
 } from "../../../lib/domain/shared/types";
-import type { Producto } from "../../../lib/domain/products/types";
+import type { Producto } from "../../products/types";
 
 // ==================== TIPOS INTERNOS ====================
 

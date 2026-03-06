@@ -24,7 +24,7 @@ import {
   oppositeLocation,
   locationLabel,
   getStockByLocation,
-} from "@/lib/domain/products";
+} from "@/modules/products/domain";
 
 type TransferFormValues = z.infer<typeof CreateTransferInputSchema>;
 

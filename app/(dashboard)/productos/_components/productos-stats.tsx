@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import type { ProductoResponse } from "@/types/api/products";
-import { computeStats } from "@/lib/domain/products";
+import { computeStats } from "@/modules/products/domain";
 
 interface ProductosStatsProps {
   products: ProductoResponse[];

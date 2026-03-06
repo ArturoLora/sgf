@@ -15,7 +15,7 @@ import {
   type ProductoResponse,
 } from "@/types/api/products";
 import { updateProduct } from "@/lib/api/products.client";
-import { isMembership } from "@/lib/domain/products";
+import { isMembership } from "@/modules/products/domain";
 
 interface EditarProductoModalProps {
   product: ProductoResponse;

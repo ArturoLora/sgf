@@ -8,7 +8,7 @@ import type {
   ProductStatusFilter,
   ProductOrderBy,
   ProductOrder,
-} from "./types";
+} from "../types";
 
 export const DEFAULT_FILTERS: ProductFilters = {
   search: "",

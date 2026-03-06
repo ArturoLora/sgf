@@ -10,7 +10,7 @@ import {
   isLowStock,
   computeTotalStock,
   locationLabel,
-} from "@/lib/domain/products";
+} from "@/modules/products/domain";
 
 interface DetalleProductoModalProps {
   product: ProductoConMovimientosResponse;

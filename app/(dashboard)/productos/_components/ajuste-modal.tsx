@@ -25,7 +25,7 @@ import {
   computeAdjustedQuantity,
   getStockByLocation,
   locationLabel,
-} from "@/lib/domain/products";
+} from "@/modules/products/domain";
 
 type AdjustmentFormValues = z.infer<typeof CreateAdjustmentInputSchema>;
 
