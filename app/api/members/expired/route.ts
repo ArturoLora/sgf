@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { MembersService } from "@/services";
+import { MembersService } from "@/modules/members/members.service";
 
 // GET /api/members/expired
 export async function GET() {

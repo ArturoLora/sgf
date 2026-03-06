@@ -5,12 +5,12 @@ import {
   parseMembershipType,
   mapMembershipTypeToApi,
   mapPaymentMethodFromApi,
-} from "./enum-mappers";
+} from "../../services/enum-mappers";
 import {
   parseISODate,
   parseBooleanQuery,
   calculateMembershipDates,
-} from "./utils";
+} from "../../services/utils";
 import {
   MembersQuerySchema,
   CreateMemberInputSchema,
@@ -491,3 +491,17 @@ export async function verifyMembershipValidity(
     endDate,
   };
 }
+export const MembersService = {
+  getAllMembers,
+  getExpiredMembers,
+  getMemberById,
+  createMember,
+  updateMember,
+  renewMembership,
+  toggleMemberStatus,
+  parseUpdateMemberInput,
+  verifyMembershipValidity,
+  parseRenewMemberInput,
+  parseMembersQuery,
+  parseCreateMemberInput,
+};

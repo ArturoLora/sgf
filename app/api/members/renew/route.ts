@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MembersService } from "@/services";
+import { MembersService } from "@/modules/members/members.service";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 

@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { MembersService } from "@/services";
+import { MembersService } from "@/modules/members/members.service";
 import { MembersQuerySchema } from "@/types/api/members";
 
 export async function GET(request: NextRequest) {
