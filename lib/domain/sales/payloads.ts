@@ -12,7 +12,7 @@ export function buildSalePayloadFromCart(
   carrito: ItemCarrito[],
   metadata: SaleMetadata,
 ): CrearVentaPayload[] {
-  const { clienteId, descuento, recargo, metodoPago, ticket } = metadata;
+  const { clienteId, descuento, recargo, metodoPago, ticket, shiftId } = metadata;
 
   return carrito.map((item) => {
     const payload: CrearVentaPayload = {
@@ -24,6 +24,7 @@ export function buildSalePayloadFromCart(
       surcharge: recargo / carrito.length,
       paymentMethod: metodoPago,
       ticket,
+      shiftId,
     };
 
     return payload;

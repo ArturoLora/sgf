@@ -40,6 +40,7 @@ export interface SaleMetadata {
   recargo: number;
   metodoPago: MetodoPago;
   ticket: string;
+  shiftId?: number;
 }
 
 // ==================== FILTROS DE HISTORIAL ====================

@@ -40,6 +40,7 @@ export default function VentasContainer({
   initialProductos,
 }: VentasContainerProps) {
   const [hasActiveShift, setHasActiveShift] = useState<boolean | null>(null);
+  const [activeShiftId, setActiveShiftId] = useState<number | null>(null);
   const [loadingShift, setLoadingShift] = useState(true);
 
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
@@ -63,6 +64,7 @@ export default function VentasContainer({
         }
         const data = await res.json();
         setHasActiveShift(!!data);
+        setActiveShiftId(data?.id ?? null);
       } catch {
         setHasActiveShift(false);
       } finally {
@@ -159,6 +161,7 @@ export default function VentasContainer({
         recargo,
         metodoPago,
         ticket,
+        shiftId: activeShiftId ?? undefined,
       });
 
       for (const payload of payloads) {
