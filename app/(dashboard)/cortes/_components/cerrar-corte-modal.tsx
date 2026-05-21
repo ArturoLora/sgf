@@ -156,9 +156,9 @@ export default function CerrarCorteModal({
           )}
 
           {resumen && (
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2 border">
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3 border">
               <h3 className="font-semibold text-sm">Resumen del Turno</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                 <div>
                   <p className="text-muted-foreground">Fondo Inicial</p>
                   <p className="font-medium">
@@ -175,14 +175,28 @@ export default function CerrarCorteModal({
                     ${Number(resumen.totalSales).toFixed(2)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Efectivo Esperado</p>
-                  <p className="font-medium">
-                    $
-                    {(
-                      Number(resumen.initialCash) + Number(resumen.cashAmount)
-                    ).toFixed(2)}
-                  </p>
+              </div>
+              <div className="border-t pt-2 text-sm space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  Cálculo de efectivo esperado
+                </p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Fondo inicial</span>
+                  <span>${Number(resumen.initialCash).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ventas en efectivo</span>
+                  <span>+ ${Number(resumen.cashAmount).toFixed(2)}</span>
+                </div>
+                {Number(resumen.totalWithdrawals) > 0 && (
+                  <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                    <span>Retiros durante turno</span>
+                    <span>− ${Number(resumen.totalWithdrawals).toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold border-t pt-1">
+                  <span>Efectivo esperado en caja</span>
+                  <span>${calcularEfectivoEsperado(resumen).toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -193,7 +207,7 @@ export default function CerrarCorteModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="cashAmount">Efectivo en Caja *</Label>
+                <Label htmlFor="cashAmount">Efectivo en caja al cerrar *</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     $
@@ -207,6 +221,9 @@ export default function CerrarCorteModal({
                     className="pl-7"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Lo que queda físicamente en el cajón. No sume retiros ya entregados.
+                </p>
               </div>
 
               <div className="space-y-2">
