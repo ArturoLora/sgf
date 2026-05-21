@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
-import { Prisma, PaymentMethod } from "@prisma/client";
-import { serializeDecimal } from "./utils";
-import { MEMBERSHIP_KEYWORDS } from "./membership-helpers";
+import { Prisma, PaymentMethod } from "@/app/generated/prisma";
+import { serializeDecimal } from "../../services/utils";
+import { MEMBERSHIP_KEYWORDS } from "../../services/membership-helpers";
 import { paginar, calcularTotalPaginas } from "@/lib/domain/shared/pagination";
 import type {
   HistorialVentasResponse,

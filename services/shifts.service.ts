@@ -33,6 +33,7 @@
 import { prisma } from "@/lib/db";
 import { mapPaymentMethod } from "./enum-mappers";
 import { parseISODate, parseIntParam } from "./utils";
+import { MEMBERSHIP_KEYWORDS } from "./membership-helpers";
 import { ShiftsQuerySchema, CloseShiftSchema } from "@/types/api/shifts";
 import type {
   CorteResponse,
@@ -49,6 +50,7 @@ import type {
   ShiftsQueryInput,
   CloseShiftInput,
   AbrirCorteRequest,
+  WithdrawalResponse,
 } from "@/types/api/shifts";
 
 export interface GetShiftsParams {
@@ -284,10 +286,9 @@ export async function closeShift(
 
   const membershipProducts = await prisma.product.findMany({
     where: {
-      OR: [
-        { name: { contains: "EFECTIVO", mode: "insensitive" } },
-        { name: { contains: "VISITA", mode: "insensitive" } },
-      ],
+      OR: MEMBERSHIP_KEYWORDS.map((k) => ({
+        name: { contains: k, mode: "insensitive" as const },
+      })),
     },
   });
   const membershipIds = membershipProducts.map((p) => p.id);
@@ -318,26 +319,29 @@ export async function closeShift(
   const tax = productSales16Tax * 0.16;
   const totalSales = subtotal + tax;
   const totalVoucher = debitCardAmount + creditCardAmount;
-  const totalWithdrawals = data.totalWithdrawals || 0;
+
+  // Recalcular totalWithdrawals desde registros individuales (D11).
+  // Si existen registros CashWithdrawal, se usa su suma para consistencia.
+  // Si no existen (turno legacy pre-D11), se usa el valor manual de CloseShiftInput.
+  const withdrawalRecords = await prisma.cashWithdrawal.findMany({
+    where: { shiftId: data.shiftId },
+  });
+  const totalWithdrawals =
+    withdrawalRecords.length > 0
+      ? withdrawalRecords.reduce((sum, w) => sum + Number(w.amount), 0)
+      : (data.totalWithdrawals || 0);
+  // totalCash = lo que declaró el cajero (efectivo neto + tarjetas).
+  // cashAmount ya es NETO (retiros salieron físicamente) — no restar withdrawals aquí.
   const totalCash =
     (data.cashAmount || 0) +
     (data.debitCardAmount || 0) +
-    (data.creditCardAmount || 0) -
-    totalWithdrawals;
+    (data.creditCardAmount || 0);
 
-  // DEUDA ACEPTADA: calcularEfectivoEsperado() en lib/domain/shifts/shift-calculations.ts
-  // tiene estructura equivalente pero recibe ResumenCorte con cashAmount del sistema,
-  // mientras que aquí cashAmount es ventas en efectivo calculadas del inventario.
-  // Construir el objeto solo para delegar 1 línea introduce acoplamiento sin valor.
-  const expectedCash =
-    Number(shift.initialCash) + cashAmount - totalWithdrawals;
-
-  // DEUDA ACEPTADA: calcularDiferencia() en lib/domain/shifts/shift-calculations.ts
-  // recibe ValoresArqueo con los montos del usuario vs ResumenCorte del sistema.
-  // Aquí `difference` puede venir explícitamente de `data.difference` (override manual),
-  // lo cual no está modelado en la función de dominio. Los contratos difieren.
-  const difference =
-    data.difference !== undefined ? data.difference : totalCash - expectedCash;
+  // Fórmula canónica — fuente de verdad server-side.
+  // totalSales incluye efectivo + tarjetas del sistema; withdrawals descuentan una sola vez.
+  // data.difference del payload se ignora: el backend siempre recalcula.
+  const totalExpected = Number(shift.initialCash) + totalSales - totalWithdrawals;
+  const difference = Number((totalCash - totalExpected).toFixed(2));
 
   const updatedShift = await prisma.shift.update({
     where: { id: data.shiftId },
@@ -698,4 +702,70 @@ export async function getShiftSummary(
     creditCardAmount,
     totalWithdrawals: Number(shift.totalWithdrawals || 0),
   };
+}
+
+// ==================== CASH WITHDRAWALS (D11) ====================
+
+function serializeWithdrawal(w: {
+  id: number;
+  shiftId: number;
+  userId: string;
+  amount: { toString(): string };
+  concept: string;
+  createdAt: Date;
+  user: { id: string; name: string };
+}): WithdrawalResponse {
+  return {
+    id: w.id,
+    shiftId: w.shiftId,
+    userId: w.userId,
+    amount: Number(w.amount),
+    concept: w.concept,
+    createdAt: w.createdAt.toISOString(),
+    user: w.user,
+  };
+}
+
+export async function createWithdrawal(
+  shiftId: number,
+  userId: string,
+  amount: number,
+  concept: string,
+): Promise<WithdrawalResponse> {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId } });
+  if (!shift) throw new Error("Turno no encontrado");
+
+  // R1: solo turnos abiertos (closingDate IS NULL)
+  if (shift.closingDate !== null) {
+    throw new Error("Solo se pueden registrar retiros en turnos abiertos");
+  }
+
+  // R2: monto positivo mayor a cero
+  if (amount <= 0) {
+    throw new Error("El monto del retiro debe ser mayor a cero");
+  }
+
+  const [withdrawal] = await prisma.$transaction([
+    prisma.cashWithdrawal.create({
+      data: { shiftId, userId, amount, concept },
+      include: { user: { select: { id: true, name: true } } },
+    }),
+    prisma.shift.update({
+      where: { id: shiftId },
+      data: { totalWithdrawals: { increment: amount } },
+    }),
+  ]);
+
+  return serializeWithdrawal(withdrawal);
+}
+
+export async function getWithdrawalsByShift(
+  shiftId: number,
+): Promise<WithdrawalResponse[]> {
+  const withdrawals = await prisma.cashWithdrawal.findMany({
+    where: { shiftId },
+    include: { user: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return withdrawals.map(serializeWithdrawal);
 }

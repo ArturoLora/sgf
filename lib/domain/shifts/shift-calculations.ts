@@ -5,22 +5,30 @@
 import type { ValoresArqueo, ResumenCorte, TipoDiferencia } from "./types";
 
 /**
- * Calcula la diferencia entre el arqueo real y el esperado
+ * Calcula la diferencia entre el arqueo real y el esperado.
+ *
+ * Fórmula canónica:
+ *   totalDeclared = cashAmount + debitCardAmount + creditCardAmount
+ *   totalEsperado = initialCash + totalSales - totalWithdrawals
+ *   diferencia    = totalDeclared - totalEsperado
+ *
+ * IMPORTANTE: cashAmount es efectivo NETO (retiros ya descontados físicamente).
+ * Los retiros NO se vuelven a restar de totalDeclared; solo se descuentan
+ * una vez en totalEsperado.
  */
 export function calcularDiferencia(
   resumen: ResumenCorte,
   valores: ValoresArqueo,
 ): number {
-  const totalReal =
+  const totalDeclared =
     valores.cashAmount +
     valores.debitCardAmount +
-    valores.creditCardAmount -
-    valores.totalWithdrawals;
+    valores.creditCardAmount;
 
   const totalEsperado =
     resumen.initialCash + resumen.totalSales - (resumen.totalWithdrawals || 0);
 
-  return Number((totalReal - totalEsperado).toFixed(2));
+  return Number((totalDeclared - totalEsperado).toFixed(2));
 }
 
 /**

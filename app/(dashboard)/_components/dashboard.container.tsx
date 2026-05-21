@@ -5,10 +5,7 @@ import CorteAlert from "./corte-alert";
 import DashboardStats from "./dashboard-stats";
 import AlertasDashboard from "./alertas-dashboard";
 import DashboardSkeleton from "./dashboard-skeleton";
-import { MembersService } from "@/modules/members/members.service";
-import { ShiftsService } from "@/services";
-import { ReportsService } from "@/services";
-import type { CorteResponse } from "@/types/api/shifts";
+import type { CorteResponse, CorteCerradoResponse } from "@/types/api/shifts";
 import type { SocioVencidoResponse } from "@/types/api/members";
 import type { ProductoBajoStockResponse } from "@/types/api/products";
 
@@ -32,22 +29,38 @@ export default function DashboardContainer() {
       try {
         setIsLoading(true);
 
-        const [corteActivo, sociosVencidos, stockReport, dashboard] =
-          await Promise.all([
-            ShiftsService.getActiveShift(),
-            MembersService.getExpiredMembers(),
-            ReportsService.getCurrentStockReport(),
-            ReportsService.getDashboardSummary(),
-          ]);
+        const [corteRes, vencidosRes, stockRes] = await Promise.all([
+          fetch("/api/shifts/active"),
+          fetch("/api/members/expired"),
+          fetch("/api/inventory/report/stock"),
+        ]);
+
+        // /api/shifts/active puede devolver 404 si no hay corte activo
+        const corteActivo: CorteResponse | null = corteRes.ok
+          ? await corteRes.json()
+          : null;
+
+        if (!vencidosRes.ok)
+          throw new Error("Error al obtener socios vencidos");
+        if (!stockRes.ok) throw new Error("Error al obtener reporte de stock");
+
+        const sociosVencidos: SocioVencidoResponse[] = await vencidosRes.json();
+        const stockReport = await stockRes.json();
 
         setData({
           corteActivo,
           stats: {
-            ventas: dashboard.salesToday.tickets,
-            total: dashboard.salesToday.total,
+            ventas:
+              corteActivo?.status === "CLOSED"
+                ? (corteActivo as CorteCerradoResponse).ticketCount
+                : 0,
+            total:
+              corteActivo?.status === "CLOSED"
+                ? (corteActivo as CorteCerradoResponse).totalSales
+                : 0,
           },
           sociosVencidos,
-          stockBajo: stockReport.lowStock,
+          stockBajo: stockReport.lowStock ?? [],
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error desconocido");

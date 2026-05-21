@@ -1,6 +1,8 @@
 // ===== app/api/inventory/ticket/[ticket]/route.ts =====
 
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import { InventoryService } from "@/services";
 
 export async function GET(
@@ -8,6 +10,11 @@ export async function GET(
   { params }: { params: Promise<{ ticket: string }> },
 ) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { ticket } = await params;
 
     const sales = await InventoryService.getSalesByTicket(ticket);

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { InventoryType, Location, PaymentMethod } from "@prisma/client";
+import { InventoryType, Location, PaymentMethod } from "@/app/generated/prisma";
 import { parseIntParam, parseISODate } from "../../services/utils";
 import {
   mapLocation,

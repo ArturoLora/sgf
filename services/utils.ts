@@ -1,5 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/library";
-import { MembershipType } from "@prisma/client";
+import { MembershipType } from "@/app/generated/prisma";
 
 export function serializeDecimal(value: unknown): unknown {
   return JSON.parse(

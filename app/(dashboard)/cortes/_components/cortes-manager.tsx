@@ -9,6 +9,8 @@ import CortesLista from "./cortes-lista";
 import AbrirCorteModal from "./abrir-corte-modal";
 import CerrarCorteModal from "./cerrar-corte-modal";
 import DetalleCorteModal from "./detalle-corte-modal";
+import RetirosTurno from "./retiros-turno";
+import RegistrarRetiroModal from "./registrar-retiro-modal";
 import type {
   CorteResponse,
   CorteActivoConVentasResponse,
@@ -17,6 +19,8 @@ import type {
   BuscarCortesQuery,
   ResumenCorteResponse,
   CorteConVentasResponse,
+  WithdrawalResponse,
+  CreateWithdrawalInput,
 } from "@/types/api/shifts";
 import {
   abrirCorte,
@@ -25,6 +29,8 @@ import {
   verificarCorteActivo,
   cargarResumenCorte,
   cargarDetalleCorte,
+  cargarRetirosTurno,
+  registrarRetiro,
 } from "@/lib/api/shifts.client";
 
 interface Cajero {
@@ -64,8 +70,13 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
   // Estados de modales
   const [mostrarAbrirModal, setMostrarAbrirModal] = useState(false);
   const [mostrarCerrarModal, setMostrarCerrarModal] = useState(false);
+  const [mostrarRetiroModal, setMostrarRetiroModal] = useState(false);
   const [corteDetalle, setCorteDetalle] = useState<number | null>(null);
   const [errorModal, setErrorModal] = useState("");
+  const [errorRetiroModal, setErrorRetiroModal] = useState("");
+
+  // Retiros del turno activo
+  const [retiros, setRetiros] = useState<WithdrawalResponse[]>([]);
 
   /**
    * Verifica si existe un corte activo
@@ -73,7 +84,16 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
   const verificarActivo = useCallback(async () => {
     const resultado = await verificarCorteActivo();
     if (resultado.success) {
-      setCorteActivo(resultado.corte ?? null);
+      const corte = resultado.corte ?? null;
+      setCorteActivo(corte);
+      if (corte) {
+        const retResult = await cargarRetirosTurno(corte.id);
+        if (retResult.success) {
+          setRetiros(retResult.retiros ?? []);
+        }
+      } else {
+        setRetiros([]);
+      }
     }
   }, []);
 
@@ -199,6 +219,22 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
   };
 
   /**
+   * Handler de registrar retiro durante turno activo
+   */
+  const handleRegistrarRetiro = async (data: CreateWithdrawalInput) => {
+    if (!corteActivo) return;
+    const resultado = await registrarRetiro(corteActivo.id, data);
+    if (resultado.success && resultado.retiro) {
+      setRetiros((prev) => [resultado.retiro!, ...prev]);
+      setMostrarRetiroModal(false);
+      setErrorRetiroModal("");
+    } else {
+      setErrorRetiroModal(resultado.error || "Error al registrar retiro");
+      throw new Error(resultado.error);
+    }
+  };
+
+  /**
    * Handler de cargar resumen para modal de cierre
    */
   const handleCargarResumen = async (
@@ -275,28 +311,51 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
       )}
 
       {/* Corte activo */}
-      {corteActivo && (
-        <Card className="border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
-                <div>
-                  <p className="font-medium text-blue-900 dark:text-blue-100">
-                    Corte Activo: {corteActivo.folio}
-                  </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Fondo inicial: ${Number(corteActivo.initialCash).toFixed(2)}
+      {corteActivo && (() => {
+        const cashFromSales = corteActivo.inventoryMovements
+          .filter((m) => m.paymentMethod === "CASH")
+          .reduce((sum, m) => sum + Number(m.total), 0);
+        const totalRetirado = retiros.reduce((sum, r) => sum + r.amount, 0);
+        const efectivoEsperado =
+          Number(corteActivo.initialCash) + cashFromSales - totalRetirado;
+        return (
+          <Card className="border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <div>
+                    <p className="font-medium text-blue-900 dark:text-blue-100">
+                      Corte Activo: {corteActivo.folio}
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Fondo inicial: ${Number(corteActivo.initialCash).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:items-end gap-1">
+                  <span className="bg-blue-600 dark:bg-blue-700 text-white px-3 py-1 rounded-md text-sm w-fit">
+                    En curso
+                  </span>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Efectivo esperado:{" "}
+                    <span className="font-semibold">
+                      ${efectivoEsperado.toFixed(2)}
+                    </span>
                   </p>
                 </div>
               </div>
-              <span className="bg-blue-600 dark:bg-blue-700 text-white px-3 py-1 rounded-md text-sm w-fit">
-                En curso
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              <RetirosTurno
+                retiros={retiros}
+                onRegistrar={() => {
+                  setErrorRetiroModal("");
+                  setMostrarRetiroModal(true);
+                }}
+              />
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Estadísticas */}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
@@ -409,8 +468,19 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
           onLoadResumen={handleCargarResumen}
           onSubmit={handleCerrarCorte}
           error={errorModal}
+          withdrawalCount={retiros.length}
         />
       )}
+
+      <RegistrarRetiroModal
+        open={mostrarRetiroModal}
+        onClose={() => {
+          setMostrarRetiroModal(false);
+          setErrorRetiroModal("");
+        }}
+        onSubmit={handleRegistrarRetiro}
+        error={errorRetiroModal}
+      />
 
       {corteDetalle !== null && (
         <DetalleCorteModal

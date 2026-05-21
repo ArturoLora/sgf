@@ -80,13 +80,15 @@ export function buildRenovarMembresiaPayload(
     throw new Error(`Tipo de membresía inválido: ${data.membershipType}`);
   }
 
+  if (!isMetodoPagoValido(data.paymentMethod)) {
+    throw new Error(`Método de pago inválido: ${data.paymentMethod}`);
+  }
+
   return {
     memberId: data.memberId,
     membershipType: data.membershipType,
     membershipDescription: data.membershipDescription || undefined,
     startDate: data.startDate || undefined,
-    paymentMethod: isMetodoPagoValido(data.paymentMethod)
-      ? data.paymentMethod
-      : undefined,
+    paymentMethod: data.paymentMethod,
   };
 }

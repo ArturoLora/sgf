@@ -42,7 +42,7 @@ export const RenewMemberInputSchema = z.object({
   membershipType: z.nativeEnum(TipoMembresiaEnum),
   membershipDescription: z.string().optional(),
   startDate: z.string().optional(),
-  paymentMethod: z.nativeEnum(MetodoPagoEnum).optional(),
+  paymentMethod: z.nativeEnum(MetodoPagoEnum),
 });
 
 // ==================== INFERRED TYPES ====================
@@ -92,7 +92,7 @@ export interface RenovarMembresiaRequest {
   membershipType: TipoMembresia;
   membershipDescription?: string;
   startDate?: string;
-  paymentMethod?: MetodoPago;
+  paymentMethod: MetodoPago;
 }
 
 // ==================== RESPONSE TYPES ====================

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { Location } from "@prisma/client";
+import { Location } from "@/app/generated/prisma";
 import { mapLocation } from "../../services/enum-mappers";
 import { parseBooleanQuery, parseIntParam } from "../../services/utils";
 import {

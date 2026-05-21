@@ -4,7 +4,7 @@ import type {
   Location,
   PaymentMethod,
   MembershipType,
-} from "@prisma/client";
+} from "@/app/generated/prisma";
 import {
   TipoInventario,
   Ubicacion,

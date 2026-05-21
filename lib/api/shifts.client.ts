@@ -9,6 +9,8 @@ import type {
   OpenShiftInput,
   CloseShiftInput,
   BuscarCortesQuery,
+  WithdrawalResponse,
+  CreateWithdrawalInput,
 } from "@/types/api/shifts";
 
 /**
@@ -98,6 +100,37 @@ export async function fetchCorteById(
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.error || "Error al obtener corte");
+  }
+
+  return res.json();
+}
+
+export async function fetchRetirosTurno(
+  shiftId: number,
+): Promise<WithdrawalResponse[]> {
+  const res = await fetch(`/api/shifts/${shiftId}/withdrawals`);
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || "Error al obtener retiros");
+  }
+
+  return res.json();
+}
+
+export async function fetchRegistrarRetiro(
+  shiftId: number,
+  data: CreateWithdrawalInput,
+): Promise<WithdrawalResponse> {
+  const res = await fetch(`/api/shifts/${shiftId}/withdrawals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || "Error al registrar retiro");
   }
 
   return res.json();
@@ -233,6 +266,41 @@ export async function cargarDetalleCorte(
         err instanceof Error
           ? err.message
           : "Error al cargar detalle del corte",
+    };
+  }
+}
+
+/**
+ * Carga los retiros registrados en un turno activo.
+ */
+export async function cargarRetirosTurno(
+  shiftId: number,
+): Promise<{ success: boolean; retiros?: WithdrawalResponse[]; error?: string }> {
+  try {
+    const retiros = await fetchRetirosTurno(shiftId);
+    return { success: true, retiros };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Error al cargar retiros",
+    };
+  }
+}
+
+/**
+ * Registra un retiro de efectivo en el turno activo.
+ */
+export async function registrarRetiro(
+  shiftId: number,
+  data: CreateWithdrawalInput,
+): Promise<{ success: boolean; retiro?: WithdrawalResponse; error?: string }> {
+  try {
+    const retiro = await fetchRegistrarRetiro(shiftId, data);
+    return { success: true, retiro };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Error al registrar retiro",
     };
   }
 }

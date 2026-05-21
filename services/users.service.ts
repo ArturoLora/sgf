@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { Role } from "@prisma/client";
+import { Role } from "@/app/generated/prisma";
 
 interface UserResponse {
   id: string;

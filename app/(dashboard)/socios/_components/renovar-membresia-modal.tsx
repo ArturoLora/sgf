@@ -25,6 +25,7 @@ import { Loader2, Calendar, AlertCircle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import type { SocioResponse } from "@/types/api/members";
 import { TipoMembresia } from "@/types/models/socio";
+import { MetodoPago } from "@/types/models/movimiento-inventario";
 import {
   TIPOS_MEMBRESIA,
   obtenerLabelMembresia,
@@ -57,6 +58,7 @@ export function RenovarMembresiaModal({
     });
 
   const membershipType = useWatch({ control, name: "membershipType" });
+  const paymentMethod = useWatch({ control, name: "paymentMethod" });
 
   const nuevaFechaFin = useMemo(() => {
     if (!membershipType) return "";
@@ -182,6 +184,33 @@ export function RenovarMembresiaModal({
               </Select>
             </div>
 
+            {/* Método de pago */}
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">
+                Método de Pago <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={paymentMethod ?? ""}
+                onValueChange={(value) =>
+                  setValue("paymentMethod", value as MetodoPago)
+                }
+              >
+                <SelectTrigger id="paymentMethod">
+                  <SelectValue placeholder="Seleccionar método de pago" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={MetodoPago.CASH}>Efectivo</SelectItem>
+                  <SelectItem value={MetodoPago.DEBIT_CARD}>
+                    Tarjeta Débito
+                  </SelectItem>
+                  <SelectItem value={MetodoPago.CREDIT_CARD}>
+                    Tarjeta Crédito
+                  </SelectItem>
+                  {/* TODO: reactivar TRANSFER cuando closeShift soporte transferAmount en arqueo */}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Nueva fecha de fin */}
             {nuevaFechaFin && (
               <div className="rounded-lg bg-blue-50 p-3 space-y-2 dark:bg-blue-950">
@@ -209,7 +238,7 @@ export function RenovarMembresiaModal({
             </Button>
             <Button
               type="submit"
-              disabled={loading || !membershipType}
+              disabled={loading || !membershipType || !paymentMethod}
               className="w-full sm:w-auto"
             >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

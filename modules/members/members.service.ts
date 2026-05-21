@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { MembershipType } from "@prisma/client";
+import { MembershipType } from "@/app/generated/prisma";
 import {
   mapMembershipType,
   parseMembershipType,
@@ -144,9 +144,7 @@ export function parseRenewMemberInput(
     membershipType: mapMembershipTypeToApi(membershipType),
     membershipDescription: validated.membershipDescription,
     startDate: validated.startDate,
-    paymentMethod: validated.paymentMethod
-      ? mapPaymentMethodFromApi(validated.paymentMethod)
-      : undefined,
+    paymentMethod: mapPaymentMethodFromApi(validated.paymentMethod),
   };
 }
 

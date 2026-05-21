@@ -31,6 +31,8 @@ interface CerrarCorteModalProps {
   onLoadResumen: (corteId: number) => Promise<ResumenCorteResponse>;
   onSubmit: (data: CloseShiftInput) => Promise<void>;
   error?: string;
+  /** Número de retiros individuales registrados en el turno */
+  withdrawalCount?: number;
 }
 
 export default function CerrarCorteModal({
@@ -40,6 +42,7 @@ export default function CerrarCorteModal({
   onLoadResumen,
   onSubmit,
   error,
+  withdrawalCount = 0,
 }: CerrarCorteModalProps) {
   const [resumen, setResumen] = useState<ResumenCorteResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -275,6 +278,11 @@ export default function CerrarCorteModal({
                     className="pl-7"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {withdrawalCount > 0
+                    ? `Calculado de ${withdrawalCount} retiro${withdrawalCount !== 1 ? "s" : ""} registrado${withdrawalCount !== 1 ? "s" : ""} en el turno. Puede ajustarse si es necesario.`
+                    : "Sin retiros registrados en el turno. Ingrese manualmente si hubo retiros no registrados."}
+                </p>
               </div>
             </div>
 

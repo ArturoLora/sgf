@@ -63,10 +63,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
-  sessions      Session[]
-  accounts      Account[]
-  shifts        Shift[]
+  sessions         Session[]
+  accounts         Account[]
+  shifts           Shift[]
   inventoryMovements InventoryMovement[]
+  cashWithdrawals  CashWithdrawal[]
 
   @@index([role, isActive])
   @@map("user")
@@ -238,11 +239,29 @@ model Shift {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  cashier User @relation(fields: [cashierId], references: [id])
+  cashier            User @relation(fields: [cashierId], references: [id])
   inventoryMovements InventoryMovement[]
+  cashWithdrawals    CashWithdrawal[]
 
   @@index([cashierId])
   @@index([openingDate])
   @@index([closingDate])
   @@map("shift")
+}
+
+// ==================== CASH WITHDRAWALS ====================
+
+model CashWithdrawal {
+  id        Int      @id @default(autoincrement())
+  shiftId   Int
+  userId    String
+  amount    Decimal  @db.Decimal(10, 2)
+  concept   String
+  createdAt DateTime @default(now())
+
+  shift Shift @relation(fields: [shiftId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([shiftId])
+  @@map("cash_withdrawal")
 }

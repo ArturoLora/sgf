@@ -1,4 +1,4 @@
-import { MembershipType } from "@prisma/client";
+import { MembershipType } from "@/app/generated/prisma";
 
 // ==================== MEMBERSHIP KEYWORDS ====================
 

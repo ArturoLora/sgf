@@ -146,9 +146,7 @@ export default function FinalizarVentaModal({
                   <SelectItem value={MetodoPago.CREDIT_CARD}>
                     Tarjeta Crédito
                   </SelectItem>
-                  <SelectItem value={MetodoPago.TRANSFER}>
-                    Transferencia
-                  </SelectItem>
+                  {/* TODO: reactivar TRANSFER cuando closeShift soporte transferAmount en arqueo */}
                 </SelectContent>
               </Select>
             </div>

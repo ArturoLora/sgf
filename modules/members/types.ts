@@ -114,5 +114,5 @@ export interface RenovarMembresiaInput {
   membershipType: TipoMembresia;
   membershipDescription?: string;
   startDate?: string;
-  paymentMethod?: MetodoPago;
+  paymentMethod: MetodoPago;
 }

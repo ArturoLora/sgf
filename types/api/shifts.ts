@@ -34,11 +34,17 @@ export const CloseShiftSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const CreateWithdrawalSchema = z.object({
+  amount: z.number().positive("El monto debe ser mayor a cero"),
+  concept: z.string().min(1, "El concepto es requerido"),
+});
+
 // ==================== INFERRED TYPES ====================
 
 export type ShiftsQueryInput = z.infer<typeof ShiftsQuerySchema>;
 export type OpenShiftInput = z.infer<typeof OpenShiftSchema>;
 export type CloseShiftInput = z.infer<typeof CloseShiftSchema>;
+export type CreateWithdrawalInput = z.infer<typeof CreateWithdrawalSchema>;
 
 // ==================== QUERY PARAMS ====================
 
@@ -182,6 +188,21 @@ export interface EstadisticasCortesResponse {
   totalSales: number;
   averageSales: number;
   totalDifferences: number;
+}
+
+// ==================== WITHDRAWAL TYPES ====================
+
+export interface WithdrawalResponse {
+  id: number;
+  shiftId: number;
+  userId: string;
+  amount: number;
+  concept: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface ResumenVentasPorProducto {
