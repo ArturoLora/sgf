@@ -45,3 +45,7 @@ next-env.d.ts
 *.sh
 
 *.txt
+.agents/
+.claude/
+skills-lock.json
+
