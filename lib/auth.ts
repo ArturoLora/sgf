@@ -17,6 +17,6 @@ export const auth = betterAuth({
 
   plugins: [nextCookies()],
 
-  secret: process.env.NEXTAUTH_SECRET,
-  baseURL: process.env.NEXTAUTH_URL || "http://localhost:3000",
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
 });
