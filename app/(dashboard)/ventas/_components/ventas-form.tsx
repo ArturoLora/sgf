@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, User } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Search, Plus, User, AlertCircle } from "lucide-react";
 
 interface Producto {
   id: number;
@@ -36,6 +37,7 @@ export default function VentasForm({
   deshabilitado,
 }: VentasFormProps) {
   const [busqueda, setBusqueda] = useState("");
+  const [clienteError, setClienteError] = useState<string>("");
 
   const { register, handleSubmit, reset } = useForm<ClienteSearchForm>();
 
@@ -60,10 +62,12 @@ export default function VentasForm({
 
   const buscarCliente = async (data: ClienteSearchForm) => {
     if (!data.numeroCliente.trim()) {
+      setClienteError("");
       onClienteChange(null);
       return;
     }
 
+    setClienteError("");
     try {
       const res = await fetch(
         `/api/members?search=${encodeURIComponent(data.numeroCliente)}`,
@@ -74,11 +78,11 @@ export default function VentasForm({
       if (miembros.length > 0) {
         onClienteChange(miembros[0].id);
       } else {
-        alert("Cliente no encontrado");
+        setClienteError("Cliente no encontrado");
         onClienteChange(null);
       }
     } catch {
-      alert("Error al buscar cliente");
+      setClienteError("Error al buscar cliente. Intenta de nuevo.");
       onClienteChange(null);
     }
   };
@@ -116,6 +120,14 @@ export default function VentasForm({
             <p className="text-xs text-green-600 dark:text-green-500">
               ✓ Cliente seleccionado
             </p>
+          )}
+          {clienteError && (
+            <Alert variant="destructive" className="py-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                {clienteError}
+              </AlertDescription>
+            </Alert>
           )}
         </div>
 

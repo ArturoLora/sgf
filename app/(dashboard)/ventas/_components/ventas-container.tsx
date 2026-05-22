@@ -53,6 +53,7 @@ export default function VentasContainer({
     ticket: string;
     total: number;
   } | null>(null);
+  const [saleError, setSaleError] = useState<string>("");
 
   useEffect(() => {
     const checkActiveShift = async () => {
@@ -77,9 +78,7 @@ export default function VentasContainer({
 
   const agregarAlCarrito = (producto: Producto) => {
     if (!hasActiveShift) {
-      alert(
-        "No hay un corte abierto. Por favor, abre un corte para realizar ventas.",
-      );
+      // Banner "No hay corte abierto" ya visible en la UI — retorno silencioso.
       return;
     }
 
@@ -141,16 +140,16 @@ export default function VentasContainer({
 
   const handleFinalizarClick = () => {
     if (!hasActiveShift) {
-      alert(
-        "No hay un corte abierto. Por favor, abre un corte para realizar ventas.",
-      );
+      // Banner "No hay corte abierto" ya visible en la UI — retorno silencioso.
       return;
     }
+    setSaleError("");
     setModalAbierto(true);
   };
 
   const handleConfirmarVenta = async (metodoPago: MetodoPago) => {
     setProcesando(true);
+    setSaleError("");
 
     try {
       const ticket = generateTicket();
@@ -181,9 +180,10 @@ export default function VentasContainer({
         setModalAbierto(false);
       }, 2000);
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        alert(error.message);
-      }
+      const msg =
+        error instanceof Error ? error.message : "Error al procesar la venta";
+      setSaleError(msg);
+      setModalAbierto(false);
     } finally {
       setProcesando(false);
     }
@@ -292,6 +292,13 @@ export default function VentasContainer({
           )}
         </CardContent>
       </Card>
+
+      {saleError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{saleError}</AlertDescription>
+        </Alert>
+      )}
 
       {modalAbierto && hasActiveShift && (
         <FinalizarVentaModal

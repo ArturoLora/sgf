@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import {
+  CreateEntryInputSchema,
+  type CrearEntradaRequest,
+} from "@/modules/inventory/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const entry = await InventoryService.createEntry(body, session.user.id);
+    const validated = CreateEntryInputSchema.parse(body) as CrearEntradaRequest;
+    const entry = await InventoryService.createEntry(validated, session.user.id);
     return NextResponse.json(entry, { status: 201 });
   } catch (error: unknown) {
     const message =

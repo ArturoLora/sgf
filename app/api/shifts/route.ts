@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { ShiftsService } from "@/services";
 import { OpenShiftSchema } from "@/types/api/shifts";
+import { Prisma } from "@/app/generated/prisma";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(shift, { status: 201 });
   } catch (error) {
+    // P2002: folio unique constraint — ocurre si dos requests concurrentes pasan
+    // las validaciones y ambas intentan crear un turno con el mismo folio.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Ya existe un turno abierto. Recarga la página." },
+        { status: 400 },
+      );
+    }
     const message =
       error instanceof Error ? error.message : "Error al abrir corte";
     return NextResponse.json({ error: message }, { status: 400 });

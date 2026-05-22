@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import {
+  CreateTransferInputSchema,
+  type CrearTraspasoRequest,
+} from "@/modules/inventory/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,8 +17,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const validated = CreateTransferInputSchema.parse(body) as CrearTraspasoRequest;
     const transfer = await InventoryService.createTransfer(
-      body,
+      validated,
       session.user.id,
     );
     return NextResponse.json(transfer, { status: 201 });
