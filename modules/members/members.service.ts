@@ -502,4 +502,5 @@ export const MembersService = {
   parseRenewMemberInput,
   parseMembersQuery,
   parseCreateMemberInput,
+  serializeMember,
 };
