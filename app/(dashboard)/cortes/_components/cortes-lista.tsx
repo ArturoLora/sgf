@@ -52,7 +52,7 @@ export default function CortesLista({
                 !estaCerrado
                   ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900"
                   : ""
-              } ${tieneDiferencia ? "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900" : ""}`}
+              } ${tieneDiferencia ? (diferencia > 0 ? "bg-green-50/60 dark:bg-green-950/15 border-green-200 dark:border-green-900" : "bg-red-50/60 dark:bg-red-950/15 border-red-200 dark:border-red-900") : ""}`}
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
@@ -70,12 +70,21 @@ export default function CortesLista({
                       </Badge>
                     )}
                     {tieneDiferencia && (
-                      <Badge
-                        variant="outline"
-                        className="bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-500 border-yellow-200 dark:border-yellow-800 shrink-0"
-                      >
-                        Con diferencia
-                      </Badge>
+                      diferencia > 0 ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-500 border-green-200 dark:border-green-800 shrink-0"
+                        >
+                          Sobrante
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-500 border-red-200 dark:border-red-800 shrink-0"
+                        >
+                          Faltante
+                        </Badge>
+                      )
                     )}
                   </div>
 

@@ -282,7 +282,7 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
           {corteActivo ? (
             <Button
               onClick={handleCerrarModal}
-              variant="destructive"
+              variant="default"
               className="gap-2 flex-1 sm:flex-initial"
             >
               <CheckCircle className="h-4 w-4" />
@@ -337,11 +337,11 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
                   <span className="bg-blue-600 dark:bg-blue-700 text-white px-3 py-1 rounded-md text-sm w-fit">
                     En curso
                   </span>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    Efectivo esperado:{" "}
-                    <span className="font-semibold">
-                      ${efectivoEsperado.toFixed(2)}
-                    </span>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 tabular-nums leading-tight">
+                    ${efectivoEsperado.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    efectivo esperado
                   </p>
                 </div>
               </div>
