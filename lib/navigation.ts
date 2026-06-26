@@ -8,6 +8,7 @@ import {
   Calculator,
   History,
   BarChart3,
+  Settings,
   LucideIcon,
 } from "lucide-react";
 
@@ -35,6 +36,12 @@ export const dashboardRoutes: NavRoute[] = [
     label: "Reportes",
     href: "/reports",
     icon: BarChart3,
+    adminOnly: true,
+  },
+  {
+    label: "Configuración",
+    href: "/configuracion",
+    icon: Settings,
     adminOnly: true,
   },
 ];
