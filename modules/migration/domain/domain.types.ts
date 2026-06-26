@@ -143,4 +143,30 @@ export interface PreviewFilesResult {
   shifts: DomainShift[];
   warnings: ParseWarning[];
   membershipTypeDistribution: Partial<Record<string, number>>;
+  sellerNames: string[];  // unique, sorted — for Story 1.3 employee mapping
+}
+
+// ─── Story 1.3: inconsistency classification ──────────────────────────────────
+
+export interface UserRef {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface EmployeeMappingEntry {
+  historicalName: string;        // as it appears in Excel (e.g. "ANDREW")
+  resolvedUserId: string | null; // SGF User UUID; null = unmapped
+  isAutoMapped: boolean;         // true if matched by case-insensitive name lookup
+}
+
+export interface InconsistencyReport {
+  employeeMappings: EmployeeMappingEntry[];
+  membershipWarnings: ParseWarning[];
+  paymentMethodWarnings: ParseWarning[];
+  dateWarnings: ParseWarning[];
+  otherWarnings: ParseWarning[];
+  totalBlocking: number;  // = employeeMappings with no resolvedUserId
+  totalWarnings: number;  // = sum of all warning arrays
+  canProceed: boolean;    // = totalBlocking === 0
 }

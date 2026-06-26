@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FileUploadStep } from "./FileUploadStep";
 import { PreviewStep } from "./PreviewStep";
+import { InconsistencyStep } from "./InconsistencyStep";
 import type { AnalysisResultType, PreviewResponseType } from "@/types/api/migracion";
 
 const STEPS = [
@@ -15,9 +16,10 @@ const STEPS = [
 
 export function MigracionManager() {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [analysisResults, setAnalysisResults] = useState<AnalysisResultType[]>([]);
+  const [, setAnalysisResults] = useState<AnalysisResultType[]>([]);
   const [analysisFiles, setAnalysisFiles] = useState<File[]>([]);
   const [previewResult, setPreviewResult] = useState<PreviewResponseType | null>(null);
+  const [employeeMapping, setEmployeeMapping] = useState<Record<string, string>>({});
 
   function handleAnalysisComplete(files: File[], results: AnalysisResultType[]) {
     setAnalysisFiles(files);
@@ -30,11 +32,17 @@ export function MigracionManager() {
     setStep(3);
   }
 
+  function handleInconsistencyComplete(mapping: Record<string, string>) {
+    setEmployeeMapping(mapping);
+    setStep(4);
+  }
+
   function handleReset() {
     setStep(1);
     setAnalysisFiles([]);
     setAnalysisResults([]);
     setPreviewResult(null);
+    setEmployeeMapping({});
   }
 
   return (
@@ -96,12 +104,21 @@ export function MigracionManager() {
         />
       )}
 
-      {step >= 3 && (
+      {step === 3 && previewResult && (
+        <InconsistencyStep
+          previewResult={previewResult}
+          onComplete={handleInconsistencyComplete}
+        />
+      )}
+
+      {step >= 4 && (
         <div className="rounded-lg border border-border p-6 text-center text-muted-foreground text-sm">
           Paso {step} — disponible en próximas historias.
           {previewResult && (
             <p className="mt-1 text-xs">
-              ({previewResult.members.length} socios · {previewResult.shifts.length} cortes en cola)
+              ({previewResult.members.length} socios · {previewResult.shifts.length} cortes en cola ·{" "}
+              {Object.keys(employeeMapping).length} cajero{Object.keys(employeeMapping).length !== 1 ? "s" : ""} mapeado
+              {Object.keys(employeeMapping).length !== 1 ? "s" : ""})
             </p>
           )}
           <br />

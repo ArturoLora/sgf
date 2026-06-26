@@ -70,11 +70,21 @@ export async function previewFiles(
     distribution[key] = (distribution[key] ?? 0) + 1;
   }
 
+  // Extract unique, sorted seller names from all shifts
+  const allSellerNames = [
+    ...new Set(
+      allShifts
+        .flatMap((s) => s.sales.map((sale) => sale.sellerName))
+        .filter((n): n is string => n !== null && n.trim() !== ""),
+    ),
+  ].sort();
+
   return {
     members: allMembers,
     shifts: allShifts,
     warnings: allWarnings,
     membershipTypeDistribution: distribution,
+    sellerNames: allSellerNames,
   };
 }
 

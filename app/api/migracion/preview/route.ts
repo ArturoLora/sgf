@@ -86,5 +86,6 @@ export async function POST(request: Request): Promise<Response> {
     warnings: result.warnings,
     membershipTypeDistribution: result.membershipTypeDistribution,
     totalWarnings: result.warnings.length,
+    sellerNames: result.sellerNames,
   });
 }

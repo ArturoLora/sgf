@@ -65,9 +65,23 @@ export const PreviewResponseSchema = z.object({
   warnings: z.array(ParseWarningSchema),
   membershipTypeDistribution: z.record(z.string(), z.number()),
   totalWarnings: z.number(),
+  sellerNames: z.array(z.string()),
 });
 
 export type ParseWarningType = z.infer<typeof ParseWarningSchema>;
 export type MemberPreviewType = z.infer<typeof MemberPreviewSchema>;
 export type ShiftPreviewType = z.infer<typeof ShiftPreviewSchema>;
 export type PreviewResponseType = z.infer<typeof PreviewResponseSchema>;
+
+// ─── Story 1.3: user list for employee mapping ────────────────────────────────
+
+export const UserRefSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+});
+
+export const UserListResponseSchema = z.array(UserRefSchema);
+
+export type UserRefType = z.infer<typeof UserRefSchema>;
+export type UserListResponseType = z.infer<typeof UserListResponseSchema>;
