@@ -34,6 +34,7 @@ export const CreateProductInputSchema = z.object({
     .int()
     .min(0, "El stock mínimo no puede ser negativo")
     .optional(),
+  taxRate: z.number().min(0).max(1).optional(),
 });
 
 export const UpdateProductInputSchema = z.object({
@@ -45,6 +46,7 @@ export const UpdateProductInputSchema = z.object({
     .min(0, "El stock mínimo no puede ser negativo")
     .optional(),
   isActive: z.boolean().optional(),
+  taxRate: z.number().min(0).max(1).optional(),
 });
 
 // ==================== INFERRED TYPES ====================
@@ -67,6 +69,7 @@ export interface CrearProductoRequest {
   name: string;
   salePrice: number;
   minStock?: number;
+  taxRate?: number;
 }
 
 export interface ActualizarProductoRequest {
@@ -74,6 +77,7 @@ export interface ActualizarProductoRequest {
   salePrice?: number;
   minStock?: number;
   isActive?: boolean;
+  taxRate?: number;
 }
 
 // ==================== RESPONSE TYPES ====================
@@ -85,6 +89,7 @@ export interface ProductoResponse {
   id: number;
   name: string;
   salePrice: number;
+  taxRate: number;
   warehouseStock: number;
   gymStock: number;
   minStock: number;

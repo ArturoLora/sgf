@@ -92,50 +92,52 @@ async function main() {
   console.log("\n📦 Creando productos...");
 
   const productosData = [
-    // Bebidas
-    { name: "AGUA 1L", price: 15.0, minStock: 10 },
-    { name: "AGUA CIEL 1.5L", price: 25.0, minStock: 8 },
-    { name: "AGUA CIEL 600ML", price: 10.0, minStock: 15 },
-    { name: "GATORADE 500ML", price: 22.0, minStock: 10 },
-    { name: "COCA COLA", price: 18.0, minStock: 12 },
-    { name: "DELAWARE PUNCH 600", price: 20.0, minStock: 8 },
-    { name: "POWERADE 600ML", price: 20.0, minStock: 10 },
+    // Bebidas — agua natural: tasa 0% (LIVA Art. 2-A)
+    { name: "AGUA 1L", price: 15.0, minStock: 10, taxRate: 0.0 },
+    { name: "AGUA CIEL 1.5L", price: 25.0, minStock: 8, taxRate: 0.0 },
+    { name: "AGUA CIEL 600ML", price: 10.0, minStock: 15, taxRate: 0.0 },
+    // Bebidas saborizantes/deportivas: tasa 16%
+    { name: "GATORADE 500ML", price: 22.0, minStock: 10, taxRate: 0.16 },
+    { name: "COCA COLA", price: 18.0, minStock: 12, taxRate: 0.16 },
+    { name: "DELAWARE PUNCH 600", price: 20.0, minStock: 8, taxRate: 0.16 },
+    { name: "POWERADE 600ML", price: 20.0, minStock: 10, taxRate: 0.16 },
 
-    // Energéticas
-    { name: "MONSTER ENERGY", price: 35.0, minStock: 6 },
-    { name: "MONSTER BLANCO", price: 42.0, minStock: 4 },
-    { name: "RED BULL", price: 38.0, minStock: 6 },
+    // Energéticas: tasa 16%
+    { name: "MONSTER ENERGY", price: 35.0, minStock: 6, taxRate: 0.16 },
+    { name: "MONSTER BLANCO", price: 42.0, minStock: 4, taxRate: 0.16 },
+    { name: "RED BULL", price: 38.0, minStock: 6, taxRate: 0.16 },
 
-    // Hidratantes
-    { name: "ELECTROLIT COCO", price: 25.0, minStock: 8 },
-    { name: "ELECTROLIT NARANJA MANDARINA", price: 25.0, minStock: 8 },
-    { name: "H2O POWER", price: 25.0, minStock: 6 },
-    { name: "HIDRO PLEX ROMPOPE", price: 30.0, minStock: 4 },
+    // Hidratantes: tasa 16%
+    { name: "ELECTROLIT COCO", price: 25.0, minStock: 8, taxRate: 0.16 },
+    { name: "ELECTROLIT NARANJA MANDARINA", price: 25.0, minStock: 8, taxRate: 0.16 },
+    { name: "H2O POWER", price: 25.0, minStock: 6, taxRate: 0.16 },
+    { name: "HIDRO PLEX ROMPOPE", price: 30.0, minStock: 4, taxRate: 0.16 },
 
-    // Snacks
-    { name: "BARRA PROTEINA", price: 45.0, minStock: 10 },
-    { name: "GALLETAS PROTEINA", price: 35.0, minStock: 8 },
-    { name: "CREATINA MONOHIDRATADA", price: 350.0, minStock: 3 },
-    { name: "PROTEINA WHEY 1KG", price: 680.0, minStock: 2 },
+    // Snacks y suplementos: tasa 16%
+    { name: "BARRA PROTEINA", price: 45.0, minStock: 10, taxRate: 0.16 },
+    { name: "GALLETAS PROTEINA", price: 35.0, minStock: 8, taxRate: 0.16 },
+    { name: "CREATINA MONOHIDRATADA", price: 350.0, minStock: 3, taxRate: 0.16 },
+    { name: "PROTEINA WHEY 1KG", price: 680.0, minStock: 2, taxRate: 0.16 },
 
-    // Membresías
-    { name: "VISITA", price: 50.0, minStock: 0 },
-    { name: "EFECTIVO SEMANA", price: 180.0, minStock: 0 },
-    { name: "EFECTIVO MENSUALIDAD ESTUDIANTE", price: 450.0, minStock: 0 },
-    { name: "EFECTIVO MENSUALIDAD GENERAL", price: 540.0, minStock: 0 },
-    { name: "EFECTIVO TRIMESTRE ESTUDIANTE", price: 1215.0, minStock: 0 },
-    { name: "EFECTIVO TRIMESTRE GENERAL", price: 1458.0, minStock: 0 },
-    { name: "EFECTIVO ANUAL ESTUDIANTE", price: 4320.0, minStock: 0 },
-    { name: "EFECTIVO ANUAL GENERAL", price: 5184.0, minStock: 0 },
+    // Membresías: tasa 0% (van a bucket membershipSales, taxRate irrelevante en cierre)
+    { name: "VISITA", price: 50.0, minStock: 0, taxRate: 0.0 },
+    { name: "EFECTIVO SEMANA", price: 180.0, minStock: 0, taxRate: 0.0 },
+    { name: "EFECTIVO MENSUALIDAD ESTUDIANTE", price: 450.0, minStock: 0, taxRate: 0.0 },
+    { name: "EFECTIVO MENSUALIDAD GENERAL", price: 540.0, minStock: 0, taxRate: 0.0 },
+    { name: "EFECTIVO TRIMESTRE ESTUDIANTE", price: 1215.0, minStock: 0, taxRate: 0.0 },
+    { name: "EFECTIVO TRIMESTRE GENERAL", price: 1458.0, minStock: 0, taxRate: 0.0 },
+    { name: "EFECTIVO ANUAL ESTUDIANTE", price: 4320.0, minStock: 0, taxRate: 0.0 },
+    { name: "EFECTIVO ANUAL GENERAL", price: 5184.0, minStock: 0, taxRate: 0.0 },
   ];
 
   for (const product of productosData) {
     await prisma.product.upsert({
       where: { name: product.name },
-      update: { salePrice: product.price },
+      update: { salePrice: product.price, taxRate: product.taxRate },
       create: {
         name: product.name,
         salePrice: product.price,
+        taxRate: product.taxRate,
         warehouseStock: 0,
         gymStock: 0,
         minStock: product.minStock,

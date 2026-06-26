@@ -33,7 +33,7 @@
 import { prisma } from "@/lib/db";
 import { mapPaymentMethod } from "./enum-mappers";
 import { parseISODate, parseIntParam } from "./utils";
-import { MEMBERSHIP_KEYWORDS } from "./membership-helpers";
+import { isMembershipProduct } from "./membership-helpers";
 import { ShiftsQuerySchema, CloseShiftSchema } from "@/types/api/shifts";
 import type {
   CorteResponse,
@@ -279,27 +279,37 @@ export async function closeShift(
 
   let membershipSales = 0;
   let productSales0Tax = 0;
-  const productSales16Tax = 0;
+  let productSales16Tax = 0;
   let cashAmount = 0;
   let debitCardAmount = 0;
   let creditCardAmount = 0;
 
-  const membershipProducts = await prisma.product.findMany({
-    where: {
-      OR: MEMBERSHIP_KEYWORDS.map((k) => ({
-        name: { contains: k, mode: "insensitive" as const },
-      })),
-    },
+  const productIds = [
+    ...new Set(shift.inventoryMovements.map((m) => m.productId)),
+  ];
+  const shiftProducts = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    select: { id: true, name: true, taxRate: true },
   });
-  const membershipIds = membershipProducts.map((p) => p.id);
+  const productTaxRates = new Map(
+    shiftProducts.map((p) => [p.id, Number(p.taxRate)]),
+  );
+  const membershipIds = new Set(
+    shiftProducts.filter((p) => isMembershipProduct(p.name)).map((p) => p.id),
+  );
 
   for (const sale of shift.inventoryMovements) {
     const total = Number(sale.total || 0);
 
-    if (membershipIds.includes(sale.productId)) {
+    if (membershipIds.has(sale.productId)) {
       membershipSales += total;
     } else {
-      productSales0Tax += total;
+      const taxRate = productTaxRates.get(sale.productId) ?? 0;
+      if (taxRate > 0) {
+        productSales16Tax += total;
+      } else {
+        productSales0Tax += total;
+      }
     }
 
     switch (sale.paymentMethod) {

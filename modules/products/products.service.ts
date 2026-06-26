@@ -29,6 +29,7 @@ function serializeProduct(product: {
   id: number;
   name: string;
   salePrice: import("@prisma/client/runtime/library").Decimal;
+  taxRate: import("@prisma/client/runtime/library").Decimal;
   warehouseStock: number;
   gymStock: number;
   minStock: number;
@@ -40,6 +41,7 @@ function serializeProduct(product: {
     id: product.id,
     name: product.name,
     salePrice: Number(product.salePrice),
+    taxRate: Number(product.taxRate),
     warehouseStock: product.warehouseStock,
     gymStock: product.gymStock,
     minStock: product.minStock,
@@ -76,6 +78,7 @@ export function parseCreateProductInput(
     name: validated.name,
     salePrice: validated.salePrice,
     minStock: validated.minStock,
+    taxRate: validated.taxRate,
   };
 }
 
@@ -88,6 +91,7 @@ export function parseUpdateProductInput(
     salePrice: validated.salePrice,
     minStock: validated.minStock,
     isActive: validated.isActive,
+    taxRate: validated.taxRate,
   };
 }
 
@@ -185,6 +189,7 @@ export async function createProduct(
       name: data.name,
       salePrice: data.salePrice,
       minStock: data.minStock || 0,
+      taxRate: data.taxRate ?? 0,
     },
   });
 
@@ -206,7 +211,16 @@ export async function updateProduct(
       throw new Error("Ya existe un producto con ese nombre");
   }
 
-  const updatedProduct = await prisma.product.update({ where: { id }, data });
+  const updatedProduct = await prisma.product.update({
+    where: { id },
+    data: {
+      name: data.name,
+      salePrice: data.salePrice,
+      minStock: data.minStock,
+      isActive: data.isActive,
+      taxRate: data.taxRate,
+    },
+  });
   return serializeProduct(updatedProduct);
 }
 
