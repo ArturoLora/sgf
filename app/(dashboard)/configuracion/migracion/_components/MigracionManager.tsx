@@ -4,7 +4,8 @@ import { useState } from "react";
 import { FileUploadStep } from "./FileUploadStep";
 import { PreviewStep } from "./PreviewStep";
 import { InconsistencyStep } from "./InconsistencyStep";
-import type { AnalysisResultType, PreviewResponseType } from "@/types/api/migracion";
+import { ImportSociosStep } from "./ImportSociosStep";
+import type { AnalysisResultType, PreviewResponseType, SyncMembersResultType } from "@/types/api/migracion";
 
 const STEPS = [
   "Carga y análisis",
@@ -20,6 +21,7 @@ export function MigracionManager() {
   const [analysisFiles, setAnalysisFiles] = useState<File[]>([]);
   const [previewResult, setPreviewResult] = useState<PreviewResponseType | null>(null);
   const [employeeMapping, setEmployeeMapping] = useState<Record<string, string>>({});
+  const [syncResult, setSyncResult] = useState<SyncMembersResultType | null>(null);
 
   function handleAnalysisComplete(files: File[], results: AnalysisResultType[]) {
     setAnalysisFiles(files);
@@ -37,12 +39,18 @@ export function MigracionManager() {
     setStep(4);
   }
 
+  function handleSyncComplete(result: SyncMembersResultType) {
+    setSyncResult(result);
+    setStep(5);
+  }
+
   function handleReset() {
     setStep(1);
     setAnalysisFiles([]);
     setAnalysisResults([]);
     setPreviewResult(null);
     setEmployeeMapping({});
+    setSyncResult(null);
   }
 
   return (
@@ -111,13 +119,23 @@ export function MigracionManager() {
         />
       )}
 
-      {step >= 4 && (
+      {step === 4 && previewResult && (
+        <ImportSociosStep
+          files={analysisFiles}
+          totalMembers={previewResult.members.length}
+          onComplete={handleSyncComplete}
+        />
+      )}
+
+      {step >= 5 && (
         <div className="rounded-lg border border-border p-6 text-center text-muted-foreground text-sm">
           Paso {step} — disponible en próximas historias.
-          {previewResult && (
+          {syncResult && (
             <p className="mt-1 text-xs">
-              ({previewResult.members.length} socios · {previewResult.shifts.length} cortes en cola ·{" "}
-              {Object.keys(employeeMapping).length} cajero{Object.keys(employeeMapping).length !== 1 ? "s" : ""} mapeado
+              ({syncResult.created} socios nuevos · {syncResult.updated} actualizados
+              {syncResult.failed > 0 ? ` · ${syncResult.failed} fallidos` : ""} ·{" "}
+              {Object.keys(employeeMapping).length} cajero
+              {Object.keys(employeeMapping).length !== 1 ? "s" : ""} mapeado
               {Object.keys(employeeMapping).length !== 1 ? "s" : ""})
             </p>
           )}

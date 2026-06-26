@@ -85,3 +85,16 @@ export const UserListResponseSchema = z.array(UserRefSchema);
 
 export type UserRefType = z.infer<typeof UserRefSchema>;
 export type UserListResponseType = z.infer<typeof UserListResponseSchema>;
+
+// ─── Story 1.4: sync members result ──────────────────────────────────────────
+
+export const SyncMembersResultSchema = z.object({
+  created: z.number(),
+  updated: z.number(),
+  failed: z.number(),
+  errors: z.array(
+    z.object({ memberNumber: z.string(), reason: z.string() }),
+  ),
+});
+
+export type SyncMembersResultType = z.infer<typeof SyncMembersResultSchema>;
