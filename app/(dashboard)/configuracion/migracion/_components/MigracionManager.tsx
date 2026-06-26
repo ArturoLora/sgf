@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { FileUploadStep } from "./FileUploadStep";
-import type { AnalysisResultType } from "@/types/api/migracion";
+import { PreviewStep } from "./PreviewStep";
+import type { AnalysisResultType, PreviewResponseType } from "@/types/api/migracion";
 
 const STEPS = [
   "Carga y análisis",
@@ -15,9 +16,25 @@ const STEPS = [
 export function MigracionManager() {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResultType[]>([]);
+  const [analysisFiles, setAnalysisFiles] = useState<File[]>([]);
+  const [previewResult, setPreviewResult] = useState<PreviewResponseType | null>(null);
 
-  function handleAnalysisComplete(results: AnalysisResultType[]) {
+  function handleAnalysisComplete(files: File[], results: AnalysisResultType[]) {
+    setAnalysisFiles(files);
     setAnalysisResults(results);
+    setStep(2);
+  }
+
+  function handlePreviewComplete(result: PreviewResponseType) {
+    setPreviewResult(result);
+    setStep(3);
+  }
+
+  function handleReset() {
+    setStep(1);
+    setAnalysisFiles([]);
+    setAnalysisResults([]);
+    setPreviewResult(null);
   }
 
   return (
@@ -72,23 +89,25 @@ export function MigracionManager() {
         <FileUploadStep onAnalysisComplete={handleAnalysisComplete} />
       )}
 
-      {step >= 2 && (
+      {step === 2 && (
+        <PreviewStep
+          files={analysisFiles}
+          onPreviewComplete={handlePreviewComplete}
+        />
+      )}
+
+      {step >= 3 && (
         <div className="rounded-lg border border-border p-6 text-center text-muted-foreground text-sm">
           Paso {step} — disponible en próximas historias.
-          {analysisResults.length > 0 && (
+          {previewResult && (
             <p className="mt-1 text-xs">
-              ({analysisResults.filter((r) => r.validationStatus === "valid").length} archivo
-              {analysisResults.length !== 1 ? "s" : ""} válido
-              {analysisResults.length !== 1 ? "s" : ""} en cola)
+              ({previewResult.members.length} socios · {previewResult.shifts.length} cortes en cola)
             </p>
           )}
           <br />
           <button
             className="mt-3 underline text-primary"
-            onClick={() => {
-              setStep(1);
-              setAnalysisResults([]);
-            }}
+            onClick={handleReset}
           >
             Volver al inicio
           </button>

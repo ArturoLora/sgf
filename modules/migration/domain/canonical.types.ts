@@ -52,11 +52,17 @@ export interface CanonicalWithdrawal {
 
 export interface CanonicalShift {
   folio: string;
-  fechaApertura: string | null; // raw string — parsed in Story 1.2
+  fechaApertura: string | null; // raw string — parsed in domain layer
+  horaInicio: string | null;    // "HH:mm" extracted by adapter from Excel time serial
+  horaFin: string | null;       // "HH:mm" extracted by adapter from Excel time serial
   ventas: CanonicalSale[];
   canceladas: CanonicalSale[];
   inventario: CanonicalInventoryRow[];
   retiros: CanonicalWithdrawal[];
+  // Legacy Cierre fields — stored in Shift.notes if > 0 (Story 1.2)
+  ventasAnticipo?: number;
+  comisionAPagar?: number;
+  totalVentasWeb?: number;
 }
 
 export interface CanonicalMembersFile {

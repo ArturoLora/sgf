@@ -15,6 +15,7 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:reset": "prisma migrate reset",
     "smoke": "tsx scripts/smoke-test.ts",
+    "smoke:parsers": "tsx scripts/parse-smoke-test.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {

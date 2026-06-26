@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Users, FileText, AlertCircle, CheckCircle2, Upload, Loader2, X } from "lucide-react";
+import { Users, FileText, AlertCircle, CheckCircle2, Upload, Loader2, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AnalysisResultType } from "@/types/api/migracion";
 
 interface FileUploadStepProps {
-  onAnalysisComplete: (results: AnalysisResultType[]) => void;
+  onAnalysisComplete: (files: File[], results: AnalysisResultType[]) => void;
 }
 
 export function FileUploadStep({ onAnalysisComplete }: FileUploadStepProps) {
@@ -68,7 +68,6 @@ export function FileUploadStep({ onAnalysisComplete }: FileUploadStepProps) {
 
       const data: AnalysisResultType[] = await res.json();
       setResults(data);
-      onAnalysisComplete(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");
     } finally {
@@ -162,6 +161,15 @@ export function FileUploadStep({ onAnalysisComplete }: FileUploadStepProps) {
             <AnalysisCard key={r.filename} result={r} />
           ))}
           <SummaryBanner results={results} />
+          {results.some((r) => r.validationStatus === "valid") && (
+            <Button
+              onClick={() => onAnalysisComplete(selectedFiles, results)}
+              className="self-start flex items-center gap-2"
+            >
+              Continuar a previsualización
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       )}
     </div>
