@@ -1,6 +1,6 @@
 # Story 1.3: Reporte de Inconsistencias y Mapeo de Empleados
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -97,57 +97,45 @@ so that the import produces complete, consistent records without silent data los
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extender PreviewFilesResult con seller names (AC: 1, 2, 3, 9)
-  - [ ] 1.1 En `modules/migration/domain/domain.types.ts`: agregar `sellerNames: string[]` a `PreviewFilesResult` — lista de nombres únicos y no-nulos extraídos de todas las ventas en todos los cortes
-  - [ ] 1.2 En `modules/migration/migration.service.ts` función `previewFiles()`: después de construir `allShifts`, extraer nombres únicos de `shift.sales[].sellerName` (filtrar null/vacíos), deduplicar, ordenar alfabéticamente
-  - [ ] 1.3 En `types/api/migracion.ts`: agregar `sellerNames: z.array(z.string())` a `PreviewResponseSchema`
-  - [ ] 1.4 En `app/api/migracion/preview/route.ts`: incluir `sellerNames: result.sellerNames` en el JSON de respuesta
+- [x] Task 1: Extender PreviewFilesResult con seller names (AC: 1, 2, 3, 9)
+  - [x] 1.1 En `modules/migration/domain/domain.types.ts`: agregar `sellerNames: string[]` a `PreviewFilesResult` — lista de nombres únicos y no-nulos extraídos de todas las ventas en todos los cortes
+  - [x] 1.2 En `modules/migration/migration.service.ts` función `previewFiles()`: después de construir `allShifts`, extraer nombres únicos de `shift.sales[].sellerName` (filtrar null/vacíos), deduplicar, ordenar alfabéticamente
+  - [x] 1.3 En `types/api/migracion.ts`: agregar `sellerNames: z.array(z.string())` a `PreviewResponseSchema`
+  - [x] 1.4 En `app/api/migracion/preview/route.ts`: incluir `sellerNames: result.sellerNames` en el JSON de respuesta
 
-- [ ] Task 2: Endpoint GET /api/migracion/users (AC: 17)
-  - [ ] 2.1 Crear `app/api/migracion/users/route.ts`: GET, auth check con `auth.api.getSession`, consulta Prisma `prisma.user.findMany({ where: { isActive: true }, select: { id, name, email }, orderBy: { name: "asc" } })`, retorna `UserRef[]`
-  - [ ] 2.2 En `types/api/migracion.ts`: agregar `UserRefSchema = z.object({ id: z.string(), name: z.string(), email: z.string() })` y `UserListResponseSchema = z.array(UserRefSchema)` con sus tipos exportados
-  - [ ] 2.3 Verificar que la ruta importa Prisma desde `@/app/generated/prisma` (no de `@prisma/client`) — consistente con modules/
+- [x] Task 2: Endpoint GET /api/migracion/users (AC: 17)
+  - [x] 2.1 Crear `app/api/migracion/users/route.ts`: GET, auth check con `auth.api.getSession`, consulta Prisma `prisma.user.findMany({ where: { isActive: true }, select: { id, name, email }, orderBy: { name: "asc" } })`, retorna `UserRef[]`
+  - [x] 2.2 En `types/api/migracion.ts`: agregar `UserRefSchema = z.object({ id: z.string(), name: z.string(), email: z.string() })` y `UserListResponseSchema = z.array(UserRefSchema)` con sus tipos exportados
+  - [x] 2.3 Verificar que la ruta importa Prisma desde `@/lib/db` (`lib/db.ts` importa de `@/app/generated/prisma` internamente) — consistente con otras rutas API
 
-- [ ] Task 3: Clasificador de inconsistencias (puro) (AC: 2, 3, 10–13, 18)
-  - [ ] 3.1 Crear `modules/migration/domain/inconsistency-classifier.ts` con función pura:
-    ```typescript
-    export function classifyInconsistencies(
-      sellerNames: string[],
-      warnings: ParseWarning[],
-      users: UserRef[],
-    ): InconsistencyReport
-    ```
-  - [ ] 3.2 Para cada `sellerName`: buscar coincidencia case-insensitive en `users[].name`; si la hay → `isAutoMapped: true, resolvedUserId: user.id`; si no → `isAutoMapped: false, resolvedUserId: null`
-  - [ ] 3.3 Agrupar `warnings` por `code`: separar en `membershipWarnings`, `paymentMethodWarnings`, `dateWarnings`, `otherWarnings`
-  - [ ] 3.4 Computar `totalBlocking = employeeMappings.filter(e => !e.resolvedUserId).length`
-  - [ ] 3.5 Computar `canProceed = totalBlocking === 0`
-  - [ ] 3.6 Agregar tipos `UserRef`, `EmployeeMappingEntry`, `InconsistencyReport` a `modules/migration/domain/domain.types.ts`
+- [x] Task 3: Clasificador de inconsistencias (puro) (AC: 2, 3, 10–13, 18)
+  - [x] 3.1 Crear `modules/migration/domain/inconsistency-classifier.ts` con función pura
+  - [x] 3.2 Para cada `sellerName`: buscar coincidencia case-insensitive en `users[].name`
+  - [x] 3.3 Agrupar `warnings` por `code`
+  - [x] 3.4 Computar `totalBlocking = employeeMappings.filter(e => !e.resolvedUserId).length`
+  - [x] 3.5 Computar `canProceed = totalBlocking === 0`
+  - [x] 3.6 Agregar tipos `UserRef`, `EmployeeMappingEntry`, `InconsistencyReport` a `modules/migration/domain/domain.types.ts`
 
-- [ ] Task 4: Smoke tests del clasificador (AC: 2, 3, 7, 8, 18)
-  - [ ] 4.1 Agregar casos en `scripts/parse-smoke-test.ts` (o crear `scripts/inconsistency-smoke-test.ts`):
-    - sellerName con coincidencia exacta → auto-mapped
-    - sellerName con diferencia de case → auto-mapped (case-insensitive)
-    - sellerName sin coincidencia → unresolved
-    - lista vacía de sellerNames → canProceed = true
-    - warnings agrupados correctamente por código
-  - [ ] 4.2 Actualizar `package.json` con `"smoke:inconsistency": "tsx scripts/inconsistency-smoke-test.ts"` (o extender el existente)
+- [x] Task 4: Smoke tests del clasificador (AC: 2, 3, 7, 8, 18)
+  - [x] 4.1 Crear `scripts/inconsistency-smoke-test.ts` con 33 casos: exact match, case-insensitive, no match, empty list, mixed, warnings grouped, edge cases
+  - [x] 4.2 Actualizar `package.json` con `"smoke:inconsistency": "tsx scripts/inconsistency-smoke-test.ts"`
 
-- [ ] Task 5: InconsistencyStep.tsx (AC: 1–16)
-  - [ ] 5.1 Crear `app/(dashboard)/configuracion/migracion/_components/InconsistencyStep.tsx`
-  - [ ] 5.2 Props: `previewResult: PreviewResponseType`, `onComplete: (mapping: Record<string, string>) => void`
-  - [ ] 5.3 Al montar: fetch `GET /api/migracion/users`, combinar con `previewResult.sellerNames` → llamar `classifyInconsistencies()` para estado inicial
-  - [ ] 5.4 Mantener estado local: `mapping: Record<string, string>` (historicalName → userId), inicializado con los auto-mapped del clasificador
-  - [ ] 5.5 Renderizar header de estado: verde/amber/rojo según `canProceed` y `totalWarnings`
-  - [ ] 5.6 Sección de mapeo de empleados: una fila por `sellerName` con badge de estado + dropdown de User (shadcn Select). El dropdown lista todos los users del GET. Selección actualiza `mapping[name] = userId`; limpiar opción revierte badge a "Requiere mapeo".
-  - [ ] 5.7 Sección de advertencias: tres sub-secciones colapsables (shadcn Collapsible o `<details>`) para `membershipWarnings`, `paymentMethodWarnings`, `dateWarnings`. Cada advertencia muestra: filename, row?, field, originalValue, message.
-  - [ ] 5.8 Botón `"Continuar"`: deshabilitado si `totalBlocking > 0`; al hacer click llama `onComplete(mapping)`.
+- [x] Task 5: InconsistencyStep.tsx (AC: 1–16)
+  - [x] 5.1 Crear `app/(dashboard)/configuracion/migracion/_components/InconsistencyStep.tsx`
+  - [x] 5.2 Props: `previewResult: PreviewResponseType`, `onComplete: (mapping: Record<string, string>) => void`
+  - [x] 5.3 Al montar: fetch `GET /api/migracion/users`, combinar con `previewResult.sellerNames` → llamar `classifyInconsistencies()`
+  - [x] 5.4 Mantener estado local: `mapping: Record<string, string>`, inicializado con auto-mapped entries
+  - [x] 5.5 Renderizar header de estado: rojo/amber/verde según blocking/warnings
+  - [x] 5.6 Sección de mapeo: shadcn Select con "Sin asignar" + usuarios activos; badge dinámico
+  - [x] 5.7 Sección de advertencias: `<details>/<summary>` nativo (no hay @radix-ui/react-collapsible)
+  - [x] 5.8 Botón `"Continuar"`: deshabilitado si `currentBlocking > 0`
 
-- [ ] Task 6: Actualizar MigracionManager.tsx (AC: 7, 8)
-  - [ ] 6.1 Importar `InconsistencyStep` y tipo `EmployeeMapping = Record<string, string>`
-  - [ ] 6.2 Agregar estado: `const [employeeMapping, setEmployeeMapping] = useState<Record<string, string>>({})`
-  - [ ] 6.3 Agregar handler: `function handleInconsistencyComplete(mapping: Record<string, string>) { setEmployeeMapping(mapping); setStep(4); }`
-  - [ ] 6.4 En el render: `{step === 3 && <InconsistencyStep previewResult={previewResult!} onComplete={handleInconsistencyComplete} />}`
-  - [ ] 6.5 El placeholder `step >= 3` actual debe cambiar a `step >= 4` para que Step 3 muestre `InconsistencyStep` y solo Step 4+ use el placeholder
+- [x] Task 6: Actualizar MigracionManager.tsx (AC: 7, 8)
+  - [x] 6.1 Importar `InconsistencyStep`
+  - [x] 6.2 Agregar estado `employeeMapping: Record<string, string>`
+  - [x] 6.3 Agregar handler `handleInconsistencyComplete`
+  - [x] 6.4 Render `step === 3 → <InconsistencyStep />`
+  - [x] 6.5 Placeholder cambiado a `step >= 4`
 
 ## Dev Notes
 
@@ -393,13 +381,24 @@ El state del Manager actúa como buffer entre historias de UI: `previewResult` y
 ## Dev Agent Record
 
 ### Debug Log
-_Empty_
+- Task 2.3 conflict: story task said "import from `@/app/generated/prisma`" but Dev Notes said "use `lib/db.ts`". Followed Dev Notes — `lib/db.ts` is the correct pattern for API routes and internally imports from `@/app/generated/prisma` anyway.
+- `@radix-ui/react-collapsible` not in package.json — used `<details>/<summary>` HTML native elements as specified in Dev Notes fallback.
+- `analysisResults` state pre-existing unused var warning in MigracionManager — fixed by omitting destructured state value (`const [, setAnalysisResults]`).
 
 ### Completion Notes
-_Empty_
+All 18 ACs satisfied. AD-1 intact — `migration.service.ts` imports no new external dependencies. `classifyInconsistencies()` pure function with 33 smoke tests (9 cases, 33 assertions). UI reactive: mapping state re-derives `currentBlocking` on each render without re-running the classifier. Blocking message shown inline. Status header updates live.
 
 ### File List
-_Empty_
+- `modules/migration/domain/domain.types.ts` — modified: added `sellerNames` to `PreviewFilesResult`; added `UserRef`, `EmployeeMappingEntry`, `InconsistencyReport`
+- `modules/migration/domain/inconsistency-classifier.ts` — created
+- `modules/migration/migration.service.ts` — modified: extract `sellerNames` in `previewFiles()`
+- `types/api/migracion.ts` — modified: added `sellerNames` to `PreviewResponseSchema`; added `UserRefSchema`, `UserListResponseSchema`
+- `app/api/migracion/preview/route.ts` — modified: include `sellerNames` in response
+- `app/api/migracion/users/route.ts` — created
+- `app/(dashboard)/configuracion/migracion/_components/InconsistencyStep.tsx` — created
+- `app/(dashboard)/configuracion/migracion/_components/MigracionManager.tsx` — modified: step 3 rendering, `employeeMapping` state
+- `scripts/inconsistency-smoke-test.ts` — created
+- `package.json` — modified: added `smoke:inconsistency` script
 
 ## Change Log
-_Empty_
+- 2026-06-26: Story 1.3 implemented — inconsistency report and employee mapping (AC 1–18). Commit: b018799
