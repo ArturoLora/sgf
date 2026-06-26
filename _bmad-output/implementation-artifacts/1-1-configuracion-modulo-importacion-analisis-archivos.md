@@ -1,6 +1,6 @@
 # Story 1.1: Configuración del Módulo de Importación y Análisis de Archivos
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -24,36 +24,36 @@ so that I know exactly what historical data the system detected — with zero ri
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Definir el Modelo Canónico y el contrato de adapters (AC: 2, 3, 4, 6)
-  - [ ] 1.1 Crear `modules/migration/domain/canonical.types.ts` con las interfaces: `CanonicalMember`, `CanonicalShift`, `CanonicalSale`, `CanonicalInventoryRow`, `CanonicalWithdrawal`, `CanonicalFile` (unión discriminada de socios vs cortes)
-  - [ ] 1.2 Crear `modules/migration/adapters/types.ts` con la interfaz `FileAdapter<T extends CanonicalFile>` y el tipo `AnalysisResult` (fileType, recordCount, detectedFolio?, detectedDate?, skuCount?, inferredUsers?, validationStatus, errorMessage?)
-  - [ ] 1.3 Verificar (conceptualmente) que la adición de un hipotético `CsvAdapter` no requeriría modificar ningún archivo fuera de `modules/migration/adapters/` — documentar este check en comentario de `adapters/types.ts`
+- [x] Task 1: Definir el Modelo Canónico y el contrato de adapters (AC: 2, 3, 4, 6)
+  - [x] 1.1 Crear `modules/migration/domain/canonical.types.ts` con las interfaces: `CanonicalMember`, `CanonicalShift`, `CanonicalSale`, `CanonicalInventoryRow`, `CanonicalWithdrawal`, `CanonicalFile` (unión discriminada de socios vs cortes)
+  - [x] 1.2 Crear `modules/migration/adapters/types.ts` con la interfaz `FileAdapter<T extends CanonicalFile>` y el tipo `AnalysisResult` (fileType, recordCount, detectedFolio?, detectedDate?, skuCount?, inferredUsers?, validationStatus, errorMessage?)
+  - [x] 1.3 Verificar (conceptualmente) que la adición de un hipotético `CsvAdapter` no requeriría modificar ningún archivo fuera de `modules/migration/adapters/` — documentar este check en comentario de `adapters/types.ts`
 
-- [ ] Task 2: Instalar exceljs y crear adapters xlsx (AC: 2, 3, 4)
-  - [ ] 2.1 Agregar `exceljs` a `package.json` como dependencia de producción; ejecutar `npm install`
-  - [ ] 2.2 Crear `modules/migration/adapters/xlsx-socios.adapter.ts`: lee el buffer en memoria con exceljs, detecta hoja "SOCIOS", valida columnas esperadas, retorna `AnalysisResult` con `fileType: "socios"` y count de filas de datos. Sin parseo de contenido de celdas — solo detección estructural.
-  - [ ] 2.3 Crear `modules/migration/adapters/xlsx-cortes.adapter.ts`: detecta hojas "Cierre", "Ventas", "Inventario", "Canceladas", "Retiros"; extrae folio de Cierre!B2 y fecha de apertura; cuenta filas en Ventas; cuenta SKUs únicos en Inventario; infiere cajeros/vendedores únicos del string en columna Forma Pago (solo cuenta — sin parsear el string). Retorna `AnalysisResult` con `fileType: "cortes"`.
-  - [ ] 2.4 Crear `modules/migration/validators/file-structure.validator.ts`: función pura `validateFileStructure(workbook: ExcelJS.Workbook): ValidationResult` — valida que las hojas requeridas existen y contienen las columnas mínimas esperadas. Esta función es llamada por ambos adapters.
+- [x] Task 2: Instalar exceljs y crear adapters xlsx (AC: 2, 3, 4)
+  - [x] 2.1 Agregar `exceljs` a `package.json` como dependencia de producción; ejecutar `npm install`
+  - [x] 2.2 Crear `modules/migration/adapters/xlsx-socios.adapter.ts`: lee el buffer en memoria con exceljs, detecta hoja "SOCIOS", valida columnas esperadas, retorna `AnalysisResult` con `fileType: "socios"` y count de filas de datos. Sin parseo de contenido de celdas — solo detección estructural.
+  - [x] 2.3 Crear `modules/migration/adapters/xlsx-cortes.adapter.ts`: detecta hojas "Cierre", "Ventas", "Inventario", "Canceladas", "Retiros"; extrae folio de Cierre!B2 y fecha de apertura; cuenta filas en Ventas; cuenta SKUs únicos en Inventario; infiere cajeros/vendedores únicos del string en columna Forma Pago (solo cuenta — sin parsear el string). Retorna `AnalysisResult` con `fileType: "cortes"`.
+  - [x] 2.4 Crear `modules/migration/validators/file-structure.validator.ts`: función pura `validateFileStructure(workbook: ExcelJS.Workbook): ValidationResult` — valida que las hojas requeridas existen y contienen las columnas mínimas esperadas. Esta función es llamada por ambos adapters.
 
-- [ ] Task 3: Servicio de análisis (AC: 4, 6)
-  - [ ] 3.1 Crear `modules/migration/migration.service.ts` — función `analyzeFile(buffer: Buffer, filename: string): Promise<AnalysisResult>` que detecta el tipo de archivo intentando aplicar cada adapter en orden y retornando el primer match exitoso; si ninguno coincide, retorna `validationStatus: "unknown"` con el mensaje de error apropiado.
-  - [ ] 3.2 Función `analyzeFiles(files: Array<{buffer: Buffer, filename: string}>): Promise<AnalysisResult[]>` que procesa múltiples archivos independientemente en paralelo (`Promise.all`). Esta función NO realiza ninguna escritura en la DB.
-  - [ ] 3.3 Verificar que `migration.service.ts` no importa nada relacionado con xlsx/exceljs directamente — delega 100% a los adapters. El servicio solo conoce `AnalysisResult` y `FileAdapter`.
+- [x] Task 3: Servicio de análisis (AC: 4, 6)
+  - [x] 3.1 Crear `modules/migration/migration.service.ts` — función `analyzeFile(buffer: Buffer, filename: string): Promise<AnalysisResult>` que detecta el tipo de archivo intentando aplicar cada adapter en orden y retornando el primer match exitoso; si ninguno coincide, retorna `validationStatus: "unknown"` con el mensaje de error apropiado.
+  - [x] 3.2 Función `analyzeFiles(files: Array<{buffer: Buffer, filename: string}>): Promise<AnalysisResult[]>` que procesa múltiples archivos independientemente en paralelo (`Promise.all`). Esta función NO realiza ninguna escritura en la DB.
+  - [x] 3.3 Verificar que `migration.service.ts` no importa nada relacionado con xlsx/exceljs directamente — delega 100% a los adapters. El servicio solo conoce `AnalysisResult` y `FileAdapter`.
 
-- [ ] Task 4: Tipos API y ruta de validación (AC: 1, 2, 3, 4, 6)
-  - [ ] 4.1 Crear `types/api/migracion.ts` con: `AnalysisResultSchema` (Zod), `AnalysisResponseSchema` (array), y los tipos TypeScript inferidos
-  - [ ] 4.2 Crear `app/api/migracion/validate/route.ts`: POST endpoint con auth check (`auth.api.getSession`); parsea `multipart/form-data` extrayendo archivos; convierte cada archivo a Buffer en memoria; llama a `MigrationService.analyzeFiles()`; retorna `AnalysisResult[]`. Zero writes a DB.
-  - [ ] 4.3 El route NO accede a Prisma directamente — solo delega al servicio. Si el usuario no está autenticado retorna 401.
+- [x] Task 4: Tipos API y ruta de validación (AC: 1, 2, 3, 4, 6)
+  - [x] 4.1 Crear `types/api/migracion.ts` con: `AnalysisResultSchema` (Zod), `AnalysisResponseSchema` (array), y los tipos TypeScript inferidos
+  - [x] 4.2 Crear `app/api/migracion/validate/route.ts`: POST endpoint con auth check (`auth.api.getSession`); parsea `multipart/form-data` extrayendo archivos; convierte cada archivo a Buffer en memoria; llama a `MigrationService.analyzeFiles()`; retorna `AnalysisResult[]`. Zero writes a DB.
+  - [x] 4.3 El route NO accede a Prisma directamente — solo delega al servicio. Si el usuario no está autenticado retorna 401.
 
-- [ ] Task 5: Navegación y página administrativa (AC: 1, 5, 6)
-  - [ ] 5.1 Agregar entrada a `lib/navigation.ts` en `dashboardRoutes`: `{ label: "Configuración", href: "/configuracion", icon: Settings, adminOnly: true }`. Importar `Settings` de lucide-react.
-  - [ ] 5.2 Crear `app/(dashboard)/configuracion/migracion/page.tsx` — server component: llama a `requireAdmin()` (de `@/lib/require-role`) al inicio; sin fetching de datos iniciales (la migración trabaja con uploads); renderiza `<MigracionManager />`.
-  - [ ] 5.3 Crear `app/(dashboard)/configuracion/migracion/_components/MigracionManager.tsx` — `"use client"` component: gestiona `step: 1 | 2 | 3 | 4 | 5` como estado interno; en el step 1 renderiza `<FileUploadStep />`; props: ninguna (standalone wizard).
-  - [ ] 5.4 Crear `app/(dashboard)/configuracion/migracion/_components/FileUploadStep.tsx` — componente presentacional que recibe `onAnalysisComplete: (results: AnalysisResult[]) => void` como prop; implementa: área de drag-and-drop para archivos xlsx (usando atributos HTML nativos, sin librería externa); botón de selección de archivos; al confirmar, llama a `POST /api/migracion/validate` con FormData; muestra estado de carga; al recibir respuesta, renderiza una tarjeta por archivo con: tipo detectado (ícono socio vs ícono corte), conteo de registros, status (válido / desconocido), mensaje de error si aplica.
+- [x] Task 5: Navegación y página administrativa (AC: 1, 5, 6)
+  - [x] 5.1 Agregar entrada a `lib/navigation.ts` en `dashboardRoutes`: `{ label: "Configuración", href: "/configuracion", icon: Settings, adminOnly: true }`. Importar `Settings` de lucide-react.
+  - [x] 5.2 Crear `app/(dashboard)/configuracion/migracion/page.tsx` — server component: llama a `requireAdmin()` (de `@/lib/require-role`) al inicio; sin fetching de datos iniciales (la migración trabaja con uploads); renderiza `<MigracionManager />`.
+  - [x] 5.3 Crear `app/(dashboard)/configuracion/migracion/_components/MigracionManager.tsx` — `"use client"` component: gestiona `step: 1 | 2 | 3 | 4 | 5` como estado interno; en el step 1 renderiza `<FileUploadStep />`; props: ninguna (standalone wizard).
+  - [x] 5.4 Crear `app/(dashboard)/configuracion/migracion/_components/FileUploadStep.tsx` — componente presentacional que recibe `onAnalysisComplete: (results: AnalysisResult[]) => void` como prop; implementa: área de drag-and-drop para archivos xlsx (usando atributos HTML nativos, sin librería externa); botón de selección de archivos; al confirmar, llama a `POST /api/migracion/validate` con FormData; muestra estado de carga; al recibir respuesta, renderiza una tarjeta por archivo con: tipo detectado (ícono socio vs ícono corte), conteo de registros, status (válido / desconocido), mensaje de error si aplica.
 
-- [ ] Task 6: Verificación arquitectónica de extensibilidad (AC: implícito en AD-1)
-  - [ ] 6.1 Revisar que `modules/migration/adapters/types.ts` define una interfaz `FileAdapter` suficientemente genérica para que un futuro `XmlCortesAdapter` o `CsvSociosAdapter` sea implementable sin modificar `migration.service.ts` ni `MigracionManager.tsx`.
-  - [ ] 6.2 Asegurarse de que `migration.service.ts` descubra adapters mediante un registro (`ADAPTERS: FileAdapter[]`) — no mediante `if/switch` hardcodeados — para que agregar un adapter sea solo agregar al array.
+- [x] Task 6: Verificación arquitectónica de extensibilidad (AC: implícito en AD-1)
+  - [x] 6.1 Revisar que `modules/migration/adapters/types.ts` define una interfaz `FileAdapter` suficientemente genérica para que un futuro `XmlCortesAdapter` o `CsvSociosAdapter` sea implementable sin modificar `migration.service.ts` ni `MigracionManager.tsx`.
+  - [x] 6.2 Asegurarse de que `migration.service.ts` descubra adapters mediante un registro (`ADAPTERS: FileAdapter[]`) — no mediante `if/switch` hardcodeados — para que agregar un adapter sea solo agregar al array.
 
 ## Dev Notes
 
@@ -264,10 +264,37 @@ El proyecto actualmente tiene 0% cobertura de tests (confirmado en investigació
 
 ### Agent Model Used
 
-_pending_
+claude-sonnet-4-6
 
 ### Debug Log References
 
+- Historical xlsx files have rows 1-2 as merged title + empty. Headers start on row 3. Validator updated to scan first 6 rows dynamically (`findHeaderRow`).
+- Corte folio is NOT in Cierre!B2 (null). Actual location: row 3, "Apertura #:" label → value in col 3. Fixed with `findCierreValue()` label scanner.
+- exceljs `load()` expects pre-Node20 `Buffer` typedef — solved with `buffer as any` cast + eslint-disable comment.
+
 ### Completion Notes List
 
+- AD-1 verified: `migration.service.ts` has zero exceljs imports (confirmed with grep).
+- ADAPTERS registry pattern: adding new format = implement `FileAdapter` + append to `ADAPTERS[]`. No other file changes required.
+- Smoke tests on real docs: socios.xlsx→652 registros ✅, cortes.xlsx→folio FN-248 / 55 SKUs / 2 usuarios ✅, invalid file→correctly rejected ✅.
+- TypeScript: 0 errors. Lint on new files: 0 errors, 0 warnings.
+- Zero DB writes: `migration.service.ts` has no Prisma import.
+- Page protected with `requireAdmin()`. Navigation entry added with `adminOnly: true`.
+- Commit: `c18594a`. Push: `origin/main` updated ✅.
+
 ### File List
+
+- modules/migration/domain/canonical.types.ts (created)
+- modules/migration/adapters/types.ts (created)
+- modules/migration/adapters/xlsx-socios.adapter.ts (created)
+- modules/migration/adapters/xlsx-cortes.adapter.ts (created)
+- modules/migration/validators/file-structure.validator.ts (created)
+- modules/migration/migration.service.ts (created)
+- types/api/migracion.ts (created)
+- app/api/migracion/validate/route.ts (created)
+- app/(dashboard)/configuracion/migracion/page.tsx (created)
+- app/(dashboard)/configuracion/migracion/_components/MigracionManager.tsx (created)
+- app/(dashboard)/configuracion/migracion/_components/FileUploadStep.tsx (created)
+- lib/navigation.ts (modified)
+- package.json (modified)
+- package-lock.json (modified)
