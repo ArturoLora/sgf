@@ -1,6 +1,6 @@
 # Story 1.2: Parsers de Dominio y Previsualización Completa
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -162,72 +162,72 @@ so that I can verify the correctness of the mapping — including edge cases and
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Definir tipos de dominio (AC: todos)
-  - [ ] 1.1 Crear `modules/migration/domain/domain.types.ts` con interfaces `DomainMember`, `DomainSale`, `DomainInventoryRow`, `DomainWithdrawal`, `DomainShift`, `ParseWarning`, `ParseResult<T>` — ver Dev Notes para definiciones exactas
-  - [ ] 1.2 Verificar que `domain.types.ts` no importa nada de Prisma, exceljs, ni HTTP
+- [x] Task 1: Definir tipos de dominio (AC: todos)
+  - [x] 1.1 Crear `modules/migration/domain/domain.types.ts` con interfaces `DomainMember`, `DomainSale`, `DomainInventoryRow`, `DomainWithdrawal`, `DomainShift`, `ParseWarning`, `ParseResult<T>` — ver Dev Notes para definiciones exactas
+  - [x] 1.2 Verificar que `domain.types.ts` no importa nada de Prisma, exceljs, ni HTTP
 
-- [ ] Task 2: Parser de membresía (AC: 1–12)
-  - [ ] 2.1 Crear `modules/migration/domain/parsers/membership-parser.ts` con función pura `parseMembership(raw: string | null): MembershipParseResult`
-  - [ ] 2.2 Implementar strip de prefijo de pago (EFECTIVO → CASH, TARJETA → DEBIT_CARD)
-  - [ ] 2.3 Implementar tabla de mapeo exhaustiva para todos los patrones reales — ver Dev Notes
-  - [ ] 2.4 Implementar normalización Unicode: quitar acentos antes de comparar (PROMOCIÓN → PROMOCION)
+- [x] Task 2: Parser de membresía (AC: 1–12)
+  - [x] 2.1 Crear `modules/migration/domain/parsers/membership-parser.ts` con función pura `parseMembership(raw: string | null): MembershipParseResult`
+  - [x] 2.2 Implementar strip de prefijo de pago (EFECTIVO → CASH, TARJETA → DEBIT_CARD)
+  - [x] 2.3 Implementar tabla de mapeo exhaustiva para todos los patrones reales — ver Dev Notes
+  - [x] 2.4 Implementar normalización Unicode: quitar acentos antes de comparar (PROMOCIÓN → PROMOCION)
 
-- [ ] Task 3: Parser de forma de pago (AC: 13–19)
-  - [ ] 3.1 Crear `modules/migration/domain/parsers/payment-parser.ts` con función pura `parseFormaPago(raw: string | null): FormaPagoParseResult`
-  - [ ] 3.2 Extraer `sellerName` del patrón `"MÉTODO (NOMBRE)"` usando regex `\(([^)]+)\)`
-  - [ ] 3.3 Mapear métodos: EFECTIVO → CASH, TARJETA DEBITO → DEBIT_CARD, TARJETA CREDITO → CREDIT_CARD, TRANSFERENCIA → TRANSFER
+- [x] Task 3: Parser de forma de pago (AC: 13–19)
+  - [x] 3.1 Crear `modules/migration/domain/parsers/payment-parser.ts` con función pura `parseFormaPago(raw: string | null): FormaPagoParseResult`
+  - [x] 3.2 Extraer `sellerName` del patrón `"MÉTODO (NOMBRE)"` usando regex `\(([^)]+)\)`
+  - [x] 3.3 Mapear métodos: EFECTIVO → CASH, TARJETA DEBITO → DEBIT_CARD, TARJETA CREDITO → CREDIT_CARD, TRANSFERENCIA → TRANSFER
 
-- [ ] Task 4: Parser de fechas (AC: 20–24)
-  - [ ] 4.1 Crear `modules/migration/domain/parsers/date-parser.ts` con funciones puras
-  - [ ] 4.2 Implementar `parseSpanishDateString(raw: string): Date | null` — formato `"dd-mmm-yyyy HH:mm"` y `"día dd-mmm-yyyy"` (con prefijo día-semana)
-  - [ ] 4.3 Implementar `parseExcelTimeSerial(d: Date): string` — extrae `"HH:mm"` de fecha con epoch 1899-12-30
-  - [ ] 4.4 Implementar `parseExcelDateSerial(serial: number): Date` — conversión defensiva para fechas numéricas
-  - [ ] 4.5 Implementar `normalizeDate(value: unknown): Date | null` — acepta `Date` (pass-through), `number` (serial), `string` (española)
+- [x] Task 4: Parser de fechas (AC: 20–24)
+  - [x] 4.1 Crear `modules/migration/domain/parsers/date-parser.ts` con funciones puras
+  - [x] 4.2 Implementar `parseSpanishDateString(raw: string): Date | null` — formato `"dd-mmm-yyyy HH:mm"` y `"día dd-mmm-yyyy"` (con prefijo día-semana)
+  - [x] 4.3 Implementar `parseExcelTimeSerial(d: Date): string` — extrae `"HH:mm"` de fecha con epoch 1899-12-30
+  - [x] 4.4 Implementar `parseExcelDateSerial(serial: number): Date` — conversión defensiva para fechas numéricas
+  - [x] 4.5 Implementar `normalizeDate(value: unknown): Date | null` — acepta `Date` (pass-through), `number` (serial), `string` (española)
 
-- [ ] Task 5: Normalizador de campos opcionales (AC: 25–27)
-  - [ ] 5.1 Crear `modules/migration/domain/parsers/null-normalizer.ts` con `normalizePhone(raw: string | null): string | null` y `normalizeEmail(raw: string | null): string | null`
-  - [ ] 5.2 Phone null-like: cualquier string que, en minúsculas y sin espacios, sea `""`, `"na"`, `"n"`, `"n/a"`, `"0"`, `"000"`, `"ninguno"`, o que empiece con `"sin"` → `null`
-  - [ ] 5.3 Email null-like: cualquier string sin `"@"` → `null`; con `"@"` → lowercase
+- [x] Task 5: Normalizador de campos opcionales (AC: 25–27)
+  - [x] 5.1 Crear `modules/migration/domain/parsers/null-normalizer.ts` con `normalizePhone(raw: string | null): string | null` y `normalizeEmail(raw: string | null): string | null`
+  - [x] 5.2 Phone null-like: cualquier string que, en minúsculas y sin espacios, sea `""`, `"na"`, `"n"`, `"n/a"`, `"0"`, `"000"`, `"ninguno"`, o que empiece con `"sin"` → `null`
+  - [x] 5.3 Email null-like: cualquier string sin `"@"` → `null`; con `"@"` → lowercase
 
-- [ ] Task 6: Transformador de socios (AC: 1–12, 22–27)
-  - [ ] 6.1 Crear `modules/migration/domain/transformers/member-transformer.ts` con `transformMembers(members: CanonicalMember[]): ParseResult<DomainMember>`
-  - [ ] 6.2 Llamar a todos los parsers por campo; acumular `ParseWarning[]` con `row`, `field`, `originalValue`, `message`
-  - [ ] 6.3 Preservar `membershipDescription` como el string original crudo (útil para auditoría)
+- [x] Task 6: Transformador de socios (AC: 1–12, 22–27)
+  - [x] 6.1 Crear `modules/migration/domain/transformers/member-transformer.ts` con `transformMembers(members: CanonicalMember[]): ParseResult<DomainMember>`
+  - [x] 6.2 Llamar a todos los parsers por campo; acumular `ParseWarning[]` con `row`, `field`, `originalValue`, `message`
+  - [x] 6.3 Preservar `membershipDescription` como el string original crudo (útil para auditoría)
 
-- [ ] Task 7: Transformador de cortes (AC: 13–24, 28–30)
-  - [ ] 7.1 Crear `modules/migration/domain/transformers/shift-transformer.ts` con `transformShift(shift: CanonicalShift): ParseResult<DomainShift>`
-  - [ ] 7.2 Transformar cada `CanonicalSale` → `DomainSale` usando `parseFormaPago` y `parseSpanishDateString`
-  - [ ] 7.3 Transformar cada `CanonicalInventoryRow` → `DomainInventoryRow` con `gymStock = existenciaActual`, `warehouseStock = 0`
-  - [ ] 7.4 Extraer campos legacy de Cierre (Ventas Anticipo, Comision a Pagar, Total Ventas Web) — ver Dev Notes para cómo llegan en el modelo canónico
+- [x] Task 7: Transformador de cortes (AC: 13–24, 28–30)
+  - [x] 7.1 Crear `modules/migration/domain/transformers/shift-transformer.ts` con `transformShift(shift: CanonicalShift): ParseResult<DomainShift>`
+  - [x] 7.2 Transformar cada `CanonicalSale` → `DomainSale` usando `parseFormaPago` y `parseSpanishDateString`
+  - [x] 7.3 Transformar cada `CanonicalInventoryRow` → `DomainInventoryRow` con `gymStock = existenciaActual`, `warehouseStock = 0`
+  - [x] 7.4 Extraer campos legacy de Cierre (Ventas Anticipo, Comision a Pagar, Total Ventas Web) — ver Dev Notes para cómo llegan en el modelo canónico
 
-- [ ] Task 8: Extender el modelo canónico para campos legacy de Cierre (AC: 29–30)
-  - [ ] 8.1 Agregar a `CanonicalShift` en `canonical.types.ts`: `ventasAnticipo?: number; comisionAPagar?: number; totalVentasWeb?: number`
-  - [ ] 8.2 Extender `xlsx-cortes.adapter.ts` para leer rows 16, 17, 21 del Cierre y poblar estos campos
-  - [ ] 8.3 Verificar que el adapter ya usa `findCierreValue()` — reutilizar para los nuevos campos
+- [x] Task 8: Extender el modelo canónico para campos legacy de Cierre (AC: 29–30)
+  - [x] 8.1 Agregar a `CanonicalShift` en `canonical.types.ts`: `ventasAnticipo?: number; comisionAPagar?: number; totalVentasWeb?: number`
+  - [x] 8.2 Extender `xlsx-cortes.adapter.ts` para leer rows 16, 17, 21 del Cierre y poblar estos campos
+  - [x] 8.3 Verificar que el adapter ya usa `findCierreValue()` — reutilizar para los nuevos campos
 
-- [ ] Task 9: Servicio de previsualización (AC: 31–32)
-  - [ ] 9.1 Agregar `previewFile(buffer: Buffer, filename: string): Promise<PreviewResult>` a `migration.service.ts`
-  - [ ] 9.2 Agregar `previewFiles(files): Promise<PreviewFilesResult>` — procesa socios y cortes en paralelo
-  - [ ] 9.3 `PreviewFilesResult` contiene: `members: DomainMember[]`, `shifts: DomainShift[]`, `warnings: ParseWarning[]`, `membershipTypeDistribution: Record<string, number>`
-  - [ ] 9.4 El servicio NO importa exceljs — delega al adapter para obtener el CanonicalFile, luego llama a los transformadores
+- [x] Task 9: Servicio de previsualización (AC: 31–32)
+  - [x] 9.1 Agregar `previewFile(buffer: Buffer, filename: string): Promise<PreviewResult>` a `migration.service.ts`
+  - [x] 9.2 Agregar `previewFiles(files): Promise<PreviewFilesResult>` — procesa socios y cortes en paralelo
+  - [x] 9.3 `PreviewFilesResult` contiene: `members: DomainMember[]`, `shifts: DomainShift[]`, `warnings: ParseWarning[]`, `membershipTypeDistribution: Record<string, number>`
+  - [x] 9.4 El servicio NO importa exceljs — delega al adapter para obtener el CanonicalFile, luego llama a los transformadores
 
-- [ ] Task 10: Ruta API `POST /api/migracion/preview` (AC: 31–32)
-  - [ ] 10.1 Crear `app/api/migracion/preview/route.ts` — mismo patrón que `/validate`: auth check, multipart/form-data, Buffer conversion, llamada a `MigrationService.previewFiles()`, retorno JSON
-  - [ ] 10.2 Zero writes a Prisma
-  - [ ] 10.3 Crear `types/api/migracion.ts` extensión: `PreviewResponseSchema` y tipo inferido (reutilizar archivo existente, solo agregar schemas)
+- [x] Task 10: Ruta API `POST /api/migracion/preview` (AC: 31–32)
+  - [x] 10.1 Crear `app/api/migracion/preview/route.ts` — mismo patrón que `/validate`: auth check, multipart/form-data, Buffer conversion, llamada a `MigrationService.previewFiles()`, retorno JSON
+  - [x] 10.2 Zero writes a Prisma
+  - [x] 10.3 Crear `types/api/migracion.ts` extensión: `PreviewResponseSchema` y tipo inferido (reutilizar archivo existente, solo agregar schemas)
 
-- [ ] Task 11: Extender adapters para retornar CanonicalFile completo (AC: 31–32)
-  - [ ] 11.1 Agregar `tryParse(buffer: Buffer, filename: string): Promise<CanonicalFile | null>` a la interfaz `FileAdapter` en `adapters/types.ts`
-  - [ ] 11.2 Implementar `tryParse` en `xlsx-socios.adapter.ts`: lee todas las filas de la hoja SOCIOS, construye `CanonicalMember[]`, retorna `CanonicalMembersFile`
-  - [ ] 11.3 Implementar `tryParse` en `xlsx-cortes.adapter.ts`: lee Ventas, Inventario, Retiros completos; construye `CanonicalShift`; retorna `CanonicalShiftFile`
-  - [ ] 11.4 `tryAnalyze` existente no cambia — sigue siendo solo para análisis estructural (Story 1.1 no se rompe)
+- [x] Task 11: Extender adapters para retornar CanonicalFile completo (AC: 31–32)
+  - [x] 11.1 Agregar `tryParse(buffer: Buffer, filename: string): Promise<CanonicalFile | null>` a la interfaz `FileAdapter` en `adapters/types.ts`
+  - [x] 11.2 Implementar `tryParse` en `xlsx-socios.adapter.ts`: lee todas las filas de la hoja SOCIOS, construye `CanonicalMember[]`, retorna `CanonicalMembersFile`
+  - [x] 11.3 Implementar `tryParse` en `xlsx-cortes.adapter.ts`: lee Ventas, Inventario, Retiros completos; construye `CanonicalShift`; retorna `CanonicalShiftFile`
+  - [x] 11.4 `tryAnalyze` existente no cambia — sigue siendo solo para análisis estructural (Story 1.1 no se rompe)
 
-- [ ] Task 12: UI — PreviewStep y actualización de MigracionManager (AC: 33–34)
-  - [ ] 12.1 Crear `app/(dashboard)/configuracion/migracion/_components/PreviewStep.tsx`
-  - [ ] 12.2 `PreviewStep` recibe `files: File[]` y `onPreviewComplete: (result: PreviewFilesResult) => void` como props
-  - [ ] 12.3 Al montar, envía archivos a `/api/migracion/preview`, muestra skeleton de carga
-  - [ ] 12.4 Tras respuesta: render de `SummaryBanner` (N socios, M cortes, K warnings), tabla de socios con `membershipType` y fechas, sección de cortes con folio y conteo de ventas, lista de warnings agrupados por archivo
-  - [ ] 12.5 Actualizar `MigracionManager.tsx`: almacenar `analysisFiles: File[]` en state tras Step 1; avanzar a `step = 2` con botón "Continuar"; en Step 2 renderizar `<PreviewStep files={analysisFiles} />`
+- [x] Task 12: UI — PreviewStep y actualización de MigracionManager (AC: 33–34)
+  - [x] 12.1 Crear `app/(dashboard)/configuracion/migracion/_components/PreviewStep.tsx`
+  - [x] 12.2 `PreviewStep` recibe `files: File[]` y `onPreviewComplete: (result: PreviewFilesResult) => void` como props
+  - [x] 12.3 Al montar, envía archivos a `/api/migracion/preview`, muestra skeleton de carga
+  - [x] 12.4 Tras respuesta: render de `SummaryBanner` (N socios, M cortes, K warnings), tabla de socios con `membershipType` y fechas, sección de cortes con folio y conteo de ventas, lista de warnings agrupados por archivo
+  - [x] 12.5 Actualizar `MigracionManager.tsx`: almacenar `analysisFiles: File[]` en state tras Step 1; avanzar a `step = 2` con botón "Continuar"; en Step 2 renderizar `<PreviewStep files={analysisFiles} />`
 
 ## Dev Notes
 
@@ -537,13 +537,41 @@ export type PreviewResponseType = z.infer<typeof PreviewResponseSchema>;
 ## Dev Agent Record
 
 ### Debug Log
-_Empty_
+
+- `buffer as AnyBuffer` cast rejected by TS strict mode on Node 20 generic Buffer — changed to `buffer as unknown as AnyBuffer` in both adapters.
+- `MONTH_YEAR_RE` only matched 3-letter abbreviations (ENE, FEB…); real Excel data uses full names (ENERO, FEBRERO…) — extended regex and lookup table to handle both.
+- Month/year extraction works correctly after fix: 65/65 smoke tests pass.
 
 ### Completion Notes
-_Empty_
+
+All 12 tasks implemented. Observable parsers: every unrecognized value produces a `ParseWarning` with `code`, `field`, `originalValue`, and `message` — no silent failures. AD-1 invariant preserved: `migration.service.ts` never imports exceljs. Zero Prisma calls in the preview chain. TypeScript clean, ESLint clean.
 
 ### File List
-_Empty_
+
+**New:**
+- `modules/migration/domain/domain.types.ts`
+- `modules/migration/domain/parsers/membership-parser.ts`
+- `modules/migration/domain/parsers/payment-parser.ts`
+- `modules/migration/domain/parsers/date-parser.ts`
+- `modules/migration/domain/parsers/null-normalizer.ts`
+- `modules/migration/domain/transformers/member-transformer.ts`
+- `modules/migration/domain/transformers/shift-transformer.ts`
+- `modules/migration/adapters/xlsx-cell-utils.ts`
+- `app/api/migracion/preview/route.ts`
+- `app/(dashboard)/configuracion/migracion/_components/PreviewStep.tsx`
+- `scripts/parse-smoke-test.ts`
+
+**Modified:**
+- `modules/migration/domain/canonical.types.ts` — added `horaInicio`, `horaFin`, legacy Cierre fields
+- `modules/migration/adapters/types.ts` — added `tryParse` to `FileAdapter` interface
+- `modules/migration/adapters/xlsx-socios.adapter.ts` — added `tryParse`
+- `modules/migration/adapters/xlsx-cortes.adapter.ts` — added `tryParse`, refactored to shared cell-utils
+- `modules/migration/migration.service.ts` — added `previewFiles()`
+- `types/api/migracion.ts` — added Story 1.2 schemas and types
+- `app/(dashboard)/configuracion/migracion/_components/FileUploadStep.tsx` — updated signature + Continuar button
+- `app/(dashboard)/configuracion/migracion/_components/MigracionManager.tsx` — step 2 wired to PreviewStep
+- `package.json` — added `smoke:parsers` script
 
 ## Change Log
-_Empty_
+
+- 2026-06-26: Story 1.2 implemented. Commit `2c12ee2` pushed to origin/main.
