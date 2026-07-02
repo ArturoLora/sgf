@@ -5,27 +5,12 @@ import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
-  onExit: () => void;
+  onConfirm: (reimportProducts: boolean) => void;
 }
 
-// AC9: this story ends here — clicking "Eliminar y Reconstruir" does not
-// execute any DELETE. Story 2.2 owns the actual reconstruction.
-export function FinalConfirmationStep({ onExit }: Props) {
+export function FinalConfirmationStep({ onConfirm }: Props) {
   const [confirmed, setConfirmed] = useState(false);
-  const [ready, setReady] = useState(false);
-
-  if (ready) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-          Confirmación registrada. La ejecución de la reconstrucción se implementará en la Story 2.2.
-        </div>
-        <Button variant="outline" onClick={onExit} className="self-end">
-          Volver al inicio
-        </Button>
-      </div>
-    );
-  }
+  const [reimportProducts, setReimportProducts] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,6 +19,16 @@ export function FinalConfirmationStep({ onExit }: Props) {
           <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
           <p className="font-bold text-sm text-destructive">Confirmación final — acción irreversible</p>
         </div>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={reimportProducts}
+            onChange={(e) => setReimportProducts(e.target.checked)}
+          />
+          Reimportar catálogo de productos desde los archivos (opcional — si no se marca, el catálogo
+          actual se conserva)
+        </label>
         <label className="flex items-start gap-2 text-sm text-destructive">
           <input
             type="checkbox"
@@ -47,7 +42,7 @@ export function FinalConfirmationStep({ onExit }: Props) {
       <Button
         variant="destructive"
         disabled={!confirmed}
-        onClick={() => setReady(true)}
+        onClick={() => onConfirm(reimportProducts)}
         className="self-end"
       >
         Eliminar y Reconstruir

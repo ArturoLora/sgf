@@ -8,7 +8,7 @@ import type { BackupResultType } from "@/types/api/migracion";
 type Phase = "checking" | "available" | "generating" | "success" | "failed" | "unavailable";
 
 interface Props {
-  onContinue: () => void;
+  onContinue: (restoreCommand: string | null) => void;
 }
 
 export function BackupStep({ onContinue }: Props) {
@@ -124,7 +124,11 @@ export function BackupStep({ onContinue }: Props) {
         </div>
       )}
 
-      <Button onClick={onContinue} disabled={!canContinue} className="self-end">
+      <Button
+        onClick={() => onContinue(backupResult?.restoreCommand ?? null)}
+        disabled={!canContinue}
+        className="self-end"
+      >
         Continuar
       </Button>
     </div>

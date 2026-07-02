@@ -164,3 +164,33 @@ export const SyncShiftsResponseSchema = SyncShiftsResultSchema.extend({
 });
 
 export type SyncShiftsResponseType = z.infer<typeof SyncShiftsResponseSchema>;
+
+// ─── Story 2.2: reconstruction execution ──────────────────────────────────────
+
+export const DeleteOperationalDataResultSchema = z.object({
+  cashWithdrawalsDeleted: z.number(),
+  movementsDeleted: z.number(),
+  shiftsDeleted: z.number(),
+  membersDeleted: z.number(),
+});
+
+export const ProductResetResultSchema = z.object({
+  productsRecreated: z.number(),
+  taxRatesPreserved: z.number(),
+});
+
+export const ReconstructionPhaseSchema = z.enum(["delete", "products", "members", "shifts", "finalize"]);
+
+export const ReconstructionExecutionResultSchema = z.object({
+  success: z.boolean(),
+  failedPhase: ReconstructionPhaseSchema.nullable(),
+  failureMessage: z.string().nullable(),
+  deleteResult: DeleteOperationalDataResultSchema.nullable(),
+  productResult: ProductResetResultSchema.nullable(),
+  membersResult: SyncMembersResultSchema.nullable(),
+  shiftsResult: SyncShiftsResultSchema.nullable(),
+  finalizeResult: FinalizeSyncResultSchema.nullable(),
+  finalizeWarning: z.string().nullable(),
+});
+
+export type ReconstructionExecutionResultType = z.infer<typeof ReconstructionExecutionResultSchema>;
