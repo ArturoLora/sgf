@@ -1,6 +1,6 @@
 # Story 1.5: Importación Sincronizada de Cortes y Movimientos
 
-Status: review
+Status: done
 
 ## Story
 
@@ -186,6 +186,11 @@ claude-sonnet-5
 - `app/api/migracion/sync-shifts/route.ts`
 - `app/(dashboard)/configuracion/migracion/_components/ImportCortesStep.tsx`
 - `scripts/shift-sync-smoke-test.ts`
+
+**Modificados (fix post-review):**
+- `modules/migration/domain/shift-sync.ts` — `combineDateAndTime()`, `closingDate` en `ShiftUpsertData`
+- `modules/migration/migration.service.ts` — pasa `openingTime`/`closingTime` a `buildShiftUpsertData`
+- `scripts/shift-sync-smoke-test.ts` — casos para `combineDateAndTime` y `closingDate`
 
 **Modificados:**
 - `modules/migration/adapters/xlsx-cell-utils.ts` — fix de `findCierreValue`/`findCierreNumber` para el layout de doble bloque del Cierre
