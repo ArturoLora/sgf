@@ -71,7 +71,18 @@ export async function runDatabaseBackup(): Promise<BackupResult> {
   // subprocess directly — it must NEVER be included in the response sent to
   // the client. restoreCommand references $DATABASE_URL symbolically instead
   // of interpolating the actual secret.
-  await execFileAsync("pg_dump", [databaseUrl, "-f", filePath], { timeout: 120_000 });
+  //
+  // On failure, Node's execFile error embeds the full command line —
+  // argv, including databaseUrl — in its .message (verified: "Command
+  // failed: pg_dump <connection-string-with-credentials> -f <path>").
+  // That raw error must never leave this function: log it server-side only,
+  // rethrow a sanitized message with zero connection details.
+  try {
+    await execFileAsync("pg_dump", [databaseUrl, "-f", filePath], { timeout: 120_000 });
+  } catch (e) {
+    console.error("pg_dump backup failed:", e);
+    throw new Error("No se pudo generar el respaldo — revisa los registros del servidor para más detalle");
+  }
 
   const stats = await stat(filePath);
 
