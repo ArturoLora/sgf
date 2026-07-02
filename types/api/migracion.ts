@@ -132,6 +132,33 @@ export const FinalizeSyncResultSchema = z.object({
 
 export type FinalizeSyncResultType = z.infer<typeof FinalizeSyncResultSchema>;
 
+// ─── Story 2.1: reconstruction mode — preview and backup ──────────────────────
+
+export const ReconstructionPreviewSchema = z.object({
+  membersToDelete: z.number(),
+  shiftsToDelete: z.number(),
+  movementsToDelete: z.number(),
+  withdrawalsToDelete: z.number(),
+  usersToPreserve: z.number(),
+});
+
+export type ReconstructionPreviewType = z.infer<typeof ReconstructionPreviewSchema>;
+
+export const PgDumpAvailabilitySchema = z.object({
+  available: z.boolean(),
+  reason: z.string().nullable(),
+});
+
+export type PgDumpAvailabilityType = z.infer<typeof PgDumpAvailabilitySchema>;
+
+export const BackupResultSchema = z.object({
+  filePath: z.string(),
+  fileSizeBytes: z.number(),
+  restoreCommand: z.string(),
+});
+
+export type BackupResultType = z.infer<typeof BackupResultSchema>;
+
 export const SyncShiftsResponseSchema = SyncShiftsResultSchema.extend({
   finalize: FinalizeSyncResultSchema,
 });

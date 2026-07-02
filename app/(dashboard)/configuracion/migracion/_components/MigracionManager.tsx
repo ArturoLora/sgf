@@ -7,6 +7,7 @@ import { InconsistencyStep } from "./InconsistencyStep";
 import { ImportSociosStep } from "./ImportSociosStep";
 import { ImportCortesStep } from "./ImportCortesStep";
 import { FinalReportStep } from "./FinalReportStep";
+import { ReconstructionManager } from "./ReconstructionManager";
 import type {
   AnalysisResultType,
   PreviewResponseType,
@@ -24,6 +25,7 @@ const STEPS = [
 ] as const;
 
 export function MigracionManager() {
+  const [mode, setMode] = useState<"sync" | "reconstruction" | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [, setAnalysisResults] = useState<AnalysisResultType[]>([]);
   const [analysisFiles, setAnalysisFiles] = useState<File[]>([]);
@@ -66,6 +68,51 @@ export function MigracionManager() {
     setEmployeeMapping({});
     setSyncResult(null);
     setSyncShiftsResult(null);
+  }
+
+  if (mode === null) {
+    return (
+      <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Importación de Datos</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Elige el modo de operación. Ningún dato se modifica hasta que confirmes explícitamente en
+            cada paso.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <button
+            onClick={() => setMode("sync")}
+            className="rounded-lg border border-border p-5 text-left hover:border-primary transition-colors"
+          >
+            <p className="font-semibold text-sm">Sincronización</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Agrega y actualiza registros desde archivos históricos sin eliminar datos existentes.
+            </p>
+          </button>
+          <button
+            onClick={() => setMode("reconstruction")}
+            className="rounded-lg border border-amber-300 bg-amber-50/50 p-5 text-left hover:border-amber-500 transition-colors"
+          >
+            <p className="font-semibold text-sm text-amber-900">Reconstrucción</p>
+            <p className="text-xs text-amber-800 mt-1">
+              Elimina los datos operativos y reconstruye desde cero. Requiere confirmación explícita.
+            </p>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "reconstruction") {
+    return (
+      <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Reconstrucción de Datos</h1>
+        </div>
+        <ReconstructionManager onExit={() => setMode(null)} />
+      </div>
+    );
   }
 
   return (
