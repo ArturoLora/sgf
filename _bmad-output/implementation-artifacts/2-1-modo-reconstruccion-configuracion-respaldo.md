@@ -1,6 +1,6 @@
 # Story 2.1: Modo de Reconstrucción y Configuración de Respaldo
 
-Status: review
+Status: done
 
 ## ⚠️ Nota de identificador duplicado
 
@@ -160,3 +160,7 @@ claude-sonnet-5
 **Modificados:**
 - `types/api/migracion.ts` — `ReconstructionPreviewSchema`, `PgDumpAvailabilitySchema`, `BackupResultSchema`
 - `app/(dashboard)/configuracion/migracion/_components/MigracionManager.tsx` — selector de modo al inicio, sin tocar el wizard de Sincronización existente
+
+## Code Review
+
+Hallazgo Crítico: `runDatabaseBackup()` filtraba `DATABASE_URL` completo (con credenciales) en el mensaje de error cuando `pg_dump` existía pero fallaba en ejecución (escenario AC6) — confirmado con Node real, no hipótesis. Fix aplicado en commit `2cfb65c`: el error de `execFile` se registra server-side y se relanza saneado, sin ningún dato de conexión. Verificado con un `pg_dump` falso que falla en ejecución: la credencial no llega al caller. Sin otros hallazgos bloqueantes. Approved.
