@@ -282,6 +282,8 @@ export async function syncShifts(
         shift.folio,
         cashierId,
         openingDate,
+        shift.openingTime,
+        shift.closingTime,
         shift,
         shift.legacyNotes ? JSON.stringify({ legacyFields: shift.legacyNotes }) : null,
       );

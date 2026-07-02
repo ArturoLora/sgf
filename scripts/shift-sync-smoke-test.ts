@@ -3,6 +3,7 @@ import {
   buildSaleMovementData,
   buildInventoryAdjustmentMovements,
   buildWithdrawalData,
+  combineDateAndTime,
   type ShiftFinancials,
 } from "../modules/migration/domain/shift-sync";
 import type { DomainSale, DomainInventoryRow, DomainWithdrawal } from "../modules/migration/domain/domain.types";
@@ -37,22 +38,40 @@ const financials: ShiftFinancials = {
   totalCash: 7344,
 };
 
+// ── combineDateAndTime ─────────────────────────────────────────────────────────
+console.log("\ncombineDateAndTime");
+{
+  const day = new Date("2026-01-07T00:00:00.000Z");
+  const combined = combineDateAndTime(day, "13:53");
+  assert(combined.getHours() === 13 && combined.getMinutes() === 53, "HH:mm applied to date");
+
+  const noTime = combineDateAndTime(day, null);
+  assert(noTime.getTime() === day.getTime(), "null time falls back to date unchanged");
+
+  const badTime = combineDateAndTime(day, "not-a-time");
+  assert(badTime.getTime() === day.getTime(), "unparseable time falls back to date unchanged");
+}
+
 // ── buildShiftUpsertData ──────────────────────────────────────────────────────
 console.log("\nbuildShiftUpsertData");
 {
-  const opening = new Date("2026-01-07T13:53:00.000Z");
-  const data = buildShiftUpsertData("FN-248", "user-1", opening, financials, null);
+  const day = new Date("2026-01-07T00:00:00.000Z");
+  const data = buildShiftUpsertData("FN-248", "user-1", day, "13:53", "22:24", financials, null);
   assert(data.folio === "FN-248", "folio passthrough");
   assert(data.cashierId === "user-1", "cashierId passthrough");
-  assert(data.openingDate === opening, "openingDate passthrough");
+  assert(data.openingDate.getHours() === 13 && data.openingDate.getMinutes() === 53, "openingDate combines day + openingTime");
+  assert(data.closingDate.getHours() === 22 && data.closingDate.getMinutes() === 24, "closingDate combines day + closingTime");
+  assert(data.closingDate !== null && data.closingDate !== undefined, "closingDate is always set — imported shifts are never left open");
   assert(data.cashAmount === 6344, "cashAmount mapped from Ventas Efectivo block");
   assert(data.totalWithdrawals === 0, "totalWithdrawalsAmount mapped to totalWithdrawals");
   assert(data.notes === null, "notes null when no legacy fields");
 }
 
 {
-  const data = buildShiftUpsertData("FN-249", "user-1", new Date(), financials, '{"legacyFields":"Anticipo: $150.00"}');
+  const day = new Date("2026-01-13T00:00:00.000Z");
+  const data = buildShiftUpsertData("FN-249", "user-1", day, null, null, financials, '{"legacyFields":"Anticipo: $150.00"}');
   assert(data.notes === '{"legacyFields":"Anticipo: $150.00"}', "notes passthrough when legacy fields present");
+  assert(data.closingDate.getTime() === day.getTime(), "closingDate still set (as day) even when closingTime missing — never left open");
 }
 
 // ── buildSaleMovementData ─────────────────────────────────────────────────────

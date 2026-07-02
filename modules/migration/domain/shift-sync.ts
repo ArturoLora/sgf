@@ -9,10 +9,23 @@ import type {
   MigrationPaymentMethod,
 } from "./domain.types";
 
+// Combines a date-only value with an "HH:mm" time string. Falls back to the
+// date unchanged (00:00) when time is null — degrades gracefully rather than
+// throwing, since the Cierre sheet's Hora Inicio/Hora Fin could be missing.
+export function combineDateAndTime(date: Date, time: string | null): Date {
+  if (!time) return date;
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return date;
+  const combined = new Date(date);
+  combined.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return combined;
+}
+
 export interface ShiftUpsertData {
   folio: string;
   cashierId: string;
   openingDate: Date;
+  closingDate: Date;
   initialCash: number;
   ticketCount: number;
   membershipSales: number;
@@ -50,14 +63,20 @@ export interface ShiftFinancials {
 export function buildShiftUpsertData(
   folio: string,
   cashierId: string,
-  openingDate: Date,
+  day: Date,
+  openingTime: string | null,
+  closingTime: string | null,
   financials: ShiftFinancials,
   notes: string | null,
 ): ShiftUpsertData {
   return {
     folio,
     cashierId,
-    openingDate,
+    // Historical cortes are always closed — imported shifts must never read
+    // as "active" to the live app's openShift()/getActiveShift() (both key
+    // off closingDate === null globally, not just for the imported folio).
+    openingDate: combineDateAndTime(day, openingTime),
+    closingDate: combineDateAndTime(day, closingTime),
     initialCash: financials.initialCash,
     ticketCount: financials.ticketCount,
     membershipSales: financials.membershipSales,
