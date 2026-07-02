@@ -136,8 +136,12 @@ export async function syncMembers(members: DomainMember[]): Promise<SyncMembersR
           isActive: data.isActive,
         },
       });
-      if (isNew) created++;
-      else updated++;
+      if (isNew) {
+        created++;
+        existingSet.add(data.memberNumber);
+      } else {
+        updated++;
+      }
     } catch (e) {
       failed++;
       errors.push({
