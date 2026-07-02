@@ -98,3 +98,21 @@ export const SyncMembersResultSchema = z.object({
 });
 
 export type SyncMembersResultType = z.infer<typeof SyncMembersResultSchema>;
+
+// ─── Story 1.5: sync shifts result ────────────────────────────────────────────
+
+export const EmployeeMappingSchema = z.record(z.string(), z.string());
+
+export type EmployeeMappingType = z.infer<typeof EmployeeMappingSchema>;
+
+export const SyncShiftsResultSchema = z.object({
+  shiftsCreated: z.number(),
+  shiftsUpdated: z.number(),
+  shiftsFailed: z.number(),
+  movementsCreated: z.number(),
+  withdrawalsCreated: z.number(),
+  warnings: z.array(z.object({ folio: z.string(), message: z.string() })),
+  errors: z.array(z.object({ folio: z.string(), reason: z.string() })),
+});
+
+export type SyncShiftsResultType = z.infer<typeof SyncShiftsResultSchema>;

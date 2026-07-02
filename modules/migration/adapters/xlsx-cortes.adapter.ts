@@ -145,6 +145,22 @@ export const xlsxCortesAdapter: FileAdapter = {
       const comisionAPagar = findCierreNumber(cierreSheet, "comision a pagar");
       const totalVentasWeb = findCierreNumber(cierreSheet, "total ventas web");
 
+      // Direct Cierre financial fields (Story 1.5) — map 1:1 to Shift columns
+      const initialCash = findCierreNumber(cierreSheet, "fondo caja");
+      const ticketCount = findCierreNumber(cierreSheet, "cantidad tickets");
+      const membershipSales = findCierreNumber(cierreSheet, "ventas membresias");
+      const productSales0Tax = findCierreNumber(cierreSheet, "ventas productos tasa 0");
+      const productSales16Tax = findCierreNumber(cierreSheet, "ventas productos tasa 16");
+      const subtotalCierre = findCierreNumber(cierreSheet, "subtotal");
+      const taxCierre = findCierreNumber(cierreSheet, "iva");
+      const totalSalesCierre = findCierreNumber(cierreSheet, "total venta:");
+      const cashAmount = findCierreNumber(cierreSheet, "ventas efectivo");
+      const debitCardAmount = findCierreNumber(cierreSheet, "ventas tarjeta debito");
+      const creditCardAmount = findCierreNumber(cierreSheet, "ventas tarjeta credito");
+      const totalVoucher = findCierreNumber(cierreSheet, "total voucher");
+      const totalWithdrawalsAmount = findCierreNumber(cierreSheet, "total retiros");
+      const totalCashCierre = findCierreNumber(cierreSheet, "total caja");
+
       // Ventas
       const ventasSheet = workbook.getWorksheet("Ventas")!;
       const ventasHeaderRow = validation.headerRow ?? 3;
@@ -189,6 +205,20 @@ export const xlsxCortesAdapter: FileAdapter = {
         ventasAnticipo,
         comisionAPagar,
         totalVentasWeb,
+        initialCash,
+        ticketCount,
+        membershipSales,
+        productSales0Tax,
+        productSales16Tax,
+        subtotal: subtotalCierre,
+        tax: taxCierre,
+        totalSales: totalSalesCierre,
+        cashAmount,
+        debitCardAmount,
+        creditCardAmount,
+        totalVoucher,
+        totalWithdrawalsAmount,
+        totalCash: totalCashCierre,
       };
 
       return { type: "cortes", shift };

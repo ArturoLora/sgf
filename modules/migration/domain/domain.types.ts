@@ -117,6 +117,10 @@ export interface DomainInventoryRow {
   productName: string;
   gymStock: number;       // = existenciaActual from xlsx
   warehouseStock: number; // always 0 during import
+  adjustment: number;     // = Ajuste from xlsx — 0 if none
+  entries: number;        // = Entradas from xlsx — 0 if none
+  // "Salidas" intentionally omitted — reconciliation total already covered
+  // by the individual Ventas/Canceladas rows (Story 1.5, H5).
 }
 
 export interface DomainWithdrawal {
@@ -135,6 +139,24 @@ export interface DomainShift {
   inventory: DomainInventoryRow[];
   withdrawals: DomainWithdrawal[];
   legacyNotes: string | null;
+  // Direct Cierre financial fields — map 1:1 to Shift columns (Story 1.5).
+  // Read as-is from the historical Cierre — never recomputed from imported
+  // movements (Product.taxRate is a newer field; recomputing would drift
+  // from what the corte actually reported at the time).
+  initialCash: number;
+  ticketCount: number;
+  membershipSales: number;
+  productSales0Tax: number;
+  productSales16Tax: number;
+  subtotal: number;
+  tax: number;
+  totalSales: number;
+  cashAmount: number;
+  debitCardAmount: number;
+  creditCardAmount: number;
+  totalVoucher: number;
+  totalWithdrawalsAmount: number;
+  totalCash: number;
 }
 
 // ─── Preview aggregation ───────────────────────────────────────────────────────

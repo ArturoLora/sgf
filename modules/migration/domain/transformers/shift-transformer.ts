@@ -51,6 +51,9 @@ function transformInventoryRow(row: CanonicalInventoryRow): DomainInventoryRow {
     productName: row.producto,
     gymStock: row.existenciaActual,
     warehouseStock: 0,
+    adjustment: row.ajuste,
+    entries: row.entradas,
+    // row.salidas intentionally not carried — already covered by Ventas/Canceladas (H5).
   };
 }
 
@@ -122,6 +125,20 @@ export function transformShift(
       inventory,
       withdrawals,
       legacyNotes: buildLegacyNotes(shift),
+      initialCash: shift.initialCash ?? 0,
+      ticketCount: shift.ticketCount ?? 0,
+      membershipSales: shift.membershipSales ?? 0,
+      productSales0Tax: shift.productSales0Tax ?? 0,
+      productSales16Tax: shift.productSales16Tax ?? 0,
+      subtotal: shift.subtotal ?? 0,
+      tax: shift.tax ?? 0,
+      totalSales: shift.totalSales ?? 0,
+      cashAmount: shift.cashAmount ?? 0,
+      debitCardAmount: shift.debitCardAmount ?? 0,
+      creditCardAmount: shift.creditCardAmount ?? 0,
+      totalVoucher: shift.totalVoucher ?? 0,
+      totalWithdrawalsAmount: shift.totalWithdrawalsAmount ?? 0,
+      totalCash: shift.totalCash ?? 0,
     },
     warnings,
   };

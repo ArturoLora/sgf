@@ -75,28 +75,49 @@ export function findScanRow(
   return null;
 }
 
-// Scans Cierre sheet rows 1–maxScan for a label (case-insensitive contains),
-// then returns the numeric value from the first non-empty cell in columns 3–8.
+// Cierre sheet layout has TWO label/value blocks per row: a left block
+// (label in col 1, value starting col 3) and, on the same rows, a right
+// "FORMAS DE PAGO" block (label in col 6, value in col 8, col 7 repeats the
+// label text). Story 1.5 discovered that scanning cols 3–8 as one block
+// would sometimes pick up the OTHER block's cell as the "value" — each
+// block's value must be read only from its own column range.
+function findCierreBlockColumn(
+  cierreSheet: ExcelJS.Worksheet,
+  labelFragment: string,
+  maxScan: number,
+): { row: ExcelJS.Row; valueCol: number } | undefined {
+  const fragment = labelFragment.toLowerCase();
+  let found: { row: ExcelJS.Row; valueCol: number } | undefined;
+  cierreSheet.eachRow((row, rowNumber) => {
+    if (rowNumber > maxScan || found) return;
+    const col1 = cellValueToString(row.getCell(1).value).trim().toLowerCase();
+    if (col1.includes(fragment)) {
+      found = { row, valueCol: 3 }; // left block: value starts at col 3
+      return;
+    }
+    const col6 = cellValueToString(row.getCell(6).value).trim().toLowerCase();
+    if (col6.includes(fragment)) {
+      found = { row, valueCol: 8 }; // right block: single value cell at col 8
+    }
+  });
+  return found;
+}
+
+// Scans Cierre sheet rows 1–maxScan for a label (case-insensitive contains)
+// in either block, returning the first non-empty string value found.
 export function findCierreValue(
   cierreSheet: ExcelJS.Worksheet,
   labelFragment: string,
   maxScan = 25,
 ): string | undefined {
-  let found: string | undefined;
-  cierreSheet.eachRow((row, rowNumber) => {
-    if (rowNumber > maxScan || found) return;
-    const col1 = cellValueToString(row.getCell(1).value).trim().toLowerCase();
-    if (col1.includes(labelFragment.toLowerCase())) {
-      for (let c = 3; c <= 8; c++) {
-        const val = cellValueToString(row.getCell(c).value).trim();
-        if (val.length > 0) {
-          found = val;
-          break;
-        }
-      }
-    }
-  });
-  return found;
+  const match = findCierreBlockColumn(cierreSheet, labelFragment, maxScan);
+  if (!match) return undefined;
+  const lastCol = match.valueCol === 3 ? 5 : match.valueCol;
+  for (let c = match.valueCol; c <= lastCol; c++) {
+    const val = cellValueToString(match.row.getCell(c).value).trim();
+    if (val.length > 0) return val;
+  }
+  return undefined;
 }
 
 export function findCierreNumber(
@@ -104,16 +125,12 @@ export function findCierreNumber(
   labelFragment: string,
   maxScan = 25,
 ): number | undefined {
-  let found: number | undefined;
-  cierreSheet.eachRow((row, rowNumber) => {
-    if (rowNumber > maxScan || found !== undefined) return;
-    const col1 = cellValueToString(row.getCell(1).value).trim().toLowerCase();
-    if (col1.includes(labelFragment.toLowerCase())) {
-      for (let c = 3; c <= 8; c++) {
-        const n = cellValueToNumber(row.getCell(c).value);
-        if (n !== null) { found = n; break; }
-      }
-    }
-  });
-  return found;
+  const match = findCierreBlockColumn(cierreSheet, labelFragment, maxScan);
+  if (!match) return undefined;
+  const lastCol = match.valueCol === 3 ? 5 : match.valueCol;
+  for (let c = match.valueCol; c <= lastCol; c++) {
+    const n = cellValueToNumber(match.row.getCell(c).value);
+    if (n !== null) return n;
+  }
+  return undefined;
 }

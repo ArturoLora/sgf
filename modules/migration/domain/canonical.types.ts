@@ -64,6 +64,21 @@ export interface CanonicalShift {
   ventasAnticipo?: number;
   comisionAPagar?: number;
   totalVentasWeb?: number;
+  // Direct Cierre financial fields — map 1:1 to Shift columns (Story 1.5)
+  initialCash?: number;
+  ticketCount?: number;
+  membershipSales?: number;
+  productSales0Tax?: number;
+  productSales16Tax?: number;
+  subtotal?: number;
+  tax?: number;
+  totalSales?: number;
+  cashAmount?: number;
+  debitCardAmount?: number;
+  creditCardAmount?: number;
+  totalVoucher?: number;
+  totalWithdrawalsAmount?: number;
+  totalCash?: number;
 }
 
 export interface CanonicalMembersFile {

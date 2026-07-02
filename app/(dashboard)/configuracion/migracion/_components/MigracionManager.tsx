@@ -5,23 +5,31 @@ import { FileUploadStep } from "./FileUploadStep";
 import { PreviewStep } from "./PreviewStep";
 import { InconsistencyStep } from "./InconsistencyStep";
 import { ImportSociosStep } from "./ImportSociosStep";
-import type { AnalysisResultType, PreviewResponseType, SyncMembersResultType } from "@/types/api/migracion";
+import { ImportCortesStep } from "./ImportCortesStep";
+import type {
+  AnalysisResultType,
+  PreviewResponseType,
+  SyncMembersResultType,
+  SyncShiftsResultType,
+} from "@/types/api/migracion";
 
 const STEPS = [
   "Carga y análisis",
   "Previsualización",
   "Validación",
-  "Confirmación",
+  "Socios",
+  "Cortes",
   "Resultado",
 ] as const;
 
 export function MigracionManager() {
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [, setAnalysisResults] = useState<AnalysisResultType[]>([]);
   const [analysisFiles, setAnalysisFiles] = useState<File[]>([]);
   const [previewResult, setPreviewResult] = useState<PreviewResponseType | null>(null);
   const [employeeMapping, setEmployeeMapping] = useState<Record<string, string>>({});
   const [syncResult, setSyncResult] = useState<SyncMembersResultType | null>(null);
+  const [syncShiftsResult, setSyncShiftsResult] = useState<SyncShiftsResultType | null>(null);
 
   function handleAnalysisComplete(files: File[], results: AnalysisResultType[]) {
     setAnalysisFiles(files);
@@ -44,6 +52,11 @@ export function MigracionManager() {
     setStep(5);
   }
 
+  function handleSyncShiftsComplete(result: SyncShiftsResultType) {
+    setSyncShiftsResult(result);
+    setStep(6);
+  }
+
   function handleReset() {
     setStep(1);
     setAnalysisFiles([]);
@@ -51,6 +64,7 @@ export function MigracionManager() {
     setPreviewResult(null);
     setEmployeeMapping({});
     setSyncResult(null);
+    setSyncShiftsResult(null);
   }
 
   return (
@@ -67,7 +81,7 @@ export function MigracionManager() {
       <nav aria-label="Pasos de importación">
         <ol className="flex items-center gap-0">
           {STEPS.map((label, i) => {
-            const stepNumber = (i + 1) as 1 | 2 | 3 | 4 | 5;
+            const stepNumber = (i + 1) as 1 | 2 | 3 | 4 | 5 | 6;
             const isActive = step === stepNumber;
             const isDone = step > stepNumber;
             return (
@@ -127,16 +141,32 @@ export function MigracionManager() {
         />
       )}
 
-      {step >= 5 && (
+      {step === 5 && previewResult && (
+        <ImportCortesStep
+          files={analysisFiles}
+          totalShifts={previewResult.shifts.length}
+          employeeMapping={employeeMapping}
+          onComplete={handleSyncShiftsComplete}
+        />
+      )}
+
+      {step >= 6 && (
         <div className="rounded-lg border border-border p-6 text-center text-muted-foreground text-sm">
-          Paso {step} — disponible en próximas historias.
+          <p className="font-medium text-foreground">
+            Modo Sincronización — sin borrado de datos previos
+          </p>
           {syncResult && (
             <p className="mt-1 text-xs">
-              ({syncResult.created} socios nuevos · {syncResult.updated} actualizados
-              {syncResult.failed > 0 ? ` · ${syncResult.failed} fallidos` : ""} ·{" "}
-              {Object.keys(employeeMapping).length} cajero
-              {Object.keys(employeeMapping).length !== 1 ? "s" : ""} mapeado
-              {Object.keys(employeeMapping).length !== 1 ? "s" : ""})
+              Socios: {syncResult.created} nuevos · {syncResult.updated} actualizados
+              {syncResult.failed > 0 ? ` · ${syncResult.failed} fallidos` : ""}
+            </p>
+          )}
+          {syncShiftsResult && (
+            <p className="mt-1 text-xs">
+              Cortes: {syncShiftsResult.shiftsCreated} nuevos · {syncShiftsResult.shiftsUpdated} actualizados
+              {syncShiftsResult.shiftsFailed > 0 ? ` · ${syncShiftsResult.shiftsFailed} fallidos` : ""} ·{" "}
+              {syncShiftsResult.movementsCreated} movimientos · {syncShiftsResult.withdrawalsCreated} retiros
+              {syncShiftsResult.warnings.length > 0 ? ` · ${syncShiftsResult.warnings.length} advertencias` : ""}
             </p>
           )}
           <br />
