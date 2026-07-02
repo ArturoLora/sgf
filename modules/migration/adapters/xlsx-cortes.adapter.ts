@@ -125,6 +125,7 @@ export const xlsxCortesAdapter: FileAdapter = {
       const cierreSheet = workbook.getWorksheet("Cierre")!;
       const folio = findCierreValue(cierreSheet, "apertura #") ?? "";
       const fechaApertura = findCierreValue(cierreSheet, "fecha apertura") ?? null;
+      const cajero = findCierreValue(cierreSheet, "cajero") ?? null;
 
       // Time values — exceljs returns as Date with 1899-12-30 base
       const horaInicioRaw = cierreSheet.getRow(
@@ -180,6 +181,7 @@ export const xlsxCortesAdapter: FileAdapter = {
         fechaApertura,
         horaInicio: horaInicio || null,
         horaFin: horaFin || null,
+        cajero,
         ventas,
         canceladas,
         inventario,

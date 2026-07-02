@@ -117,6 +117,7 @@ export function transformShift(
       openingDate: openingDateResult.date,
       openingTime: shift.horaInicio ?? null,
       closingTime: shift.horaFin ?? null,
+      cashierName: shift.cajero?.trim() || null,
       sales: [...sales, ...cancelled],
       inventory,
       withdrawals,

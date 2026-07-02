@@ -55,6 +55,7 @@ export interface CanonicalShift {
   fechaApertura: string | null; // raw string — parsed in domain layer
   horaInicio: string | null;    // "HH:mm" extracted by adapter from Excel time serial
   horaFin: string | null;       // "HH:mm" extracted by adapter from Excel time serial
+  cajero: string | null;        // raw "Cajero" label from Cierre — shift-level, distinct from per-sale sellerName
   ventas: CanonicalSale[];
   canceladas: CanonicalSale[];
   inventario: CanonicalInventoryRow[];

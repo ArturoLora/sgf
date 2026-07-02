@@ -73,12 +73,14 @@ export async function previewFiles(
     distribution[key] = (distribution[key] ?? 0) + 1;
   }
 
-  // Extract unique, sorted seller names from all shifts
+  // Extract unique, sorted names needing employee mapping: per-sale sellers (Ventas!FormaPago)
+  // and per-shift cashiers (Cierre!Cajero) — both resolve via the same employeeMapping (FR7).
   const allSellerNames = [
     ...new Set(
-      allShifts
-        .flatMap((s) => s.sales.map((sale) => sale.sellerName))
-        .filter((n): n is string => n !== null && n.trim() !== ""),
+      [
+        ...allShifts.flatMap((s) => s.sales.map((sale) => sale.sellerName)),
+        ...allShifts.map((s) => s.cashierName),
+      ].filter((n): n is string => n !== null && n.trim() !== ""),
     ),
   ].sort();
 

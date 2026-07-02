@@ -130,6 +130,7 @@ export interface DomainShift {
   openingDate: Date | null;
   openingTime: string | null;  // "HH:mm"
   closingTime: string | null;  // "HH:mm"
+  cashierName: string | null;  // raw "Cajero" name from Cierre — shift-level, feeds employeeMapping alongside sale sellerNames
   sales: DomainSale[];
   inventory: DomainInventoryRow[];
   withdrawals: DomainWithdrawal[];
