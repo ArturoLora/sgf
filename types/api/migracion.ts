@@ -110,9 +110,30 @@ export const SyncShiftsResultSchema = z.object({
   shiftsUpdated: z.number(),
   shiftsFailed: z.number(),
   movementsCreated: z.number(),
+  salesMovements: z.number(),
+  adjustmentMovements: z.number(),
+  entryMovements: z.number(),
   withdrawalsCreated: z.number(),
   warnings: z.array(z.object({ folio: z.string(), message: z.string() })),
   errors: z.array(z.object({ folio: z.string(), reason: z.string() })),
 });
 
 export type SyncShiftsResultType = z.infer<typeof SyncShiftsResultSchema>;
+
+// ─── Story 1.6: post-import finalization ──────────────────────────────────────
+
+export const FinalizeSyncResultSchema = z.object({
+  gymStockUpdated: z.number(),
+  gymStockSkipped: z.boolean(),
+  gymStockSkipReason: z.string().nullable(),
+  maxTicketImported: z.string().nullable(),
+  consistencyWarnings: z.array(z.string()),
+});
+
+export type FinalizeSyncResultType = z.infer<typeof FinalizeSyncResultSchema>;
+
+export const SyncShiftsResponseSchema = SyncShiftsResultSchema.extend({
+  finalize: FinalizeSyncResultSchema,
+});
+
+export type SyncShiftsResponseType = z.infer<typeof SyncShiftsResponseSchema>;

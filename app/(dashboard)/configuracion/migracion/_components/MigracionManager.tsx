@@ -6,11 +6,12 @@ import { PreviewStep } from "./PreviewStep";
 import { InconsistencyStep } from "./InconsistencyStep";
 import { ImportSociosStep } from "./ImportSociosStep";
 import { ImportCortesStep } from "./ImportCortesStep";
+import { FinalReportStep } from "./FinalReportStep";
 import type {
   AnalysisResultType,
   PreviewResponseType,
   SyncMembersResultType,
-  SyncShiftsResultType,
+  SyncShiftsResponseType,
 } from "@/types/api/migracion";
 
 const STEPS = [
@@ -29,7 +30,7 @@ export function MigracionManager() {
   const [previewResult, setPreviewResult] = useState<PreviewResponseType | null>(null);
   const [employeeMapping, setEmployeeMapping] = useState<Record<string, string>>({});
   const [syncResult, setSyncResult] = useState<SyncMembersResultType | null>(null);
-  const [syncShiftsResult, setSyncShiftsResult] = useState<SyncShiftsResultType | null>(null);
+  const [syncShiftsResult, setSyncShiftsResult] = useState<SyncShiftsResponseType | null>(null);
 
   function handleAnalysisComplete(files: File[], results: AnalysisResultType[]) {
     setAnalysisFiles(files);
@@ -52,7 +53,7 @@ export function MigracionManager() {
     setStep(5);
   }
 
-  function handleSyncShiftsComplete(result: SyncShiftsResultType) {
+  function handleSyncShiftsComplete(result: SyncShiftsResponseType) {
     setSyncShiftsResult(result);
     setStep(6);
   }
@@ -150,33 +151,13 @@ export function MigracionManager() {
         />
       )}
 
-      {step >= 6 && (
-        <div className="rounded-lg border border-border p-6 text-center text-muted-foreground text-sm">
-          <p className="font-medium text-foreground">
-            Modo Sincronización — sin borrado de datos previos
-          </p>
-          {syncResult && (
-            <p className="mt-1 text-xs">
-              Socios: {syncResult.created} nuevos · {syncResult.updated} actualizados
-              {syncResult.failed > 0 ? ` · ${syncResult.failed} fallidos` : ""}
-            </p>
-          )}
-          {syncShiftsResult && (
-            <p className="mt-1 text-xs">
-              Cortes: {syncShiftsResult.shiftsCreated} nuevos · {syncShiftsResult.shiftsUpdated} actualizados
-              {syncShiftsResult.shiftsFailed > 0 ? ` · ${syncShiftsResult.shiftsFailed} fallidos` : ""} ·{" "}
-              {syncShiftsResult.movementsCreated} movimientos · {syncShiftsResult.withdrawalsCreated} retiros
-              {syncShiftsResult.warnings.length > 0 ? ` · ${syncShiftsResult.warnings.length} advertencias` : ""}
-            </p>
-          )}
-          <br />
-          <button
-            className="mt-3 underline text-primary"
-            onClick={handleReset}
-          >
-            Volver al inicio
-          </button>
-        </div>
+      {step >= 6 && previewResult && (
+        <FinalReportStep
+          previewResult={previewResult}
+          syncResult={syncResult}
+          syncShiftsResult={syncShiftsResult}
+          onFinish={handleReset}
+        />
       )}
     </div>
   );

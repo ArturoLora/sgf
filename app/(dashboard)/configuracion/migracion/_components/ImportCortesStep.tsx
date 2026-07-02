@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, AlertCircle, Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SyncShiftsResultType } from "@/types/api/migracion";
+import type { SyncShiftsResponseType } from "@/types/api/migracion";
 
 type ImportState = "idle" | "importing" | "done" | "error";
 
@@ -11,12 +11,12 @@ interface Props {
   files: File[];
   totalShifts: number;
   employeeMapping: Record<string, string>;
-  onComplete: (result: SyncShiftsResultType) => void;
+  onComplete: (result: SyncShiftsResponseType) => void;
 }
 
 export function ImportCortesStep({ files, totalShifts, employeeMapping, onComplete }: Props) {
   const [state, setState] = useState<ImportState>("idle");
-  const [result, setResult] = useState<SyncShiftsResultType | null>(null);
+  const [result, setResult] = useState<SyncShiftsResponseType | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function handleImport() {
@@ -33,7 +33,7 @@ export function ImportCortesStep({ files, totalShifts, employeeMapping, onComple
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error ?? `HTTP ${res.status}`);
       }
-      const data: SyncShiftsResultType = await res.json();
+      const data: SyncShiftsResponseType = await res.json();
       setResult(data);
       setState("done");
     } catch (e) {

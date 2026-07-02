@@ -19,6 +19,7 @@
     "smoke:inconsistency": "tsx scripts/inconsistency-smoke-test.ts",
     "smoke:member-upsert": "tsx scripts/member-upsert-smoke-test.ts",
     "smoke:shift-sync": "tsx scripts/shift-sync-smoke-test.ts",
+    "smoke:sync-finalize": "tsx scripts/sync-finalize-smoke-test.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {

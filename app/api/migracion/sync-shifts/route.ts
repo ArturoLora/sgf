@@ -66,5 +66,9 @@ export async function POST(request: Request): Promise<Response> {
 
   const preview = await MigrationService.previewFiles(files);
   const result = await MigrationService.syncShifts(preview.shifts, employeeMapping);
-  return Response.json(result);
+  // Finalization (gymStock, max ticket, consistency checks) must run in this
+  // same request — the "Exi Actual" snapshot only exists in preview.shifts,
+  // never persisted (Story 1.6, H8).
+  const finalize = await MigrationService.finalizeSyncMode(preview.shifts, result);
+  return Response.json({ ...result, finalize });
 }

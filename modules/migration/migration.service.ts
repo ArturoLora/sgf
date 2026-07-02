@@ -13,6 +13,12 @@ import {
   buildInventoryAdjustmentMovements,
   buildWithdrawalData,
 } from "./domain/shift-sync";
+import {
+  findMostRecentShift,
+  computeMaxTicket,
+  buildGymStockUpdates,
+  compareShiftTotals,
+} from "./domain/sync-finalize";
 
 // Registry: add new format adapters here — no other file needs to change. (AD-1)
 const ADAPTERS: FileAdapter[] = [xlsxSociosAdapter, xlsxCortesAdapter];
@@ -169,6 +175,9 @@ export interface SyncShiftsResult {
   shiftsUpdated: number;
   shiftsFailed: number;
   movementsCreated: number;
+  salesMovements: number;
+  adjustmentMovements: number;
+  entryMovements: number;
   withdrawalsCreated: number;
   warnings: Array<{ folio: string; message: string }>;
   errors: Array<{ folio: string; reason: string }>;
@@ -194,6 +203,9 @@ export async function syncShifts(
   let shiftsUpdated = 0;
   let shiftsFailed = 0;
   let movementsCreated = 0;
+  let salesMovements = 0;
+  let adjustmentMovementsCount = 0;
+  let entryMovementsCount = 0;
   let withdrawalsCreated = 0;
   const warnings: Array<{ folio: string; message: string }> = [];
   const errors: Array<{ folio: string; reason: string }> = [];
@@ -293,7 +305,7 @@ export async function syncShifts(
       // the same corte must not duplicate movements/withdrawals (H1/H2) —
       // delete + recreate happens atomically, so a failure mid-way rolls back
       // to the previous state (AC13).
-      const { isNew, movements, withdrawals } = await prisma.$transaction(async (tx) => {
+      const { isNew, movements, sales, adjustments, entries, withdrawals } = await prisma.$transaction(async (tx) => {
         const existing = await tx.shift.findUnique({ where: { folio: shift.folio }, select: { id: true } });
 
         const dbShift = await tx.shift.upsert({
@@ -319,6 +331,9 @@ export async function syncShifts(
         return {
           isNew: !existing,
           movements: saleMovements.length + adjustmentMovements.length,
+          sales: saleMovements.length,
+          adjustments: adjustmentMovements.filter((m) => m.type === "ADJUSTMENT").length,
+          entries: adjustmentMovements.filter((m) => m.type === "GYM_ENTRY").length,
           withdrawals: withdrawalRecords.length,
         };
       });
@@ -326,6 +341,9 @@ export async function syncShifts(
       if (isNew) shiftsCreated++;
       else shiftsUpdated++;
       movementsCreated += movements;
+      salesMovements += sales;
+      adjustmentMovementsCount += adjustments;
+      entryMovementsCount += entries;
       withdrawalsCreated += withdrawals;
     } catch (e) {
       shiftsFailed++;
@@ -336,7 +354,88 @@ export async function syncShifts(
     }
   }
 
-  return { shiftsCreated, shiftsUpdated, shiftsFailed, movementsCreated, withdrawalsCreated, warnings, errors };
+  return {
+    shiftsCreated,
+    shiftsUpdated,
+    shiftsFailed,
+    movementsCreated,
+    salesMovements,
+    adjustmentMovements: adjustmentMovementsCount,
+    entryMovements: entryMovementsCount,
+    withdrawalsCreated,
+    warnings,
+    errors,
+  };
 }
 
-export const MigrationService = { analyzeFile, analyzeFiles, previewFiles, syncMembers, syncShifts };
+// ─── Story 1.6: post-import finalization (gymStock, max ticket, consistency) ──
+
+export interface FinalizeSyncResult {
+  gymStockUpdated: number;
+  gymStockSkipped: boolean;
+  gymStockSkipReason: string | null;
+  maxTicketImported: string | null;
+  consistencyWarnings: string[];
+}
+
+export async function finalizeSyncMode(
+  shifts: DomainShift[],
+  syncResult: SyncShiftsResult,
+): Promise<FinalizeSyncResult> {
+  const failedFolios = new Set(syncResult.errors.map((e) => e.folio));
+  const successfulShifts = shifts.filter((s) => !failedFolios.has(s.folio) && s.openingDate !== null);
+
+  const consistencyWarnings: string[] = [];
+  for (const shift of successfulShifts) {
+    const check = compareShiftTotals(shift);
+    if (!check.withinTolerance) {
+      consistencyWarnings.push(
+        `${check.folio}: suma de movimientos ($${check.actual.toFixed(2)}) difiere de Shift.totalSales ($${check.expected.toFixed(2)}) reportado en el Cierre`,
+      );
+    }
+  }
+
+  const maxTicketImported = computeMaxTicket(successfulShifts);
+
+  let gymStockUpdated = 0;
+  let gymStockSkipped = false;
+  let gymStockSkipReason: string | null = null;
+
+  const mostRecent = findMostRecentShift(successfulShifts);
+  if (mostRecent) {
+    // H9 guard: compare against shifts from OTHER runs only — this run's own
+    // shifts are already persisted by syncShifts() by the time we get here,
+    // so including them here would make the check trivially always pass.
+    const batchFolios = successfulShifts.map((s) => s.folio);
+    const priorMax = await prisma.shift.aggregate({
+      where: { folio: { notIn: batchFolios } },
+      _max: { openingDate: true },
+    });
+    const priorMaxDate = priorMax._max.openingDate;
+
+    if (priorMaxDate && priorMaxDate.getTime() > mostRecent.openingDate!.getTime()) {
+      gymStockSkipped = true;
+      gymStockSkipReason = `El corte más reciente de esta corrida (${mostRecent.folio}) es anterior al corte más reciente ya existente en el sistema — gymStock no se actualizó para evitar retroceder el stock`;
+    } else {
+      const updates = buildGymStockUpdates(mostRecent);
+      for (const update of updates) {
+        const result = await prisma.product.updateMany({
+          where: { name: update.productName },
+          data: { gymStock: update.gymStock },
+        });
+        gymStockUpdated += result.count;
+      }
+    }
+  }
+
+  return { gymStockUpdated, gymStockSkipped, gymStockSkipReason, maxTicketImported, consistencyWarnings };
+}
+
+export const MigrationService = {
+  analyzeFile,
+  analyzeFiles,
+  previewFiles,
+  syncMembers,
+  syncShifts,
+  finalizeSyncMode,
+};
