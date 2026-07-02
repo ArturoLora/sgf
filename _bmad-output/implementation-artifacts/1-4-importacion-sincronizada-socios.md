@@ -1,6 +1,6 @@
 # Story 1.4: Importación Sincronizada de Socios
 
-Status: review
+Status: done
 
 ## Story
 
@@ -478,3 +478,4 @@ El archivo `scripts/member-upsert-smoke-test.ts` debe cubrir:
 ## Change Log
 
 - feat(migration): implement Story 1.4 — idempotent member sync with upsert by memberNumber, ADMIN-only API endpoint, ImportSociosStep UI with idle/importing/done/error states, pure buildMemberUpsertData helper with 24 smoke tests passing
+- Code review: 1 hallazgo Importante (conteo created/updated incorrecto con memberNumber duplicado en el mismo archivo — existingSet no se actualizaba durante el loop), 5 hallazgos Menor/Observación aceptados como backlog. Fix aplicado en commit `2a42f20`. Approved.
