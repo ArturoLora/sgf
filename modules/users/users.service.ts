@@ -120,15 +120,33 @@ export async function createEmployee(
     throw e;
   }
 
-  return prisma.user.update({
-    where: { id: userId },
-    data: {
-      phone: input.phone ?? null,
-      notes: input.notes ?? null,
-      isActive: true,
-    },
-    select: EMPLOYEE_SELECT,
-  });
+  // Better Auth y Prisma no comparten una transacción — createUser() y este
+  // update() son dos escrituras secuenciales, no atómicas. Si el update
+  // falla, el User+Account de createUser() ya persistieron con credencial
+  // utilizable (verificado empíricamente en el review de esta historia:
+  // login real funciona pese al fallo del segundo paso), y el admin vería
+  // un error de "creación fallida" sobre un empleado que en realidad sí
+  // existe y puede iniciar sesión — un huérfano no rastreado, más grave si
+  // el rol es ADMIN. Se revierte con un delete de mejor esfuerzo (cascada
+  // sobre Account/Session vía el schema) para que el alta sea todo-o-nada
+  // desde la perspectiva del admin, sin transacción cross-sistema imposible
+  // de compartir con Better Auth.
+  try {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: {
+        phone: input.phone ?? null,
+        notes: input.notes ?? null,
+        isActive: true,
+      },
+      select: EMPLOYEE_SELECT,
+    });
+  } catch {
+    await prisma.user.delete({ where: { id: userId } }).catch(() => {});
+    throw new Error(
+      "No se pudo completar el alta del empleado — la operación se revirtió, intenta de nuevo",
+    );
+  }
 }
 
 // Story 3.3 H5: edición vía Prisma directo — role/isActive/phone/notes

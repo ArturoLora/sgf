@@ -1,6 +1,6 @@
 # Story 3.3: Alta y Edición de Empleados
 
-Status: review
+Status: done
 
 ## Story
 
@@ -215,8 +215,51 @@ Verificación funcional completa contra la base de datos real de desarrollo (Pri
 
 **Modificados:**
 - `types/api/users.ts` — agrega `CreateEmployeeInputSchema`, `UpdateEmployeeInputSchema` y tipos inferidos
-- `modules/users/users.service.ts` — agrega `createEmployee`, `updateEmployee`, `parseCreateEmployeeInput`, `parseUpdateEmployeeInput`, constante `EMPLOYEE_SELECT` compartida
+- `modules/users/users.service.ts` — agrega `createEmployee`, `updateEmployee`, `parseCreateEmployeeInput`, `parseUpdateEmployeeInput`, constante `EMPLOYEE_SELECT` compartida; en Code Review se agrega rollback compensatorio en `createEmployee` (ver sección Code Review)
 - `app/api/usuarios/route.ts` — agrega `POST`, extrae `requireAdminSession()` compartido con `GET`
 - `lib/api/users.client.ts` — agrega `createEmployee`, `updateEmployee`
 - `app/(dashboard)/usuarios/_components/UsuariosManager.tsx` — agrega botón "Nuevo Empleado", estado de modales, `handleEditar`
 - `app/(dashboard)/usuarios/_components/EmployeeTable.tsx` — `PendingActions` → `EmployeeActions`, botón "Editar" habilitado
+
+## Code Review (2026-07-03)
+
+**Método:** review directo secuencial (sin subagentes, sin capas paralelas), contra el commit `3c83529`.
+
+### Hallazgo Crítico — corregido
+
+**[CRITICAL] Estado parcial real en `createEmployee()`: `auth.api.createUser()` y el `prisma.user.update()` posterior no son atómicos.**
+
+`createEmployee()` ejecuta dos escrituras secuenciales sin transacción compartida (Better Auth y Prisma no pueden compartir una). Si el `update()` (que completa `phone`/`notes`/`isActive`) falla **después** de que `createUser()` ya creó `User`+`Account` con credencial válida, la función lanzaba el error del `update()` tal cual — el admin veía "creación fallida", pero un empleado real, con login funcional, ya existía en la base de datos, no rastreado por la UI. Más grave si el rol asignado era `ADMIN`.
+
+**Reproducido de forma controlada** (sin apagar la DB a mitad de operación): un script forzó el `update()` a apuntar a un id inexistente (simula cualquier fallo real del segundo paso) inmediatamente después de un `createUser()` real. Resultado antes del fix:
+- El `User` seguía existiendo en la DB tras el "fallo".
+- `phone`/`notes` quedaron `null`, `isActive` quedó `true` (por el `@default(true)` de Prisma, no por la lógica de la app).
+- Login real con la contraseña recién creada funcionó — la credencial era 100% utilizable pese al error reportado.
+
+**Fix aplicado** (cambio mínimo, sin abstracción nueva, sin `signUpEmail()`, sin Prisma directo para credenciales, sin tocar la autoridad de Better Auth): se envolvió el `update()` en un segundo `try/catch`. Si falla, se ejecuta un `prisma.user.delete({ where: { id: userId } })` de mejor esfuerzo (revierte `User`+`Account`+`Session` vía la cascada ya definida en el schema) y se relanza un error honesto ("no se pudo completar el alta... se revirtió"). Esto hace el alta todo-o-nada desde la perspectiva del admin — la única alternativa real (transacción compartida) es imposible porque Better Auth y Prisma no exponen una transacción común; una compensación explícita es la solución arquitectónicamente coherente para este caso, tal como anticipó la Story.
+
+**Re-verificado con el mismo mecanismo de reproducción tras el fix:**
+- `createEmployee()` lanza el error esperado.
+- El `User` **no** queda huérfano (`findUnique` → `null`).
+- El login con esa credencial falla (`Invalid email or password`) — confirmando que no queda una cuenta fantasma utilizable.
+- El camino normal (sin fallo forzado) se probó de nuevo tras el fix — sin regresión, `phone`/`notes`/`isActive` siguen persistiendo correctamente.
+
+### Otros puntos auditados — sin hallazgos
+
+- **H1 (refutado):** confirmado como estaba documentado — `@better-auth/core/dist/db/adapter/index.mjs:333-368` (`transformInput`) filtra `data` por `schema[model].fields`; `phone`/`notes` nunces se registraron ahí, `role` sí (plugin `admin`). No es un incumplimiento de la historia, es la corrección correcta de un hallazgo previo basado en lectura de código que la ejecución real refutó.
+- **Contraseña:** `password.min(6)` en Zod bloquea el alta antes de tocar `createUser()` (confirmado con `curl` directo a la API, 400 con mensaje claro). `UpdateEmployeeInputSchema` no tiene campo `password` — imposible de smugglear (Zod descarta claves no declaradas). Verificado con un intento real de `PATCH` incluyendo `password`/`isActive`/`banned`: los tres fueron ignorados, `isActive` siguió `true`, login con la contraseña original siguió funcionando.
+- **Correo duplicado:** alta rechazada nativamente por Better Auth antes de escribir (confirmado, sin registro parcial); edición usa un chequeo Prisma propio (`findFirst` excluyendo el propio id) con mensaje propio — no depende de parsear mensajes internos frágiles de Prisma/Better Auth.
+- **Autorización:** ambos endpoints (`POST /api/usuarios`, `PATCH /api/usuarios/[id]`) son ADMIN-only server-side, verificado con sesión real de `EMPLEADO` (403) y sin sesión (401) contra ambos. La seguridad no depende de la UI ni de que `createUser()` sea headerless.
+- **Campos permitidos:** confirmado por lectura de `UpdateEmployeeInputSchema` + `updateEmployee()` y por intento real de smuggling — edición no puede tocar `isActive`, `password`, `banned`, `banReason`, `banExpires`, ni ningún campo interno de Better Auth.
+- **Capas/contratos:** `types/api/users.ts` sigue siendo la única fuente del contrato; `lib/api/users.client.ts` es fetch-only; toda la coordinación Better Auth+Prisma vive en `modules/users/users.service.ts`; `services/users.service.ts` (legacy) no fue restaurado; `adminUpdateUser` no se usa.
+- **UI:** errores Zod visibles por campo; errores de API mostrados en el bloque rojo del modal (nunca se llama `onSuccess()` si `result.ok` es `false`); modal de alta resetea y cierra solo en éxito real; modal de edición precarga los datos reales del empleado vía `useEffect`+`reset()`; ambos modales refrescan el listado real (`handleActualizar`, refetch de servidor, no mutación local simulada); solo "Editar" tiene `onClick`, "Activar/Desactivar" y "Reiniciar contraseña" siguen `disabled` sin handler.
+- **Regresión:** Story 3.2 (`GET /api/usuarios`, filtros) sin cambios de comportamiento; `/usuarios` sigue protegido; `GET /api/migracion/users` sin cambios; `modules/migration/`/`app/api/migracion/` sin tocar (confirmado con `git diff 5f29b54 --stat`).
+
+### Pruebas ejecutadas
+
+- `npx tsc --noEmit`: limpio (antes y después del fix).
+- `npm run lint` sobre los 10 archivos tocados: limpio.
+- Suite completa de smoke tests: sin regresión — los 2 fallos de `npm run smoke` son preexistentes, confirmado por evidencia de alcance (sin overlap con Shift/Inventario/Sales en el diff).
+- Verificación funcional completa contra la DB real de desarrollo (usuarios reales Nacho/Carlos/Andrew sin tocar; usuarios de prueba `@sgf.local` creados y eliminados en esta sesión): reproducción controlada del escenario de fallo (antes y después del fix), alta/edición reales vía API, intento de smuggling de campos protegidos, autorización 401/403, regresión de Story 3.2 y Migración.
+
+**Resultado: ✅ Aprobado — 1 hallazgo Critical corregido, sin hallazgos pendientes.**
