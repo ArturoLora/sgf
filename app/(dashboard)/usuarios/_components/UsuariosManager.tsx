@@ -3,9 +3,11 @@
 import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, X } from "lucide-react";
+import { Plus, RefreshCw, X } from "lucide-react";
 import { EmployeeFilters } from "./EmployeeFilters";
 import { EmployeeTable } from "./EmployeeTable";
+import { CrearEmpleadoModal } from "./CrearEmpleadoModal";
+import { EditarEmpleadoModal } from "./EditarEmpleadoModal";
 import type { Employee } from "@/modules/users/types";
 import {
   FILTROS_INICIALES,
@@ -26,6 +28,9 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
     FILTROS_INICIALES,
   );
 
+  const [modalCrear, setModalCrear] = useState(false);
+  const [employeeEditar, setEmployeeEditar] = useState<Employee | null>(null);
+
   const empleadosFiltrados = useMemo(
     () => filtrarEmpleados(employees, filtros),
     [employees, filtros],
@@ -43,6 +48,10 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
     setLoading(false);
   }, []);
 
+  const handleEditar = useCallback((employee: Employee) => {
+    setEmployeeEditar(employee);
+  }, []);
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -52,15 +61,24 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
             Administración de empleados
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleActualizar}
-          disabled={loading}
-          className="gap-2 w-full sm:w-auto"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={handleActualizar}
+            disabled={loading}
+            className="gap-2 flex-1 sm:flex-initial"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+          <Button
+            onClick={() => setModalCrear(true)}
+            className="gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo Empleado
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -84,9 +102,24 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <EmployeeTable employees={empleadosFiltrados} />
+          <EmployeeTable
+            employees={empleadosFiltrados}
+            onEditar={handleEditar}
+          />
         </CardContent>
       </Card>
+
+      <CrearEmpleadoModal
+        open={modalCrear}
+        onClose={() => setModalCrear(false)}
+        onSuccess={handleActualizar}
+      />
+
+      <EditarEmpleadoModal
+        employee={employeeEditar}
+        onClose={() => setEmployeeEditar(null)}
+        onSuccess={handleActualizar}
+      />
     </div>
   );
 }

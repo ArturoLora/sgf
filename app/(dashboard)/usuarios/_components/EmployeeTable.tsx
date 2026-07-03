@@ -7,6 +7,7 @@ import type { Employee } from "@/modules/users/types";
 
 interface EmployeeTableProps {
   employees: Employee[];
+  onEditar: (employee: Employee) => void;
 }
 
 function RoleBadge({ role }: { role: Employee["role"] }) {
@@ -34,16 +35,23 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-// Acciones deshabilitadas — anclajes visuales para Stories 3.3-3.5 (editar,
-// activar/desactivar, reiniciar contraseña). Sin lógica real todavía (AC8).
-function PendingActions() {
+// Power/KeyRound quedan deshabilitados — anclajes visuales para Stories
+// 3.4 (activar/desactivar) y 3.5 (reiniciar contraseña). Editar se habilita
+// en Story 3.3 con lógica real; Power/KeyRound siguen sin cambios (AC8/3.2).
+function EmployeeActions({
+  employee,
+  onEditar,
+}: {
+  employee: Employee;
+  onEditar: (employee: Employee) => void;
+}) {
   return (
     <div className="flex items-center justify-center gap-1">
       <Button
         size="sm"
         variant="ghost"
-        disabled
-        title="Editar — disponible en una próxima historia"
+        onClick={() => onEditar(employee)}
+        title="Editar"
         className="h-8 w-8 p-0"
       >
         <Edit className="h-4 w-4" />
@@ -70,7 +78,7 @@ function PendingActions() {
   );
 }
 
-export function EmployeeTable({ employees }: EmployeeTableProps) {
+export function EmployeeTable({ employees, onEditar }: EmployeeTableProps) {
   if (employees.length === 0) {
     return (
       <p className="text-center text-muted-foreground py-8">
@@ -102,7 +110,7 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
             </div>
             <div className="flex items-center justify-between">
               <RoleBadge role={employee.role} />
-              <PendingActions />
+              <EmployeeActions employee={employee} onEditar={onEditar} />
             </div>
           </div>
         ))}
@@ -145,7 +153,7 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
                   <StatusBadge isActive={employee.isActive} />
                 </td>
                 <td className="p-3">
-                  <PendingActions />
+                  <EmployeeActions employee={employee} onEditar={onEditar} />
                 </td>
               </tr>
             ))}

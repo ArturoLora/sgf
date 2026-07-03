@@ -1,4 +1,8 @@
 import type { Employee } from "@/modules/users/types";
+import type {
+  CreateEmployeeInput,
+  UpdateEmployeeInput,
+} from "@/types/api/users";
 
 // ==================== RESPONSE WRAPPER ====================
 
@@ -32,4 +36,27 @@ async function handleResponse<T>(res: Response): Promise<ApiResponse<T>> {
 export async function fetchEmployees(): Promise<ApiResponse<Employee[]>> {
   const res = await fetch("/api/usuarios");
   return handleResponse<Employee[]>(res);
+}
+
+export async function createEmployee(
+  payload: CreateEmployeeInput,
+): Promise<ApiResponse<Employee>> {
+  const res = await fetch("/api/usuarios", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<Employee>(res);
+}
+
+export async function updateEmployee(
+  id: string,
+  payload: UpdateEmployeeInput,
+): Promise<ApiResponse<Employee>> {
+  const res = await fetch(`/api/usuarios/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<Employee>(res);
 }
