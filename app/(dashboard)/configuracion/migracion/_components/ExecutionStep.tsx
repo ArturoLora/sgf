@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ValidationReportStep } from "./ValidationReportStep";
 import type { ReconstructionExecutionResultType } from "@/types/api/migracion";
 
 interface Props {
@@ -10,10 +11,20 @@ interface Props {
   employeeMapping: Record<string, string>;
   reimportProducts: boolean;
   restoreCommand: string | null;
+  expectedMembers: number;
+  expectedShifts: number;
   onExit: () => void;
 }
 
-export function ExecutionStep({ files, employeeMapping, reimportProducts, restoreCommand, onExit }: Props) {
+export function ExecutionStep({
+  files,
+  employeeMapping,
+  reimportProducts,
+  restoreCommand,
+  expectedMembers,
+  expectedShifts,
+  onExit,
+}: Props) {
   const [result, setResult] = useState<ReconstructionExecutionResultType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,28 +103,11 @@ export function ExecutionStep({ files, employeeMapping, reimportProducts, restor
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-lg border border-green-200 bg-green-50 p-4 flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-          <p className="font-semibold text-sm text-green-900">Reconstrucción completada</p>
-        </div>
-        <p className="text-xs text-green-900">
-          {result.membersResult?.created} socios · {result.shiftsResult?.shiftsCreated} corte
-          {result.shiftsResult?.shiftsCreated !== 1 ? "s" : ""} · {result.shiftsResult?.movementsCreated}{" "}
-          movimientos
-          {result.productResult ? ` · ${result.productResult.productsRecreated} productos reimportados` : ""}
-        </p>
-        {result.finalizeWarning && (
-          <p className="text-xs text-amber-800 flex items-start gap-1">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            {result.finalizeWarning}
-          </p>
-        )}
-      </div>
-      <Button onClick={onExit} className="self-end">
-        Volver al inicio
-      </Button>
-    </div>
+    <ValidationReportStep
+      result={result}
+      expectedMembers={expectedMembers}
+      expectedShifts={expectedShifts}
+      onExit={onExit}
+    />
   );
 }

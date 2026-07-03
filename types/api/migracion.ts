@@ -201,3 +201,21 @@ export const ReconstructionExecutionResultSchema = z.object({
 });
 
 export type ReconstructionExecutionResultType = z.infer<typeof ReconstructionExecutionResultSchema>;
+
+// ─── Story 2.3: post-reconstruction validation and report ─────────────────────
+
+export const ReconstructionSeveritySchema = z.enum(["green", "amber", "red"]);
+
+export const ReconstructionValidationSchema = z.object({
+  actualMembers: z.number(),
+  expectedMembers: z.number(),
+  memberCountMatches: z.boolean(),
+  actualShifts: z.number(),
+  expectedShifts: z.number(),
+  shiftCountMatches: z.boolean(),
+  orphanCount: z.number(),
+  orphanDetails: z.array(z.string()),
+  severity: ReconstructionSeveritySchema,
+});
+
+export type ReconstructionValidationType = z.infer<typeof ReconstructionValidationSchema>;

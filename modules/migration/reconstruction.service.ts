@@ -21,6 +21,7 @@ import {
 } from "./migration.service";
 import type { DomainMember, DomainShift } from "./domain/domain.types";
 import { buildProductResetPlan } from "./domain/product-reset";
+import { classifyReconstructionSeverity, type ReconstructionSeverity } from "./domain/reconstruction-report";
 
 const execFileAsync = promisify(execFile);
 
@@ -347,5 +348,89 @@ export async function executeReconstruction(
     shiftsResult,
     finalizeResult,
     finalizeWarning,
+  };
+}
+
+// ─── Story 2.3: post-reconstruction validation (read-only) ────────────────────
+
+export interface ReconstructionValidation {
+  actualMembers: number;
+  expectedMembers: number;
+  memberCountMatches: boolean;
+  actualShifts: number;
+  expectedShifts: number;
+  shiftCountMatches: boolean;
+  orphanCount: number;
+  orphanDetails: string[];
+  severity: ReconstructionSeverity;
+}
+
+// Purely diagnostic — runs strictly after executeReconstruction() already
+// committed (or not). Never reverts, blocks, or modifies anything (Alcance).
+// Orphan checks are structurally guaranteed to find nothing given real
+// Postgres FK constraints (no relationMode configured — H2); they still run
+// as cheap, auditable confirmation for the report.
+export async function validateReconstruction(
+  expectedMembers: number,
+  expectedShifts: number,
+  consistencyWarningCount: number,
+): Promise<ReconstructionValidation> {
+  const [actualMembers, actualShifts] = await Promise.all([
+    prisma.member.count(),
+    prisma.shift.count(),
+  ]);
+
+  const [orphanMembers, orphanShiftsOnMovements, orphanCashiers] = await prisma.$transaction([
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) AS count FROM inventory_movement im
+      WHERE im."memberId" IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM member m WHERE m.id = im."memberId")
+    `,
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) AS count FROM inventory_movement im
+      WHERE im."shiftId" IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM shift s WHERE s.id = im."shiftId")
+    `,
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) AS count FROM shift s
+      WHERE NOT EXISTS (SELECT 1 FROM "user" u WHERE u.id = s."cashierId")
+    `,
+  ]);
+
+  const orphanDetails: string[] = [];
+  const memberOrphans = Number(orphanMembers[0]?.count ?? 0);
+  const shiftOrphansOnMovements = Number(orphanShiftsOnMovements[0]?.count ?? 0);
+  const cashierOrphans = Number(orphanCashiers[0]?.count ?? 0);
+  if (memberOrphans > 0) {
+    orphanDetails.push(`${memberOrphans} InventoryMovement con memberId inexistente`);
+  }
+  if (shiftOrphansOnMovements > 0) {
+    orphanDetails.push(`${shiftOrphansOnMovements} InventoryMovement con shiftId inexistente`);
+  }
+  if (cashierOrphans > 0) {
+    orphanDetails.push(`${cashierOrphans} Shift con cashierId inexistente`);
+  }
+  const orphanCount = memberOrphans + shiftOrphansOnMovements + cashierOrphans;
+
+  const memberCountMatches = actualMembers === expectedMembers;
+  const shiftCountMatches = actualShifts === expectedShifts;
+
+  const severity = classifyReconstructionSeverity({
+    memberCountMatches,
+    shiftCountMatches,
+    orphanCount,
+    consistencyWarningCount,
+  });
+
+  return {
+    actualMembers,
+    expectedMembers,
+    memberCountMatches,
+    actualShifts,
+    expectedShifts,
+    shiftCountMatches,
+    orphanCount,
+    orphanDetails,
+    severity,
   };
 }

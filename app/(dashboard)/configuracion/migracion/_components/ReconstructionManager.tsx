@@ -103,6 +103,8 @@ export function ReconstructionManager({ onExit }: Props) {
           employeeMapping={employeeMapping}
           reimportProducts={reimportProducts}
           restoreCommand={restoreCommand}
+          expectedMembers={previewResult?.members.length ?? 0}
+          expectedShifts={previewResult?.shifts.length ?? 0}
           onExit={onExit}
         />
       )}
