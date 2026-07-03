@@ -154,7 +154,7 @@ async function resetProducts(productNames: string[]): Promise<ProductResetResult
   return { productsRecreated: plan.length, taxRatesPreserved };
 }
 
-export type ReconstructionPhase = "delete" | "products" | "members" | "shifts" | "finalize";
+export type ReconstructionPhase = "validation" | "delete" | "products" | "members" | "shifts" | "finalize";
 
 export interface ReconstructionExecutionResult {
   success: boolean;
@@ -179,6 +179,46 @@ export async function executeReconstruction(
   employeeMapping: Record<string, string>,
   reimportProducts: boolean,
 ): Promise<ReconstructionExecutionResult> {
+  // Guard: refuse to wipe the database when the replacement data is empty.
+  // FileUploadStep/PreviewStep never required both socios and cortes files
+  // together — that permissiveness is correct for Sync mode (incremental
+  // partial imports) but catastrophic here, since syncMembers([])/
+  // syncShifts([]) "succeed" trivially with zero records. No DELETE runs
+  // until both collections are confirmed non-empty.
+  if (members.length === 0 || shifts.length === 0) {
+    return {
+      success: false,
+      failedPhase: "validation",
+      failureMessage:
+        "No se detectaron socios y/o cortes en los archivos subidos — la reconstrucción requiere ambos tipos de archivo con contenido válido. No se eliminó ningún dato.",
+      deleteResult: null,
+      productResult: null,
+      membersResult: null,
+      shiftsResult: null,
+      finalizeResult: null,
+      finalizeWarning: null,
+    };
+  }
+
+  let productNames: string[] = [];
+  if (reimportProducts) {
+    productNames = shifts.flatMap((shift) => shift.inventory.map((row) => row.productName));
+    if (productNames.length === 0) {
+      return {
+        success: false,
+        failedPhase: "validation",
+        failureMessage:
+          "Se pidió reimportar productos, pero no se encontró ningún producto en las hojas de Inventario de los archivos subidos. No se eliminó ningún dato.",
+        deleteResult: null,
+        productResult: null,
+        membersResult: null,
+        shiftsResult: null,
+        finalizeResult: null,
+        finalizeWarning: null,
+      };
+    }
+  }
+
   let deleteResult: DeleteOperationalDataResult;
   try {
     deleteResult = await deleteOperationalData();
@@ -200,7 +240,6 @@ export async function executeReconstruction(
 
   let productResult: ProductResetResult | null = null;
   if (reimportProducts) {
-    const productNames = shifts.flatMap((shift) => shift.inventory.map((row) => row.productName));
     try {
       productResult = await resetProducts(productNames);
     } catch (e) {

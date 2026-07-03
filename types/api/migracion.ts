@@ -179,7 +179,14 @@ export const ProductResetResultSchema = z.object({
   taxRatesPreserved: z.number(),
 });
 
-export const ReconstructionPhaseSchema = z.enum(["delete", "products", "members", "shifts", "finalize"]);
+export const ReconstructionPhaseSchema = z.enum([
+  "validation",
+  "delete",
+  "products",
+  "members",
+  "shifts",
+  "finalize",
+]);
 
 export const ReconstructionExecutionResultSchema = z.object({
   success: z.boolean(),
