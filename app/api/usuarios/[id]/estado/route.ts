@@ -16,11 +16,16 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const input = UsersService.parseUpdateEmployeeInput(body);
-    const employee = await UsersService.updateEmployee(id, input);
-    return NextResponse.json(employee);
+    const input = UsersService.parseSetEmployeeActiveInput(body);
+    const { employee, sessionsRevoked } = await UsersService.setEmployeeActive(
+      id,
+      input.isActive,
+    );
+    return NextResponse.json({ ...employee, sessionsRevoked });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Error al editar empleado";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const message =
+      e instanceof Error ? e.message : "Error al cambiar el estado del empleado";
+    const status = message === "Empleado no encontrado" ? 404 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
 }

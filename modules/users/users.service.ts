@@ -1,14 +1,17 @@
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseBooleanQuery } from "@/services/utils";
 import {
   CreateEmployeeInputSchema,
   UpdateEmployeeInputSchema,
+  SetEmployeeActiveInputSchema,
 } from "@/types/api/users";
 import type {
   UsersQueryInput,
   CreateEmployeeInput,
   UpdateEmployeeInput,
+  SetEmployeeActiveInput,
 } from "@/types/api/users";
 import type { Employee, Role } from "./types";
 
@@ -46,6 +49,12 @@ export function parseCreateEmployeeInput(raw: unknown): CreateEmployeeInput {
 
 export function parseUpdateEmployeeInput(raw: unknown): UpdateEmployeeInput {
   return UpdateEmployeeInputSchema.parse(raw);
+}
+
+export function parseSetEmployeeActiveInput(
+  raw: unknown,
+): SetEmployeeActiveInput {
+  return SetEmployeeActiveInputSchema.parse(raw);
 }
 
 export async function listEmployees(
@@ -178,11 +187,97 @@ export async function updateEmployee(
   });
 }
 
+const NOT_FOUND_MESSAGE = "Empleado no encontrado";
+const LAST_ACTIVE_ADMIN_MESSAGE =
+  "No puedes desactivar al único administrador activo";
+
+export interface SetEmployeeActiveResult {
+  employee: Employee;
+  sessionsRevoked: boolean;
+}
+
+// Story 3.4 — orden fail-safe: isActive=false se persiste PRIMERO, la
+// revocación de sesiones ocurre DESPUÉS. Better Auth y Prisma no comparten
+// transacción (mismo hallazgo raíz que el Critical de Story 3.3), pero al
+// revés que ahí, aquí el orden elegido no necesita compensación: si
+// revokeUserSessions() falla, isActive ya quedó en false — requireAuth()
+// (lib/require-role.ts) y las rutas endurecidas de /api/usuarios/* (ver
+// Story 3.4 H3) ya bloquean cualquier acceso funcional sin depender de que
+// la revocación haya tenido éxito. El orden inverso (revocar primero) no
+// tendría esta garantía: si el update a isActive=false fallara después,
+// el empleado podría iniciar sesión de nuevo sin ninguna restricción.
+//
+// H1 (Story 3.4): auth.api.revokeUserSessions() usa adminMiddleware, que
+// exige incondicionalmente una sesión resoluble desde headers — a diferencia
+// de createUser() (Story 3.3), aquí SÍ se pasan los headers reales de la
+// request del ADMIN que ejecuta la acción.
+//
+// Límite documentado (concurrencia): el chequeo de "único ADMIN activo" lee
+// el conteo y luego escribe dentro de la misma transacción de Prisma, lo
+// cual evita interferencia con otras operaciones de este mismo proceso,
+// pero no garantiza serialización completa frente a dos requests
+// concurrentes desactivando dos ADMIN distintos al mismo tiempo bajo el
+// nivel de aislamiento por defecto de Postgres (READ COMMITTED) — cerrar
+// esa ventana por completo requeriría SERIALIZABLE o locks explícitos de
+// fila, fuera de alcance para el volumen real de administradores de SGF.
+export async function setEmployeeActive(
+  id: string,
+  isActive: boolean,
+): Promise<SetEmployeeActiveResult> {
+  if (!isActive) {
+    const employee = await prisma.$transaction(async (tx) => {
+      const target = await tx.user.findUnique({
+        where: { id },
+        select: { role: true, isActive: true },
+      });
+      if (!target) throw new Error(NOT_FOUND_MESSAGE);
+
+      if (target.role === "ADMIN" && target.isActive) {
+        const activeAdmins = await tx.user.count({
+          where: { role: "ADMIN", isActive: true },
+        });
+        if (activeAdmins <= 1) throw new Error(LAST_ACTIVE_ADMIN_MESSAGE);
+      }
+
+      return tx.user.update({
+        where: { id },
+        data: { isActive: false },
+        select: EMPLOYEE_SELECT,
+      });
+    });
+
+    let sessionsRevoked = true;
+    try {
+      await auth.api.revokeUserSessions({
+        headers: await headers(),
+        body: { userId: id },
+      });
+    } catch {
+      sessionsRevoked = false;
+    }
+
+    return { employee, sessionsRevoked };
+  }
+
+  try {
+    const employee = await prisma.user.update({
+      where: { id },
+      data: { isActive: true },
+      select: EMPLOYEE_SELECT,
+    });
+    return { employee, sessionsRevoked: true };
+  } catch {
+    throw new Error(NOT_FOUND_MESSAGE);
+  }
+}
+
 export const UsersService = {
   listEmployees,
   createEmployee,
   updateEmployee,
+  setEmployeeActive,
   parseUsersQuery,
   parseCreateEmployeeInput,
   parseUpdateEmployeeInput,
+  parseSetEmployeeActiveInput,
 };

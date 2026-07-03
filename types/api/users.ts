@@ -25,8 +25,13 @@ export const UpdateEmployeeInputSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const SetEmployeeActiveInputSchema = z.object({
+  isActive: z.boolean(),
+});
+
 // ==================== INFERRED TYPES ====================
 
 export type UsersQueryInput = z.infer<typeof UsersQuerySchema>;
 export type CreateEmployeeInput = z.infer<typeof CreateEmployeeInputSchema>;
 export type UpdateEmployeeInput = z.infer<typeof UpdateEmployeeInputSchema>;
+export type SetEmployeeActiveInput = z.infer<typeof SetEmployeeActiveInputSchema>;

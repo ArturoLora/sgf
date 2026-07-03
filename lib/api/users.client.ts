@@ -60,3 +60,19 @@ export async function updateEmployee(
   });
   return handleResponse<Employee>(res);
 }
+
+export interface SetEmployeeActiveResponse extends Employee {
+  sessionsRevoked: boolean;
+}
+
+export async function setEmployeeActive(
+  id: string,
+  isActive: boolean,
+): Promise<ApiResponse<SetEmployeeActiveResponse>> {
+  const res = await fetch(`/api/usuarios/${id}/estado`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isActive }),
+  });
+  return handleResponse<SetEmployeeActiveResponse>(res);
+}

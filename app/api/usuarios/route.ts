@@ -1,30 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { requireActiveAdminApi } from "@/lib/require-role";
 import { UsersService } from "@/modules/users/users.service";
 import { UsersQuerySchema } from "@/types/api/users";
 
-async function requireAdminSession() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    return { error: NextResponse.json({ error: "No autenticado" }, { status: 401 }) };
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (user?.role !== "ADMIN") {
-    return { error: NextResponse.json({ error: "Acceso restringido" }, { status: 403 }) };
-  }
-
-  return { error: null };
-}
-
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdminSession();
-  if (error) return error;
+  const check = await requireActiveAdminApi();
+  if ("errorResponse" in check) return check.errorResponse;
 
   const searchParams = request.nextUrl.searchParams;
   const queryRaw = {
@@ -40,8 +21,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdminSession();
-  if (error) return error;
+  const check = await requireActiveAdminApi();
+  if ("errorResponse" in check) return check.errorResponse;
 
   try {
     const body = await request.json();

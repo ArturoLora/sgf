@@ -14,7 +14,7 @@ import {
   filtrarEmpleados,
   type EmployeeFilters as EmployeeFiltersState,
 } from "@/modules/users/domain/employee-filters";
-import { fetchEmployees } from "@/lib/api/users.client";
+import { fetchEmployees, setEmployeeActive } from "@/lib/api/users.client";
 
 interface UsuariosManagerProps {
   initialEmployees: Employee[];
@@ -24,6 +24,7 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [filtros, setFiltros] = useState<EmployeeFiltersState>(
     FILTROS_INICIALES,
   );
@@ -51,6 +52,28 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
   const handleEditar = useCallback((employee: Employee) => {
     setEmployeeEditar(employee);
   }, []);
+
+  const handleToggleActive = useCallback(
+    async (employee: Employee) => {
+      setError("");
+      setNotice("");
+
+      const wasDeactivation = employee.isActive;
+      const result = await setEmployeeActive(employee.id, !employee.isActive);
+
+      if (result.ok) {
+        await handleActualizar();
+        if (wasDeactivation && !result.data.sessionsRevoked) {
+          setNotice(
+            `${employee.name} fue desactivado, pero no se pudieron revocar sus sesiones activas. Perderá acceso en cuanto cargue cualquier página.`,
+          );
+        }
+      } else {
+        setError(result.error);
+      }
+    },
+    [handleActualizar],
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -90,6 +113,15 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
         </div>
       )}
 
+      {notice && (
+        <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 flex justify-between items-start gap-2 dark:bg-yellow-950/30 dark:text-yellow-500">
+          <span className="flex-1">{notice}</span>
+          <Button variant="ghost" size="sm" onClick={() => setNotice("")}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       <EmployeeFilters filtros={filtros} onChange={setFiltros} />
 
       <Card>
@@ -105,6 +137,7 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
           <EmployeeTable
             employees={empleadosFiltrados}
             onEditar={handleEditar}
+            onToggleActive={handleToggleActive}
           />
         </CardContent>
       </Card>

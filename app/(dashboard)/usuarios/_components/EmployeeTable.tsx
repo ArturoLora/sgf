@@ -2,12 +2,13 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, Power, KeyRound, Mail } from "lucide-react";
+import { Edit, Power, PowerOff, KeyRound, Mail } from "lucide-react";
 import type { Employee } from "@/modules/users/types";
 
 interface EmployeeTableProps {
   employees: Employee[];
   onEditar: (employee: Employee) => void;
+  onToggleActive: (employee: Employee) => void;
 }
 
 function RoleBadge({ role }: { role: Employee["role"] }) {
@@ -35,15 +36,17 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-// Power/KeyRound quedan deshabilitados — anclajes visuales para Stories
-// 3.4 (activar/desactivar) y 3.5 (reiniciar contraseña). Editar se habilita
-// en Story 3.3 con lógica real; Power/KeyRound siguen sin cambios (AC8/3.2).
+// KeyRound sigue deshabilitado — anclaje visual para Story 3.5 (reiniciar
+// contraseña). Power se habilita en Story 3.4 con lógica real (activar/
+// desactivar, toggle directo sin confirmación — ver Story 3.4 hallazgo H4).
 function EmployeeActions({
   employee,
   onEditar,
+  onToggleActive,
 }: {
   employee: Employee;
   onEditar: (employee: Employee) => void;
+  onToggleActive: (employee: Employee) => void;
 }) {
   return (
     <div className="flex items-center justify-center gap-1">
@@ -59,11 +62,15 @@ function EmployeeActions({
       <Button
         size="sm"
         variant="ghost"
-        disabled
-        title="Activar/Desactivar — disponible en una próxima historia"
+        onClick={() => onToggleActive(employee)}
+        title={employee.isActive ? "Desactivar" : "Activar"}
         className="h-8 w-8 p-0"
       >
-        <Power className="h-4 w-4" />
+        {employee.isActive ? (
+          <Power className="h-4 w-4 text-green-600" />
+        ) : (
+          <PowerOff className="h-4 w-4 text-muted-foreground" />
+        )}
       </Button>
       <Button
         size="sm"
@@ -78,7 +85,11 @@ function EmployeeActions({
   );
 }
 
-export function EmployeeTable({ employees, onEditar }: EmployeeTableProps) {
+export function EmployeeTable({
+  employees,
+  onEditar,
+  onToggleActive,
+}: EmployeeTableProps) {
   if (employees.length === 0) {
     return (
       <p className="text-center text-muted-foreground py-8">
@@ -110,7 +121,11 @@ export function EmployeeTable({ employees, onEditar }: EmployeeTableProps) {
             </div>
             <div className="flex items-center justify-between">
               <RoleBadge role={employee.role} />
-              <EmployeeActions employee={employee} onEditar={onEditar} />
+              <EmployeeActions
+                employee={employee}
+                onEditar={onEditar}
+                onToggleActive={onToggleActive}
+              />
             </div>
           </div>
         ))}
@@ -153,7 +168,11 @@ export function EmployeeTable({ employees, onEditar }: EmployeeTableProps) {
                   <StatusBadge isActive={employee.isActive} />
                 </td>
                 <td className="p-3">
-                  <EmployeeActions employee={employee} onEditar={onEditar} />
+                  <EmployeeActions
+                    employee={employee}
+                    onEditar={onEditar}
+                    onToggleActive={onToggleActive}
+                  />
                 </td>
               </tr>
             ))}
