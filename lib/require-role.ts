@@ -13,12 +13,18 @@ export async function requireAuth() {
     redirect("/login");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { isActive: true },
-  });
+  let isActive = false;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isActive: true },
+    });
+    isActive = user?.isActive ?? false;
+  } catch {
+    redirect("/login");
+  }
 
-  if (!user?.isActive) {
+  if (!isActive) {
     redirect("/login");
   }
 

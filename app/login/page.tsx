@@ -85,8 +85,8 @@ export default function LoginPage() {
           </form>
           <div className="mt-4 text-center text-sm text-gray-500">
             <p>Usuarios de prueba:</p>
-            <p className="mt-1">nacho@nachogym.com / 123</p>
-            <p>carlos@nachogym.com / 123</p>
+            <p className="mt-1">nacho@nachogym.com / 123456</p>
+            <p>carlos@nachogym.com / 123456</p>
           </div>
         </CardContent>
       </Card>

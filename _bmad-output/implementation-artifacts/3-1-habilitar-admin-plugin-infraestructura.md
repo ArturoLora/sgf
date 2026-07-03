@@ -1,6 +1,6 @@
 # Story 3.1: Habilitar Better Auth Admin Plugin e Infraestructura del Módulo
 
-Status: review
+Status: done
 
 ## Story
 
@@ -178,3 +178,11 @@ Verificación adicional de regresión: login real de `nacho@nachogym.com` con su
 
 **Eliminados:**
 - `services/users.service.ts`
+
+### Review Findings
+
+- [x] [Review][Patch] `prisma/seed.ts` sigue creando a Nacho/Carlos/Andrew con password `"123"` (3 caracteres) vía `signUpEmail()` — con `minPasswordLength: 6` ahora activo, cualquier `npm run prisma:reset`/`npm run prisma:seed` sobre una base limpia falla al crear estos 3 usuarios canónicos. [prisma/seed.ts] — fijado a `"123456"` (seed.ts + texto de credenciales de prueba en `app/login/page.tsx`)
+- [x] [Review][Patch] `requireAuth()` agrega `prisma.user.findUnique()` sin `try/catch` — si la consulta falla (BD caída/timeout), la excepción se propaga sin manejar en vez de redirigir a `/login` como el resto de la función. [lib/require-role.ts:16-19] — envuelto en `try/catch`, redirige a `/login` si la consulta falla
+- [x] [Review][Patch] `modules/users/types.ts` importa `Role` directo de `@/app/generated/prisma`, rompiendo la convención ya establecida en `modules/members/types.ts` y `modules/products/types.ts` ("SIN dependencias externas... no Prisma"). Definir un tipo local (`type Role = "ADMIN" | "EMPLEADO"`) en vez de reexportar el enum de Prisma. [modules/users/types.ts:6] — reemplazado por `export type Role = "ADMIN" | "EMPLEADO"` local, sin consumidores afectados (módulo aún sin uso)
+- [x] [Review][Defer] AC8 no se cumple literalmente: no existe `modules/users/users.service.ts`, solo `types.ts` — deviación documentada por el dev (diferido a Story 3.2, evita crear un archivo sin caso de uso real). Aceptada: coherente con la convención del proyecto de no dejar implementaciones a medias. [modules/users/]
+- [x] [Review][Defer] `User.banned`/`banExpires` se agregaron (obligatorios por el plugin, H1) pero `requireAuth()` nunca los verifica — si en el futuro se invoca `banUser()` (hoy nunca, por AD-U2), una sesión activa no sería bloqueada hasta expirar por sí sola. Dormant mientras no se use `banUser()`. [lib/require-role.ts, prisma/schema.prisma] — deferred, pre-existing (fuera de alcance de esta historia por AD-U2)

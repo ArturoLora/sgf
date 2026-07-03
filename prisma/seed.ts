@@ -14,19 +14,19 @@ async function main() {
     {
       name: "Nacho",
       email: "nacho@nachogym.com",
-      password: "123",
+      password: "123456",
       role: "ADMIN",
     },
     {
       name: "Carlos",
       email: "carlos@nachogym.com",
-      password: "123",
+      password: "123456",
       role: "EMPLEADO",
     },
     {
       name: "Andrew",
       email: "andrew@nachogym.com",
-      password: "123",
+      password: "123456",
       role: "EMPLEADO",
     },
   ];
