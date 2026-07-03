@@ -29,7 +29,13 @@ export default async function DashboardLayout({
           `,
         }}
       />
-      <DashboardLayoutClient user={session.user}>
+      <DashboardLayoutClient
+        user={{
+          name: session.user.name,
+          email: session.user.email,
+          role: session.user.role ?? undefined,
+        }}
+      >
         {children}
       </DashboardLayoutClient>
     </ThemeProvider>

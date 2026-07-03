@@ -1,5 +1,4 @@
 // Exportar todos los servicios
-export * as UsersService from "./users.service";
 export * as MembersService from "@/modules/members/domain";
 export * as ProductsService from "../modules/products/products.service";
 export * as InventoryService from "../modules/inventory/inventory.service";

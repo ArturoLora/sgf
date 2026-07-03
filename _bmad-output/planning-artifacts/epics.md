@@ -158,6 +158,13 @@ El administrador puede ejecutar una **Reconstrucción Completa** de la base de d
 
 ---
 
+### Epic 3: Administración de Usuarios y Empleados
+El administrador puede crear, editar, activar/desactivar y gestionar las contraseñas de los empleados de SGF, y cada empleado puede cambiar su propia contraseña. Este módulo es la fuente oficial de identidad para autenticación, cortes, ventas, y el mapeo de empleados de Migración (Epic 1). Módulo nuevo, independiente de Migración/Reconstrucción — no modifica ninguna de sus capacidades, solo las alimenta con datos de usuario correctos.
+
+**Requerimientos cubiertos:** FR-U1 a FR-U10 (ver "Requirements Inventory — Módulo de Usuarios" al final de este documento)
+
+---
+
 ## Epic 1: Sincronización e Importación de Datos
 
 El administrador puede cargar archivos xlsx históricos desde SGF, analizar su contenido, previsualizar la importación, resolver inconsistencias, y ejecutar importaciones en Modo Sincronización — agregando y actualizando registros sin eliminar datos existentes — de forma cotidiana y permanente.
@@ -483,3 +490,221 @@ So that I have documented evidence that the rebuilt database matches the origina
 **Given** the final report is displayed
 **When** the admin clicks "Exportar Reporte"
 **Then** a printable text or PDF summary is generated for documentation purposes
+
+---
+
+## Epic 3: Administración de Usuarios y Empleados
+
+*Fuente de verdad para esta épica: `_bmad-output/implementation-artifacts/investigations/administracion-usuarios-investigation.md` (investigación + arquitectura aprobadas). Módulo nuevo, sin relación de dependencia con Migración/Reconstrucción — solo las alimenta con datos de usuario correctos.*
+
+### Requirements Inventory — Módulo de Usuarios
+
+**Functional Requirements**
+
+FR-U1: El sistema debe permitir al administrador crear cuentas de empleado (nombre, correo, teléfono opcional, rol, contraseña inicial) usando exclusivamente `auth.api.createUser()` de Better Auth — nunca escritura directa de Prisma sobre `User`/`Account` para datos de credencial.
+
+FR-U2: El sistema debe permitir al administrador editar nombre, correo, teléfono, observaciones y rol de un empleado existente.
+
+FR-U3: El sistema debe permitir al administrador activar o desactivar un empleado (`User.isActive`). Al desactivar, el sistema debe revocar de inmediato todas las sesiones activas de ese empleado vía `auth.api.revokeUserSessions()`.
+
+FR-U4: El sistema debe permitir a cualquier empleado autenticado cambiar su propia contraseña mediante `authClient.changePassword()`, sin intervención del administrador.
+
+FR-U5: El sistema debe permitir al administrador reiniciar la contraseña de cualquier empleado sin conocer la contraseña anterior, usando `auth.api.setUserPassword()`.
+
+FR-U6: El sistema debe permitir al administrador listar, buscar (por nombre o correo) y filtrar (por rol y por estado activo/inactivo) a los empleados.
+
+FR-U7: El sistema **no debe** ofrecer en ningún punto de la interfaz una acción de eliminación física de empleados — únicamente desactivación. Esto es consistente con las restricciones de llave foránea reales del schema (`Shift.cashierId`, `InventoryMovement.userId`, `CashWithdrawal.userId`, sin `onDelete: Cascade`).
+
+FR-U8: `requireAuth()` (`lib/require-role.ts`) debe validar `User.isActive` en cada solicitud, además del rol — un empleado desactivado no debe conservar acceso a ninguna página aunque su sesión no haya sido revocada por otro medio.
+
+FR-U9: La política mínima de contraseña de Better Auth (`minPasswordLength`) se eleva de 3 a 6.
+
+FR-U10: Cualquier empleado creado por este módulo debe estar disponible de inmediato para el mapeo de cajero/vendedor de Migración (`GET /api/migracion/users`, Story 1.3) sin ningún cambio adicional a ese endpoint ni a su contrato.
+
+**NonFunctional Requirements**
+
+NFR-U1: Toda operación de credencial (creación, cambio o reinicio de contraseña) debe pasar exclusivamente por la API de Better Auth (`auth.api.*` / `authClient.*`) — nunca por escritura directa de Prisma sobre `User.password` (que no existe) ni sobre `Account`.
+
+NFR-U2: `role`, `isActive`, `phone` y `notes` permanecen como campos de Prisma gestionados directamente por SGF — no se delega su gestión a mecanismos propios del plugin `admin` de Better Auth (ej. `banned`), para no duplicar la fuente de verdad que Epic 1/2 ya consultan directamente.
+
+NFR-U3: Esta épica no introduce ningún modelo de auditoría/historial nuevo (sin tabla `UserAuditLog` ni equivalente).
+
+NFR-U4: Toda ruta de administración de usuarios sigue el mismo patrón ADMIN-only (sesión + `role === "ADMIN"`) ya usado en las 9 historias de Epic 1/2. La ruta de cambio de contraseña propio requiere únicamente una sesión válida (cualquier rol), no `requireAdmin()`.
+
+NFR-U5: `modules/users/` sigue la misma estructura y principios (P-2, P-3, P-4, P-6 de `CLAUDE.md`) que `modules/migration/` — un servicio por caso de uso, dominio puro sin Prisma/Better Auth, contratos explícitos, misma disposición de carpetas.
+
+### Architectural Decisions
+
+**AD-U1 — Better Auth como única fuente de autenticación, nunca reimplementada.** Toda creación/cambio/reinicio de contraseña pasa por `auth.api.createUser()`, `authClient.changePassword()`, o `auth.api.setUserPassword()` del plugin `admin` (ya instalado en `better-auth@1.4.12`, solo falta habilitarlo en `lib/auth.ts`). Ninguna ruta ni componente escribe `Account.password` directamente.
+
+**AD-U2 — `role`/`isActive`/`phone`/`notes` siguen siendo campos de `User` gestionados por Prisma, no por el plugin `admin`.** Evita que este módulo diverja del patrón que Epic 1/2 ya usan para leer estos mismos campos.
+
+**AD-U3 — Eliminación física nunca se expone en la UI.** Reforzado también por FK reales de Postgres (mismo patrón que H2 de Story 2.3 de Migración) — decisión de producto explícita, no dependiente únicamente de que la base de datos rechace el `DELETE`.
+
+### FR Coverage Map
+
+| FR | Historia |
+|----|----------|
+| FR-U1 | Story 3.3 |
+| FR-U2 | Story 3.3 |
+| FR-U3 | Story 3.4 |
+| FR-U4 | Story 3.5 |
+| FR-U5 | Story 3.5 |
+| FR-U6 | Story 3.2 |
+| FR-U7 | Story 3.1, 3.3, 3.4 |
+| FR-U8 | Story 3.1 |
+| FR-U9 | Story 3.1 |
+| FR-U10 | Story 3.1 (verificación de compatibilidad, sin cambios al endpoint) |
+
+*NFR-U1–U5 aplican a todas las historias de esta épica.*
+
+### Orden recomendado de implementación (ajustado respecto a la propuesta inicial)
+
+La propuesta inicial ordenaba "Listado" (3.5) después de "Alta y edición" (3.2) y "Activar/desactivar" (3.3). **Se invierte ese orden**: el listado (tabla + Manager) es el contenedor donde las acciones de crear, editar, activar/desactivar y resetear contraseña se anclan (mismo patrón que `SociosManager`/`MigracionManager` — un Manager dueño del estado, con modales que se abren desde filas de una tabla). Construir "Alta y edición" antes que el listado obligaría a una pantalla temporal sin tabla, para luego descartarla — trabajo desechable. El orden de historias (3.1–3.5) se mantiene como identificador, pero **3.2 pasa a ser el listado** y **la creación/edición se mueve a 3.3**, manteniendo el total de 5 historias que el usuario pidió.
+
+1. **Story 3.1 — Habilitar Better Auth Admin Plugin e infraestructura del módulo.** Prerequisito técnico: habilita el plugin `admin`, sube `minPasswordLength` a 6, agrega `phone`/`notes` a `User` (migración de Prisma aditiva), valida `isActive` en `requireAuth()`, y reemplaza `services/users.service.ts` (código muerto y roto) por `modules/users/users.service.ts`. Sin UI propia — mismo rol que tuvo Story 1.1 en Epic 1.
+2. **Story 3.2 — Listado, búsqueda y filtro de empleados.** Pantalla principal (`/usuarios`), tabla + búsqueda + filtro por rol/estado. Es el contenedor donde 3.3–3.5 anclan sus acciones.
+3. **Story 3.3 — Alta y edición de empleados.** Modal de creación (usa `auth.api.createUser()`) y edición, alojado en el Manager de 3.2.
+4. **Story 3.4 — Activación y desactivación de empleados.** Toggle de estado + revocación de sesiones, acción por fila en la tabla de 3.2.
+5. **Story 3.5 — Gestión de contraseñas (administrador y autoservicio).** Reinicio por admin (acción por fila en 3.2) + pantalla "Mi Cuenta" para autoservicio, accesible a cualquier empleado autenticado.
+
+### Story 3.1: Habilitar Better Auth Admin Plugin e Infraestructura del Módulo
+
+As an administrador de SGF,
+I want que el sistema tenga habilitada la infraestructura de autenticación administrativa y los campos de empleado necesarios,
+So that las historias siguientes de este módulo puedan construirse sin volver a tocar configuración base.
+
+**Acceptance Criteria:**
+
+**Given** el plugin `admin` de Better Auth se agrega a `lib/auth.ts`
+**When** el servidor arranca
+**Then** `auth.api.createUser`, `auth.api.setUserPassword`, y `auth.api.revokeUserSessions` quedan disponibles sin errores — `auth.api.setRole` queda explícitamente fuera de esta verificación (AD-U2: el rol se gestiona vía Prisma directo, no vía el plugin; ver hallazgo H3 en Story 3.1)
+
+**Given** el schema de Prisma se actualiza
+**When** se ejecuta la migración
+**Then** `User` gana los campos `phone String?` y `notes String?`, ambos opcionales — sin afectar ningún registro existente
+
+**Given** `minPasswordLength` se actualiza a 6
+**When** un usuario existente con contraseña más corta (ej. "123") intenta iniciar sesión
+**Then** el login sigue funcionando con la contraseña actual — la política solo aplica al establecer una contraseña nueva
+
+**Given** `requireAuth()` se extiende para validar `isActive`
+**When** un usuario con `isActive = false` presenta una sesión válida
+**Then** es redirigido a `/login` igual que si no tuviera sesión
+
+**Given** `services/users.service.ts` (código muerto, sin consumidores, con `createUser()` roto — ver investigación) existe
+**When** se crea `modules/users/users.service.ts`
+**Then** el archivo legacy se elimina por completo — no queda código muerto ni una segunda implementación del mismo caso de uso (P-8)
+
+**Given** `GET /api/migracion/users` (Story 1.3) ya existe
+**When** se completa esta historia
+**Then** ese endpoint sigue funcionando sin ningún cambio — se verifica manualmente que el mapeo de empleados de Migración no se rompe
+
+---
+
+### Story 3.2: Listado, Búsqueda y Filtro de Empleados
+
+As an administrador de SGF,
+I want ver una lista de todos los empleados con búsqueda y filtros,
+So that pueda encontrar rápidamente a un empleado para gestionarlo.
+
+**Acceptance Criteria:**
+
+**Given** el admin navega a Configuración → Usuarios
+**When** la página carga
+**Then** ve una tabla con nombre, correo, rol, estado (activo/inactivo) de todos los empleados
+**And** un usuario no-ADMIN es redirigido antes de que la página renderice
+
+**Given** la lista de empleados se muestra
+**When** el admin escribe en el campo de búsqueda
+**Then** la lista se filtra por coincidencia parcial de nombre o correo
+
+**Given** la lista de empleados se muestra
+**When** el admin selecciona un filtro de rol o de estado
+**Then** la lista se reduce a los empleados que cumplen ese filtro
+
+**Given** la tabla de empleados se renderiza
+**When** el admin ve cada fila
+**Then** existen puntos de anclaje visibles para las acciones de historias siguientes (editar, activar/desactivar, reiniciar contraseña) — aunque esta historia no implementa esas acciones todavía
+
+---
+
+### Story 3.3: Alta y Edición de Empleados
+
+As an administrador de SGF,
+I want crear nuevos empleados y editar los datos de los existentes,
+So that el catálogo de usuarios de SGF refleje correctamente al personal actual.
+
+**Acceptance Criteria:**
+
+**Given** el admin hace clic en "Nuevo Empleado" desde el listado (Story 3.2)
+**When** completa nombre, correo, teléfono (opcional), rol, y contraseña inicial, y confirma
+**Then** el sistema llama `auth.api.createUser()`, fija `role`/`isActive=true` en la misma operación, y el nuevo empleado aparece en el listado sin recargar la página
+
+**Given** el correo ingresado ya está registrado
+**When** el admin intenta crear el empleado
+**Then** el sistema rechaza la operación con un mensaje claro, sin crear ningún registro parcial
+
+**Given** el admin hace clic en "Editar" sobre un empleado existente
+**When** modifica nombre, correo, teléfono, observaciones, o rol, y confirma
+**Then** los cambios se guardan vía Prisma directo (no son datos de credencial) y se reflejan de inmediato en el listado
+
+**Given** el admin cambia el correo de un empleado a uno ya usado por otro
+**When** confirma la edición
+**Then** el sistema rechaza el cambio con un mensaje claro, sin modificar el registro
+
+---
+
+### Story 3.4: Activación y Desactivación de Empleados
+
+As an administrador de SGF,
+I want activar o desactivar la cuenta de un empleado,
+So that pueda revocar el acceso de alguien que ya no debe usar el sistema, sin borrar su historial.
+
+**Acceptance Criteria:**
+
+**Given** un empleado activo tiene una sesión iniciada
+**When** el admin lo desactiva desde el listado
+**Then** `User.isActive` pasa a `false`, y `auth.api.revokeUserSessions()` revoca de inmediato todas sus sesiones activas — el empleado pierde acceso sin esperar a que su sesión expire por sí sola
+
+**Given** un empleado desactivado
+**When** intenta iniciar sesión de nuevo
+**Then** el sistema lo rechaza
+
+**Given** un empleado desactivado
+**When** el admin lo reactiva
+**Then** `User.isActive` vuelve a `true` y puede iniciar sesión normalmente en su siguiente intento
+
+**Given** un empleado con turnos, movimientos de inventario, o retiros de caja históricos asociados
+**When** se desactiva
+**Then** todo su historial permanece intacto y visible en reportes/cortes — desactivar nunca oculta ni modifica datos históricos
+
+**Given** cualquier empleado, activo o no
+**When** el admin busca una acción de "Eliminar" en la interfaz
+**Then** esa acción no existe — solo "Desactivar"/"Activar" están disponibles (FR-U7)
+
+---
+
+### Story 3.5: Gestión de Contraseñas (Administrador y Autoservicio)
+
+As an administrador de SGF o como empleado,
+I want que el administrador pueda reiniciar la contraseña de cualquier empleado, y que cada empleado pueda cambiar la suya propia,
+So that el acceso se mantenga seguro sin depender de que el administrador conozca contraseñas ajenas.
+
+**Acceptance Criteria:**
+
+**Given** el admin selecciona "Reiniciar contraseña" sobre un empleado desde el listado
+**When** ingresa una nueva contraseña (mínimo 6 caracteres, FR-U9) y confirma
+**Then** el sistema llama `auth.api.setUserPassword()` — sin necesidad de conocer la contraseña anterior del empleado
+
+**Given** el admin ingresa una contraseña de menos de 6 caracteres al reiniciar
+**When** confirma
+**Then** el sistema rechaza la operación con un mensaje claro, sin cambiar la contraseña actual
+
+**Given** cualquier empleado autenticado (ADMIN o EMPLEADO) navega a "Mi Cuenta"
+**When** ingresa su contraseña actual y una nueva contraseña válida, y confirma
+**Then** el sistema llama `authClient.changePassword()` — sin pasar por ninguna ruta ADMIN-only
+
+**Given** un empleado ingresa una contraseña actual incorrecta en "Mi Cuenta"
+**When** intenta cambiarla
+**Then** el sistema rechaza la operación con un mensaje claro
