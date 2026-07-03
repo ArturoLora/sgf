@@ -610,7 +610,7 @@ So that pueda encontrar rápidamente a un empleado para gestionarlo.
 
 **Acceptance Criteria:**
 
-**Given** el admin navega a Configuración → Usuarios
+**Given** el admin navega a la sección Usuarios (`/usuarios`, nivel superior — `app/(dashboard)/configuracion/` no tiene página propia hoy, ver Story 3.2 hallazgo H1)
 **When** la página carga
 **Then** ve una tabla con nombre, correo, rol, estado (activo/inactivo) de todos los empleados
 **And** un usuario no-ADMIN es redirigido antes de que la página renderice

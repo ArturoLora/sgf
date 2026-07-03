@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Users,
+  UserCog,
   Package,
   Archive,
   Calculator,
@@ -36,6 +37,12 @@ export const dashboardRoutes: NavRoute[] = [
     label: "Reportes",
     href: "/reports",
     icon: BarChart3,
+    adminOnly: true,
+  },
+  {
+    label: "Usuarios",
+    href: "/usuarios",
+    icon: UserCog,
     adminOnly: true,
   },
   {
