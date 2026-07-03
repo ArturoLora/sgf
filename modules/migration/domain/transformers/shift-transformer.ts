@@ -21,7 +21,7 @@ function transformSale(
   }
 
   // Parse forma de pago
-  const pagoResult = parseFormaPago(s.formaPago);
+  const pagoResult = parseFormaPago(s.formaPago, s.descripcion);
   if (pagoResult.warning) {
     warnings.push({ filename, row, field: "formaPago", originalValue: pagoResult.rawInput, message: pagoResult.warning.message, code: pagoResult.warning.code });
   }

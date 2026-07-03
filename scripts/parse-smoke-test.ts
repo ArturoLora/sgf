@@ -185,6 +185,63 @@ console.log("\n── parseFormaPago ──");
   expectWarning("unknown produces UNKNOWN_PAYMENT_METHOD", r.warning, "UNKNOWN_PAYMENT_METHOD");
 }
 
+// ─── Payment parser — anotaciones de caja vs. vendedores reales (docs/2026) ───
+
+{
+  const r = parseFormaPago("EFECTIVO (0)");
+  expectNull("(0) puramente numérico → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (20)", "AGUA 1L");
+  expectNull("(20) puramente numérico → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (AGUA)", "AGUA CIEL 1.5L");
+  expectNull("(AGUA) eco de la descripción → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (CORRECCION)");
+  expectNull("(CORRECCION) vocabulario de anotación → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (POSIBLE ERROR)");
+  expectNull("(POSIBLE ERROR) vocabulario de anotación → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (REGALO)");
+  expectNull("(REGALO) vocabulario de anotación → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (VISIA)", "VISITA");
+  expectNull("(VISIA) eco de la descripción (VISITA) → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (D)", "AGUA CIEL 1.5L");
+  expect("(D) cadena de 1 carácter → se conserva como candidato ambiguo", r.sellerName, "D");
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (Z)", "JIU JITSU MAY 2026");
+  expect("(Z) cadena de 1 carácter → se conserva como candidato ambiguo", r.sellerName, "Z");
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (CARLOS)", "MENSUALIDAD GENERAL FEB 2026");
+  expect("vendedor real (CARLOS) no afectado por la heurística", r.sellerName, "CARLOS");
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (ANDREW)", "AGUA 1L");
+  expect("vendedor real (ANDREW) no afectado aunque la venta sea de agua", r.sellerName, "ANDREW");
+}
+
 // ─── Date parser ─────────────────────────────────────────────────────────────
 
 console.log("\n── normalizeDate ──");
