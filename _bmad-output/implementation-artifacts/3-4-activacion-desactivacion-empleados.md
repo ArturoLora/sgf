@@ -1,6 +1,6 @@
 # Story 3.4: Activación y Desactivación de Empleados
 
-Status: review
+Status: done
 
 ## Story
 
@@ -237,3 +237,43 @@ Verificación funcional completa contra la DB real de desarrollo (Prisma Postgre
 - `lib/api/users.client.ts` — agrega `setEmployeeActive`
 - `app/(dashboard)/usuarios/_components/EmployeeTable.tsx` — botón "Power" habilitado
 - `app/(dashboard)/usuarios/_components/UsuariosManager.tsx` — `handleToggleActive`, banner de advertencia (`notice`)
+
+## Code Review (2026-07-03)
+
+**Método:** review directo secuencial (sin subagentes, sin capas paralelas), contra el commit `e3c2b7b`.
+
+### Hallazgo Medium — corregido: bypass funcional real en 7 rutas de Migración
+
+La historia documentó como "fuera de alcance" 7 rutas de `app/api/migracion/` con el mismo patrón que tenían las rutas de usuarios antes del fix de esta historia: verifican `role === "ADMIN"` pero nunca `isActive`. El review auditó esas 7 rutas concretas (no un grep transversal nuevo) y confirmó que **sí contradicen la propiedad de seguridad prometida por la Story** ("un empleado desactivado no conserva acceso funcional"):
+
+- Ninguna de las 7 llama a `requireAuth()`/`requireAdmin()` — cada una hace su propio chequeo inline de sesión+rol, igual que las rutas de usuarios tenían antes de Story 3.4.
+- `isActive=false` **no** las bloquea por ningún otro camino real: son rutas API independientes, no páginas renderizadas a través de `requireAuth()`.
+- **Reproducido de forma controlada** (mismo mecanismo que la Story ya documentó para el fallo de revocación): se creó un ADMIN de prueba, se le desactivó vía `prisma.user.update({isActive:false})` **sin** pasar por `revokeUserSessions()` (simula exactamente el escenario "revocación falló") — con esa sesión (rol `ADMIN`, `isActive:false`, sesión NO revocada), `GET /api/migracion/reconstruccion/backup-status` y `POST /api/migracion/sync-members` respondían **`200`** antes del fix — acceso funcional real a Migración con una cuenta que el admin ya había desactivado.
+
+**Rutas afectadas (las 7 exactas ya identificadas por la historia):** `reconstruccion/preview`, `reconstruccion/validar`, `reconstruccion/backup`, `reconstruccion/backup-status`, `reconstruccion/ejecutar`, `sync-shifts`, `sync-members`.
+
+**Fix aplicado:** en las 7 rutas, se reemplazó el bloque inline de sesión+rol (7-12 líneas cada uno, usando `auth`/`prisma`/`headers` solo para ese chequeo, verificado que ninguna reutilizaba `session` después) por `requireActiveAdminApi()` — el mismo helper ya creado por esta historia para `/api/usuarios/*`. Cambio puramente de autorización: no se tocó ningún contrato, tipo de respuesta, ni lógica de negocio de Migración (`MigrationService`, `reconstruction.service`, `EmployeeMappingSchema` sin cambios).
+
+**Re-verificado tras el fix:** las mismas 2 rutas (`backup-status`, `sync-members`) con la sesión simulada (ADMIN inactivo, no revocada) → **`403` "Acceso restringido"** — el bypass queda cerrado. Las 7 rutas verificadas con sin-sesión (`401`), `EMPLEADO` (`403`), y ADMIN activo real (pasa el chequeo, llega a la lógica de negocio — confirmado con `backup-status` respondiendo `200` con su payload normal).
+
+**Severidad: Medium.** Real, pero requiere una precondición ya de por sí poco común (fallo de `revokeUserSessions()`) combinada con que la cuenta desactivada sea específicamente un ADMIN usando un token de sesión previo antes de su expiración natural — no explotable a demanda por un usuario sin esa combinación de condiciones.
+
+### Otros puntos auditados — sin hallazgos
+
+1. **Flujo fail-safe:** confirmado en código y en runtime — `isActive=false` se escribe dentro de una transacción Prisma *antes* de intentar `revokeUserSessions()`; el `catch` de la revocación no revierte `isActive` ni hace `throw` — la función retorna `sessionsRevoked:false` y un `200` honesto (la desactivación sí ocurrió; solo la revocación falló, y eso se comunica explícitamente en la respuesta, no se oculta). Reproducción controlada confirmó: `isActive=false` persiste, `requireAuth()` sigue bloqueando páginas, y (tras el fix de arriba) las rutas administrativas también rechazan la sesión no revocada.
+2. **`requireActiveAdminApi()`:** valida sesión (401), consulta `role`+`isActive` frescos desde Prisma (no confía en `session.user`), exige ambos para pasar (403 si falta cualquiera). No rompe `requireAuth()`/`requireAdmin()` — ninguno de los dos fue modificado, solo se agregó una función nueva al mismo archivo.
+3. **`revokeUserSessions()` y headers:** confirmado contra `better-auth@1.4.12` instalado (`admin/routes.mjs:17-21,643-669`) — `adminMiddleware` exige sesión incondicionalmente; la implementación pasa `headers: await headers()` (headers reales de la request del ADMIN que ejecuta la acción, no headerless). `userId: id` es el empleado objetivo correcto (no el ADMIN que ejecuta). Revocación real verificada: `getSession()` con la cookie previa → `null` tras desactivar.
+4. **Guardia único ADMIN activo:** cuenta exactamente `role:"ADMIN", isActive:true`; lee+escribe dentro de `prisma.$transaction`; rechaza *antes* de escribir (`throw` dentro de la transacción revierte cualquier escritura previa de esa misma transacción); permite desactivar un ADMIN si existe otro activo (verificado); no prohíbe auto-desactivación en general, solo cuando el objetivo es el único activo (verificado con Nacho). Ventana de carrera bajo `READ COMMITTED` documentada honestamente como límite conocido, no como bug — aceptable para el volumen real de administradores de SGF, no se exige `SERIALIZABLE`.
+5. **Idempotencia:** activar ya-activo → `200` sin error; desactivar ya-inactivo → `200` sin error, sin revocación adicional dañina (revocar sobre alguien sin sesiones es un no-op seguro, ver H2 de la historia).
+6. **Activación:** solo `prisma.user.update({isActive:true})` — sin llamada a Better Auth, sin tocar password, sin crear ni restaurar sesiones. Confirmado en el Debug Log de implementación: login con password original funciona tras reactivar.
+7. **UI:** botón "Power" con `onClick` real; ícono (`Power`/`PowerOff`) + `title` ("Activar"/"Desactivar") distinguen la acción sin modal (no existe ningún componente de confirmación en el proyecto, confirmado); errores de API visibles en el banner rojo existente; advertencia de revocación fallida en un banner amarillo nuevo (mismo patrón `bg-yellow-50`/`dark:bg-yellow-950` ya usado en el dashboard); el refresco del listado (`handleActualizar`) solo se llama cuando `result.ok`, nunca se simula éxito; KeyRound sigue `disabled` sin `onClick`.
+8. **Story 3.5:** confirmado que no se adelantó — sin `setUserPassword()`, `changePassword()`, edición de password, en ningún archivo del diff.
+
+### Pruebas ejecutadas
+
+- `npx tsc --noEmit`: limpio (antes y después del fix de Migración).
+- `npm run lint` sobre los 9 archivos originales + 7 rutas de Migración corregidas: limpio.
+- Suite completa de smoke tests (incluye las de Migración): sin regresión — los 2 fallos de `npm run smoke` son preexistentes, confirmado sin overlap con el diff.
+- Verificación funcional completa contra la DB real de desarrollo: las 7 rutas de Migración con sin-sesión/EMPLEADO/ADMIN-activo/ADMIN-inactivo-no-revocado (antes y después del fix); `GET /api/migracion/users` (ruta no tocada) sin cambios; re-confirmación de desactivación real con revocación real, guardia de único admin (con 2 y con 1 admin activo), idempotencia en ambas direcciones — todo con usuarios de prueba `@sgf.local` creados y eliminados en esta sesión, usuarios reales Nacho/Carlos/Andrew sin tocar.
+
+**Resultado: ✅ Aprobado — 1 hallazgo Medium corregido (bypass real en 7 rutas de Migración), sin hallazgos pendientes.**

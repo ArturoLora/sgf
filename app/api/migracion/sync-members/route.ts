@@ -1,23 +1,11 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { requireActiveAdminApi } from "@/lib/require-role";
 import { MigrationService } from "@/modules/migration/migration.service";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export async function POST(request: Request): Promise<Response> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    return Response.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (user?.role !== "ADMIN") {
-    return Response.json({ error: "Acceso restringido" }, { status: 403 });
-  }
+  const check = await requireActiveAdminApi();
+  if ("errorResponse" in check) return check.errorResponse;
 
   let formData: FormData;
   try {
