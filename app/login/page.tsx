@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState } from "react";
@@ -33,17 +32,17 @@ export default function LoginPage() {
         password,
       });
       router.push("/");
-    } catch (err) {
-      setError("Credenciales incorrectas");
+    } catch {
+      setError("Correo o contraseña incorrectos");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+        <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Nacho Gym</CardTitle>
           <CardDescription>
             Ingresa tus credenciales para acceder al sistema
@@ -56,7 +55,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="nacho@nachogym.com"
+                placeholder="correo@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -75,7 +74,7 @@ export default function LoginPage() {
               />
             </div>
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
                 {error}
               </div>
             )}
@@ -83,11 +82,6 @@ export default function LoginPage() {
               {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm text-gray-500">
-            <p>Usuarios de prueba:</p>
-            <p className="mt-1">nacho@nachogym.com / 123456</p>
-            <p>carlos@nachogym.com / 123456</p>
-          </div>
         </CardContent>
       </Card>
     </div>
