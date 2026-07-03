@@ -15,17 +15,32 @@ const SELLER_RE = /\(([^)]+)\)/;
 // (que cambia con el tiempo). Confirmado contra el lote real de docs/2026.
 const ANNOTATION_WORDS = new Set(["CORRECCION", "REGALO", "POSIBLE ERROR", "ERROR", "AJUSTE"]);
 
+// "D" y "Z" — únicas 2 cadenas de un carácter encontradas en Forma Pago del
+// lote real de docs/2026 (3 ocurrencias: FN-279/FN-283 para "D", FN-341 para
+// "Z"). Quedaron como ambiguas tras la corrección inicial (no se descartan
+// automáticamente cadenas de un carácter por regla general — ver comentario
+// de isAnnotationValue) hasta obtener evidencia humana. El dueño del negocio
+// confirmó el 2026-07-03 que ni "D" ni "Z" hacen referencia a ningún
+// empleado/entrenador ("Pero no hace ninguna referencia. Los pagos solo se
+// acepta, efectivo o tarjeta.") — exclusión explícita, no una heurística de
+// longitud. Ver _bmad-output/implementation-artifacts/investigations/
+// sgf-auditoria-migracion-investigation.md, "BRECHA CRÍTICA #1" (Cierre).
+const CONFIRMED_NON_SELLER_VALUES = new Set(["D", "Z"]);
+
 // Distingue una anotación de caja (precio, corrección, eco del producto) de un
 // nombre de vendedor real, sin depender de una lista de empleados ni del
-// nombre de archivo. Cadenas de un solo carácter (ej. "D", "Z") nunca se
+// nombre de archivo. Cadenas de un solo carácter en general nunca se
 // descartan por coincidencia con la descripción — una sola letra coincide por
 // azar con casi cualquier texto y no es señal real; sí se descartan si son
-// puramente numéricas (ej. "0"), regla que tiene prioridad sobre la longitud.
+// puramente numéricas (ej. "0"), regla que tiene prioridad sobre la longitud,
+// o si están en la lista explícita y respaldada por evidencia humana de
+// CONFIRMED_NON_SELLER_VALUES (ver arriba).
 function isAnnotationValue(candidate: string, saleDescription: string | null | undefined): boolean {
   const normalized = stripDiacritics(candidate.toUpperCase().trim());
 
   if (/^\d+$/.test(normalized)) return true;
   if (ANNOTATION_WORDS.has(normalized)) return true;
+  if (CONFIRMED_NON_SELLER_VALUES.has(normalized)) return true;
 
   if (saleDescription && normalized.length >= 2) {
     const desc = stripDiacritics(saleDescription.toUpperCase());

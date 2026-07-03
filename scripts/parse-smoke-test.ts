@@ -222,14 +222,36 @@ console.log("\n── parseFormaPago ──");
   expectNull("(VISIA) eco de la descripción (VISITA) → sellerName null", r.sellerName);
 }
 
+// D/Z: excluidos explícitamente tras confirmación del dueño del negocio
+// (2026-07-03) — no hacen referencia a ningún empleado/entrenador. Ver
+// CONFIRMED_NON_SELLER_VALUES en payment-parser.ts y la investigación de
+// Migración ("BRECHA CRÍTICA #1", sección Cierre). Las 3 ocurrencias reales
+// confirmadas en docs/2026: FN-279, FN-283 (D) y FN-341 (Z).
 {
-  const r = parseFormaPago("EFECTIVO (D)", "AGUA CIEL 1.5L");
-  expect("(D) cadena de 1 carácter → se conserva como candidato ambiguo", r.sellerName, "D");
+  const r = parseFormaPago("TRANSF. ELECTRONICA (D)", "AGUA CIEL 1.5L");
+  expectNull("(D) FN-279 — excluido por confirmación humana → sellerName null", r.sellerName);
+}
+
+{
+  const r = parseFormaPago("EFECTIVO (D)", "AGUA 1L");
+  expectNull("(D) FN-283 — excluido por confirmación humana → sellerName null", r.sellerName);
 }
 
 {
   const r = parseFormaPago("EFECTIVO (Z)", "JIU JITSU MAY 2026");
-  expect("(Z) cadena de 1 carácter → se conserva como candidato ambiguo", r.sellerName, "Z");
+  expectNull("(Z) FN-341 — excluido por confirmación humana → sellerName null", r.sellerName);
+}
+
+{
+  // Confirma que la exclusión es explícita para D/Z, no una heurística
+  // general contra cadenas de un carácter — un nombre real de 1 letra que
+  // NO esté en CONFIRMED_NON_SELLER_VALUES debe conservarse.
+  const r = parseFormaPago("EFECTIVO (X)", "MENSUALIDAD GENERAL FEB 2026");
+  expect(
+    "(X) cadena de 1 carácter fuera de D/Z → se conserva, sin heurística general de longitud",
+    r.sellerName,
+    "X",
+  );
 }
 
 {

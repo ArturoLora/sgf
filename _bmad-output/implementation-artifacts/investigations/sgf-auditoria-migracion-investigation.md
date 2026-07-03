@@ -235,6 +235,14 @@ Antes de diseñar la funcionalidad de migración de datos históricos hacia SGF,
 
 **Recomendación:** Antes de migrar, crear un mapeo explícito `{nombre_legado → User.id}` para todos los vendedores históricos. En la migración, parsear el string y aplicar el mapeo.
 
+**Cierre (2026-07-03):** validado el parser (`modules/migration/domain/parsers/payment-parser.ts`) contra el lote histórico real de `docs/2026/` (243 archivos). El parser original extraía **cualquier** contenido entre paréntesis como `sellerName`, produciendo 17 valores únicos — de los cuales 9 eran anotaciones de caja, no vendedores (`0`, `20`, `AGUA`, `CORRECCION`, `POSIBLE ERROR`, `REGALO`, `VISIA`, `D`, `Z`).
+
+- Commit `cff253e` descartó 7 de los 9 con heurísticas estructurales (numérico, eco de la descripción, vocabulario genérico de anotación) — quedaron `D` y `Z` como ambiguos (3 ocurrencias reales: `FN-279`, `FN-283`, `FN-341`), sin evidencia local suficiente para clasificarlos automáticamente.
+- Se preguntó directamente al dueño del negocio. Confirmó el **2026-07-03**: *"Pero no hace ninguna referencia. Los pagos solo se acepta, efectivo o tarjeta."* — `D`/`Z` **no** corresponden a ningún empleado o entrenador histórico.
+- Con esa evidencia humana, se agregó una exclusión explícita para `D`/`Z` (`CONFIRMED_NON_SELLER_VALUES` en `payment-parser.ts`) — deliberadamente **no** una heurística general contra cadenas de un carácter (un nombre real de una sola letra seguiría reconociéndose).
+- Resultado final validado contra los 243 archivos reales: `sellerNames` únicos pasó de 17 → 10 (commit `cff253e`) → **8** (patch D/Z), sin pérdida de ningún nombre real conocido (`ADMINISTRADOR`, `ALICIA ACEVEDO`, `ANDREW`, `ANGELICA`, `CARLOS`, `GAEL`, `GAEL GARCIA PEREZ`, `NACHO`).
+- **Brecha cerrada.** El mapeo de empleados histórico (Story 1.3) ya no requiere decisión manual sobre `D`/`Z` — nunca aparecerán como candidatos a mapear.
+
 ---
 
 #### BRECHA CRÍTICA #2: Cajero almacenado como nombre (no UUID)
