@@ -1,6 +1,6 @@
 # Story 3.2: Listado, Búsqueda y Filtro de Empleados
 
-Status: review
+Status: done
 
 ## Story
 
@@ -197,3 +197,29 @@ Nota de entorno (no relacionada con el código de la historia): el sandbox de es
 - `services/index.ts` — agrega `export * as UsersService from "@/modules/users/users.service"`
 - `lib/navigation.ts` — agrega entrada "Usuarios" (`/usuarios`, `UserCog`, `adminOnly: true`)
 - `_bmad-output/planning-artifacts/epics.md` — corrección del AC de Story 3.2 (H1: "Configuración → Usuarios" → "Usuarios" nivel superior)
+
+## Code Review (2026-07-03)
+
+**Método:** review directo secuencial (sin subagentes, sin capas paralelas, por instrucción explícita del usuario), contra el commit `dcb8b96`.
+
+**Puntos auditados:**
+
+1. **Semántica de filtros (D1, client-side vs server-side)** — comparados línea por línea `modules/users/domain/employee-filters.ts` (client) contra `modules/users/users.service.ts::listEmployees` (server): búsqueda case-insensitive sobre `name`/`email` en ambos, filtro de rol exacto en ambos, filtro de estado equivalente (`isActive`/`!isActive`) en ambos, combinación AND en ambos. **Sin divergencia funcional.** Verificado también en runtime contra la DB real (ver Pruebas).
+2. **Autorización** — `GET /api/usuarios` confirmado ADMIN-only server-side (401 sin sesión, 403 con sesión `EMPLEADO`, verificado independientemente con `curl` real, no solo confiando en el Debug Log de la historia). `/usuarios` usa `requireAdmin()` (mismo mecanismo que `MigracionPage`) — la seguridad no depende de ocultar la navegación; un `EMPLEADO` que fuerza la URL es redirigido antes de que `UsuariosManager` reciba ningún dato (confirmado: 0 nombres de empleado en el HTML devuelto a Carlos).
+3. **Contratos y capas** — `types/api/users.ts` es la única fuente del contrato Zod; `lib/api/users.client.ts` es fetch-only (sin lógica de negocio); `modules/users/domain/employee-filters.ts` no importa Prisma ni HTTP (confirmado por lectura); `users.service.ts` no inventa lógica de autenticación (solo Prisma, ninguna llamada a `auth.api.*`); `services/users.service.ts` (legacy) sigue sin existir; `Employee`/`Role` se reutilizan sin duplicarse en ningún archivo nuevo.
+4. **D2 (botón Actualizar)** — conectado a `fetchEmployees()` real; `disabled={loading}` previene doble request por clics repetidos; en error muestra el mensaje y no corrompe el estado anterior (mismo patrón que `SociosManager`).
+5. **Navegación** — `/usuarios` confirmado como entrada de nivel superior en `dashboardRoutes` (hermana de Socios/Productos), no anidada bajo Configuración. La corrección de `epics.md` toca únicamente la línea del AC afectado (1 línea), sin alterar ningún otro alcance.
+
+**Fuera de alcance — confirmado que NO se adelantó:** `grep` sobre el diff completo de `dcb8b96` no encontró ninguna llamada a `createUser`/`updateUser`/`setUserPassword`/`revokeUserSessions`/`changePassword`/`banUser`, ni ningún `onClick` real en los botones de acción de `EmployeeTable` (los tres están `disabled`, sin handler).
+
+**Migración:** confirmado sin cambios — `git diff cff253e dcb8b96 --stat` no incluye ningún archivo de `modules/migration/`, `app/api/migracion/`; `GET /api/migracion/users` verificado con sesión ADMIN real, misma forma de respuesta (`id`,`name`,`email`).
+
+**Pruebas ejecutadas:**
+- `npx tsc --noEmit`: limpio (se encontró y limpió un artefacto stale de `.next/dev/types/validator.ts` de una build interrumpida anterior — no es código de la historia, no se commiteó nunca).
+- `npm run lint` sobre los 11 archivos tocados: limpio.
+- Suite completa de smoke tests: sin regresión. Los 2 fallos de `npm run smoke` (`difference=0 esperado -50`, `difference=75 esperado 25`) son preexistentes — confirmado por evidencia de alcance: el diff de Story 3.2 (`git diff cff253e dcb8b96 --stat`) no toca ningún archivo de Shift/Inventario/Sales, y el mismo par de fallos ya estaba documentado en el Dev Agent Record de Story 3.1 (commit anterior a que existiera código de Story 3.2).
+- Re-verificación funcional independiente contra la DB real (sesiones nuevas, sin reutilizar las de implementación): 401 sin sesión, login Carlos (EMPLEADO) → 403 en `/api/usuarios` y redirect en `/usuarios` sin datos filtrados, login Nacho (ADMIN) → combinación `search=an&role=EMPLEADO&isActive=true` devuelve exactamente `Andrew`. Sin modificar ningún dato de empleado (solo `GET`/`sign-in`).
+
+**Hallazgos:** ninguno. 0 `decision-needed`, 0 `patch`, 0 `defer`, 0 dismissed.
+
+**Resultado: ✅ Aprobado sin hallazgos.**
