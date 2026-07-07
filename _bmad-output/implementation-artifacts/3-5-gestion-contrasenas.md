@@ -1,6 +1,6 @@
 # Story 3.5: Gestión de Contraseñas (Administrador y Autoservicio)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -249,3 +249,58 @@ Verificación funcional completa contra la DB real de desarrollo (Prisma Postgre
 
 **Sin cambios (decisión explícita):**
 - `lib/navigation.ts` — `/mi-cuenta` no se agregó al sidebar (Task 11)
+
+## Senior Developer Review (AI)
+
+**Fecha:** 2026-07-06
+**Resultado:** Aprobada. Sin hallazgos.
+**Alcance revisado:** diff exacto del commit `40ea72e` (11 archivos). No se reauditó Epic 3 completo, no se investigó Migración/Reconstruction, sin subagentes.
+
+### 1. Reset ADMIN — verificado sin hallazgos
+
+- **Aislamiento por rol, no por objetivo (re-verificado fresco con usuarios de prueba nuevos):** EMPLEADO intentando resetear la contraseña de OTRO usuario → `403`. EMPLEADO intentando resetear **su propia** contraseña vía el endpoint ADMIN (en vez de autoservicio) → también `403` — confirma que el guard es por `role` de la sesión, no por relación con el `id` objetivo; no hay bypass usando el propio id.
+- Sin sesión → `401`. `id` inexistente → `404` (ya confirmado en la implementación, código sin cambios desde entonces).
+- `headers: await headers()` reales llegan a `setUserPassword()` — confirmado en código (`users.service.ts`) y en runtime (el reset real cambió la credencial en ambas rondas de prueba).
+- `resetEmployeePassword()` no escribe ningún campo de `User` — solo lee (`findUnique`) y llama a Better Auth. Re-confirmado en runtime: `role`/`isActive` idénticos antes/después del reset.
+- Ningún archivo nuevo distinto de `app/api/usuarios/[id]/password/route.ts` expone una ruta que llegue a `resetEmployeePassword()` — un solo punto de entrada, con `requireActiveAdminApi()` como único guard (sin duplicar ni debilitar).
+- Errores de Better Auth no se enmascaran como éxito: el `try/catch` de `resetEmployeePassword()` solo traduce el caso específico "password too short"; cualquier otro error (ej. "Password too long", confirmado con una contraseña de 200 caracteres) se repropaga y el route lo mapea a `400` real — nunca a `200`.
+- `KeyRound`: `disabled` eliminado, `onClick` real abre `ResetPasswordModal` (componente nuevo, no `EditarEmpleadoModal`). `Power`/`Edit` sin cambios de lógica en el diff.
+
+### 2. Autoservicio `/mi-cuenta` — verificado sin hallazgos
+
+- `authClient.changePassword({currentPassword, newPassword})` — sin ningún campo `userId` en el formulario, en el cliente, ni en el schema real del endpoint core de Better Auth (`update-user.mjs:79-89`, body = `{newPassword, currentPassword, revokeOtherSessions?}`) — no existe superficie para inyectar o seleccionar un usuario objetivo distinto al de la sesión. Better Auth resuelve el usuario exclusivamente desde `ctx.context.session.user.id`.
+- Contraseña actual incorrecta → catch muestra "Contraseña actual incorrecta" (confirmado en runtime de la implementación: `400 INVALID_PASSWORD`).
+- Sin endpoint ADMIN-only nuevo para este flujo — confirmado por ausencia en el diff (`git show --stat`, solo 4 archivos nuevos, ninguno es una ruta API adicional).
+- `requireAuth()` (sin modificar en este diff) bloquea tanto sesión inexistente como `isActive:false` — mismo mecanismo ya usado por todo el dashboard, no reimplementado aquí.
+- `/mi-cuenta` no aparece en `lib/navigation.ts` (archivo no tocado, confirmado) — único acceso es el botón nuevo en `Header.tsx`, que apunta a `href="/mi-cuenta"` (ruta correcta, coincide con la carpeta creada).
+
+### 3. Contratos y validación — verificado sin hallazgos
+
+- `ResetPasswordInputSchema` (Zod, `types/api/users.ts`) es la fuente compartida real: mismo schema usado por el cliente (`ResetPasswordModal`, vía `zodResolver`) y por el service (`parseResetPasswordInput`) — sin tipo paralelo.
+- Sin `maxPasswordLength` copiado desde Better Auth en ningún Zod — confirmado por lectura del diff (`ResetPasswordInputSchema` solo tiene `.min(6)`) y por runtime: una contraseña de 200 caracteres pasó nuestro Zod y fue rechazada únicamente por el `maxPasswordLength` real de Better Auth, propagado sin traducir — evidencia directa de que no hay una copia divergente de esa regla.
+- `minPasswordLength` (6) coincide exactamente con `lib/auth.ts` y con los AC de la Story.
+- Tipos sincronizados: `types/api/users.ts` → `modules/users/users.service.ts` → `lib/api/users.client.ts` → `ResetPasswordModal.tsx`, mismo tipo `ResetPasswordInput` en toda la cadena.
+- Sin `any` ni casts inseguros en ningún archivo del diff (`grep` dirigido, cero resultados).
+
+### 4. Integridad Stories 3.2-3.4 — verificado sin hallazgos
+
+- `lib/require-role.ts` (`requireActiveAdminApi()`/`requireAuth()`) no aparece en el diff — sin debilitamiento.
+- `EditarEmpleadoModal.tsx`, `app/api/usuarios/route.ts`, `app/api/usuarios/[id]/route.ts`, `app/api/usuarios/[id]/estado/route.ts` no aparecen en el diff — alta/edición/activar-desactivar intactos.
+- `EmployeeTable.tsx`/`UsuariosManager.tsx`: cambios estrictamente additivos (nueva prop `onResetPassword`, nuevo estado, nuevo modal) — el bloque de `Power`/`onToggleActive` y `Edit`/`onEditar` no cambia una sola línea de su lógica.
+- Ningún botón/endpoint/función de eliminación en ningún archivo del diff.
+- `app/login/page.tsx` no aparece en el diff.
+
+### Pruebas ejecutadas en esta revisión
+
+- Re-verificación fresca contra DB real con 2 usuarios de prueba nuevos (`review-admin-35@sgf.local`, `review-empleado-35@sgf.local`): EMPLEADO→objetivo-ajeno `403`, EMPLEADO→objetivo-propio-vía-endpoint-admin `403`, sin sesión `401`, reset real con `role`/`isActive` verificados idénticos antes/después.
+- `npx tsc --noEmit`: limpio.
+- `npx eslint` sobre los 10 archivos de código del diff: limpio.
+- Usuarios de prueba: `0` residuos en `Shift`/confirmado antes de borrar; eliminados con `prisma.user.deleteMany()`; engines de Prisma (`darwin-arm64`/`rhel`) removidos temporalmente y restaurados al terminar; `Nacho`/`Carlos`/`Andrew` no tocados en ningún punto de esta revisión.
+
+### Aislamiento ADMIN vs autoservicio — confirmación explícita
+
+Son dos caminos de código completamente separados, sin superficie compartida: el reset ADMIN exige `role=ADMIN` de la sesión vía `requireActiveAdminApi()` y opera sobre un `id` objetivo arbitrario recibido en la URL; el autoservicio no tiene ningún concepto de "usuario objetivo" — Better Auth resuelve siempre el usuario desde la sesión activa, sin ningún parámetro que permita apuntar a otro usuario. Ninguno de los dos flujos puede alcanzar la lógica del otro (rutas, funciones de service y componentes de UI completamente distintos).
+
+### Action Items
+
+Ninguno — sin hallazgos que corregir ni decisiones pendientes.
