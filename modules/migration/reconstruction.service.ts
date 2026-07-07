@@ -168,7 +168,15 @@ export interface ProductPricingResult {
 // pipeline — deleteOperationalData() (fase "delete") wiped it, and syncShifts()
 // (fase "shifts") only recreates it later. This step must run after syncShifts()
 // succeeds, reading the freshly-created InventoryMovement rows.
-async function restoreProductSalePrices(productsRecreated: number): Promise<ProductPricingResult> {
+//
+// Deliberately queries ALL SALE movements (not scoped to the products created
+// by resetProducts()): syncShifts() upserts additional Product rows for sale
+// descriptions absent from the Inventario sheet (migration.service.ts's
+// productIdByName upsert), so the final catalog is always >= productsRecreated
+// (confirmed in production: productsRecreated=57 vs final Product count=113).
+// Restoring salePrice must cover that full final catalog, not only the subset
+// resetProducts() created.
+async function restoreProductSalePrices(): Promise<ProductPricingResult> {
   const movements = await prisma.inventoryMovement.findMany({
     where: { type: "SALE" },
     select: { productId: true, unitPrice: true, isCancelled: true, type: true, date: true, id: true },
@@ -189,9 +197,13 @@ async function restoreProductSalePrices(productsRecreated: number): Promise<Prod
     await prisma.product.update({ where: { id: productId }, data: { salePrice } });
   }
 
-  // productsLeftAtZero derived by subtraction (no extra count query) —
-  // productsRecreated is the total Product rows created by resetProducts().
-  return { productsPriced: pricesByProduct.size, productsLeftAtZero: productsRecreated - pricesByProduct.size };
+  // Baseline for productsLeftAtZero must be the FINAL catalog size (post
+  // syncShifts(), when this step runs), not productResult.productsRecreated —
+  // that would undercount and can go negative once syncShifts() has upserted
+  // additional products. One count() query is cheap next to the per-product
+  // update loop above.
+  const totalProducts = await prisma.product.count();
+  return { productsPriced: pricesByProduct.size, productsLeftAtZero: totalProducts - pricesByProduct.size };
 }
 
 export type ReconstructionPhase = "validation" | "delete" | "products" | "members" | "shifts" | "pricing" | "finalize";
@@ -380,7 +392,7 @@ export async function executeReconstruction(
   let pricingResult: ProductPricingResult | null = null;
   if (reimportProducts && productResult) {
     try {
-      pricingResult = await restoreProductSalePrices(productResult.productsRecreated);
+      pricingResult = await restoreProductSalePrices();
     } catch (e) {
       return {
         success: false,

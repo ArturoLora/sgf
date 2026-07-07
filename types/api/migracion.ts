@@ -179,12 +179,19 @@ export const ProductResetResultSchema = z.object({
   taxRatesPreserved: z.number(),
 });
 
+// Story D2: salePrice restoration after Reconstruction reimports the catalog.
+export const ProductPricingResultSchema = z.object({
+  productsPriced: z.number(),
+  productsLeftAtZero: z.number(),
+});
+
 export const ReconstructionPhaseSchema = z.enum([
   "validation",
   "delete",
   "products",
   "members",
   "shifts",
+  "pricing",
   "finalize",
 ]);
 
@@ -196,6 +203,7 @@ export const ReconstructionExecutionResultSchema = z.object({
   productResult: ProductResetResultSchema.nullable(),
   membersResult: SyncMembersResultSchema.nullable(),
   shiftsResult: SyncShiftsResultSchema.nullable(),
+  pricingResult: ProductPricingResultSchema.nullable(),
   finalizeResult: FinalizeSyncResultSchema.nullable(),
   finalizeWarning: z.string().nullable(),
 });

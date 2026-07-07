@@ -1,6 +1,6 @@
 # Story D2: Corregir Reconstruction para que no vuelva a perder `Product.salePrice`
 
-**Status:** review
+**Status:** done
 **Epic:** Corrección Post-Reconstruction — Consistencia de Datos y Métricas (iniciativa ad-hoc, fuera de la numeración de Epic 1/2/3)
 **Prioridad:** Alta — corrige la causa estructural raíz por la que `Productos`, `Inventario` y `Reportes` muestran precios/valores en $0 después de cualquier Reconstruction futura con reimportación de catálogo.
 **Orden en el plan aprobado:** 1 de 6 (D2 → D1 → C1 → A1 → A2 → B1). Esta Story es independiente de D1 y no la bloquea ni la implementa.
@@ -93,7 +93,7 @@ Sin ningún movimiento que cumpla esas condiciones → `salePrice = 0` (ya es el
     - lee los `InventoryMovement` relevantes (`select: { productId, unitPrice, isCancelled, type, date, id }`) — puede filtrar `type: "SALE"` en la query de Prisma como optimización, pero la función pura debe seguir re-validando `type`/`isCancelled`/`unitPrice` igual (T1.3), para que el smoke test (T4) cubra el filtro real usado en producción, no una versión más permisiva
     - llama a `computeLastSalePrices()`
     - por cada entrada del Map resultante, `prisma.product.update({ where: { id: productId }, data: { salePrice } })`
-    - retorna `{ productsPriced: number, productsLeftAtZero: number }` (`productsLeftAtZero` = total de `Product` recién creados en `productResult.productsRecreated` menos `productsPriced`)
+    - retorna `{ productsPriced: number, productsLeftAtZero: number }` (`productsLeftAtZero` = `prisma.product.count()` del catálogo final —post-`syncShifts()`— menos `productsPriced`; **no** usar `productResult.productsRecreated` como base, ver corrección en Code Review)
   - [x] T2.2 — Agregar tipo exportado:
     ```typescript
     export interface ProductPricingResult {
@@ -155,7 +155,7 @@ Sigue el mismo patrón ya establecido en este módulo: `product-reset.ts` es pur
 
 ### Sobre el manejo de `productsLeftAtZero`
 
-No es necesario consultar aparte "cuántos productos no tienen historial" — se deriva por resta: `productResult.productsRecreated - productsPriced`. Evita una query adicional.
+**Corregido en Code Review (ver sección "Senior Developer Review" más abajo).** El diseño original asumía que `productResult.productsRecreated` representa el catálogo final completo — falso: `syncShifts()` (`migration.service.ts:242`, `prisma.product.upsert`) crea Product adicionales a partir de descripciones de venta ausentes en la hoja de Inventario. Caso real observado: `productsRecreated=57` pero `Product` final = 113. `restoreProductSalePrices()` ya restaura `salePrice` para el catálogo final completo (la query de `InventoryMovement` no está acotada a los 57 — cubre cualquier `productId` con historial `SALE`), pero el cálculo de `productsLeftAtZero` sí usaba la base equivocada (57), pudiendo dar un número negativo/engañoso. Fix: `restoreProductSalePrices()` ya no recibe `productsRecreated`; usa `prisma.product.count()` (una query extra, trivial frente al loop de updates) tomada *después* de `syncShifts()`, cuando el catálogo ya es el final.
 
 ### Punto de inserción exacto en `executeReconstruction()`
 
@@ -257,27 +257,57 @@ Esperado: Map {}  (AC-3 — salePrice queda en su default 0, sin acción)
 
 - `modules/migration/domain/product-pricing.ts` (nuevo) — `computeLastSalePrices()` pura + tipo `SaleMovementForPricing`.
 - `scripts/product-pricing-smoke-test.ts` (nuevo) — smoke test sin DB, 7 casos (AC-1 a AC-6, más caso extra `unitPrice=null`).
-- `modules/migration/reconstruction.service.ts` (modificado) — nueva función `restoreProductSalePrices(productsRecreated)`; tipo `ProductPricingResult`; `"pricing"` agregado a union `ReconstructionPhase`; campo `pricingResult` agregado a `ReconstructionExecutionResult`; invocación obligatoria y bloqueante en `executeReconstruction()` entre la validación de `shiftsResult` y `finalizeSyncMode()`.
+- `modules/migration/reconstruction.service.ts` (modificado) — nueva función `restoreProductSalePrices()`; tipo `ProductPricingResult`; `"pricing"` agregado a union `ReconstructionPhase`; campo `pricingResult` agregado a `ReconstructionExecutionResult`; invocación obligatoria y bloqueante en `executeReconstruction()` entre la validación de `shiftsResult` y `finalizeSyncMode()`.
 - `package.json` (modificado) — nuevo script `smoke:product-pricing`.
+- `types/api/migracion.ts` (modificado en Code Review) — `"pricing"` agregado a `ReconstructionPhaseSchema`; nuevo `ProductPricingResultSchema`; campo `pricingResult` agregado a `ReconstructionExecutionResultSchema` (contrato HTTP que faltaba actualizar en la implementación inicial).
 
 ### Change Log
 
 - Implementación inicial de D2: derivación de `Product.salePrice` desde historial real de `InventoryMovement` tipo `SALE` tras Reconstruction con `reimportProducts=true`. Fallo del paso aborta la Reconstruction completa (`failedPhase:"pricing"`, `success:false`) — no es advertencia no bloqueante.
+- Code Review: corregido cálculo de `productsLeftAtZero` (usaba `productResult.productsRecreated` como base, subestimando el catálogo final que `syncShifts()` amplía) y actualizado el contrato HTTP (`types/api/migracion.ts`) que no reflejaba la fase `"pricing"` ni `pricingResult`.
 
 ### Completion Notes
 
 - `computeLastSalePrices()` implementada exactamente según T1.3: filtra `type==="SALE" && !isCancelled && unitPrice!==null`, agrupa por `productId`, gana el `date` más reciente, empate por `id` mayor. Sin Prisma, sin I/O.
-- `restoreProductSalePrices()` recibe `productsRecreated` como parámetro (no hace `prisma.product.count()`) para derivar `productsLeftAtZero` por resta, evitando la query adicional que señalan las Dev Notes.
 - La query de Prisma filtra `type: "SALE"` como optimización, pero `computeLastSalePrices()` sigue revalidando `type`/`isCancelled`/`unitPrice` internamente (T2.1) — el smoke test cubre el filtro real de producción, no una versión permisiva.
+- `restoreProductSalePrices()` lee **todos** los `InventoryMovement` tipo `SALE` sin acotar por `productResult` — cubre el catálogo final completo (incluidos los Product que `syncShifts()` crea vía `upsert` para descripciones de venta ausentes en Inventario), no solo los recreados en la fase `"products"`. Ver hallazgo de Code Review abajo sobre `productsLeftAtZero`.
 - `restoreProductSalePrices()` se invoca solo si `reimportProducts && productResult` (AC-8), después de que `shiftsResult.shiftsFailed > 0` ya fue validado y antes de `finalizeSyncMode()`. Su `catch` retorna de inmediato `{ success:false, failedPhase:"pricing", ... }` — mismo patrón de return temprano que las fases `"products"`/`"members"`/`"shifts"` (AC-10). No existe `pricingWarning`; no hay rollback manual ni segunda Reconstruction automática — solo el mensaje sanado ("Restaura desde el respaldo...") que ya usan las demás fases.
 - Todos los `return` tempranos de `executeReconstruction()` (incluidos los de `"validation"`, `"delete"`, `"products"`, `"members"`, `"shifts"`) incluyen `pricingResult: null` para mantener el tipo consistente en todos los caminos.
 - `taxRate`/`buildProductResetPlan()`/`product-reset.ts` no se tocaron — `npm run smoke:product-reset` sigue en verde sin cambios (AC-9, T3.1).
 - Ninguna contradicción técnica encontrada con el diseño aprobado — no fue necesario ampliar el alcance ni detenerse por eso.
 
-**Validación ejecutada:**
+**Validación ejecutada (post Code Review):**
 - `npm run smoke:product-pricing` → 7/7 ✓
 - `npm run smoke:product-reset` → 9/9 ✓ (sin regresión de `taxRate`)
 - `npm run smoke:reconstruction-report`, `smoke:sync-finalize`, `smoke:shift-sync` → todos en verde (suite relevante existente del módulo migration)
 - `npx tsc --noEmit` → sin errores
-- `npm run lint` → sin errores/warnings nuevos en archivos tocados por esta Story (`npx eslint` dirigido a los 3 archivos nuevos/modificados confirma 0 problemas); los 590 errores/2000 warnings reportados por `npm run lint` global son deuda preexistente, ninguno en los archivos de esta Story.
+- `npm run lint` acotado a los archivos tocados (`npx eslint` sobre los 4 archivos nuevos/modificados) → 0 problemas; el lint global preexistente (590 errores/2000 warnings) es deuda no relacionada con esta Story.
 - No se ejecutó Sync ni Reconstruction real, ni se escribió en la DB real, conforme a lo solicitado.
+
+---
+
+## Senior Developer Review (AI)
+
+**Fecha:** 2026-07-06
+**Resultado:** Aprobada tras corrección (2 hallazgos encontrados y corregidos en esta misma pasada — ver Action Items).
+**Alcance revisado:** commit `2e5aedc` (implementación inicial de D2). No se reabrió D1/C1/A1/A2/B1, no se ejecutó Sync/Reconstruction real, no se usaron subagentes.
+
+### Hallazgos
+
+1. **[Alto] `productsLeftAtZero` calculado contra la base equivocada.** `restoreProductSalePrices(productsRecreated)` derivaba `productsLeftAtZero = productsRecreated - productsPriced`, asumiendo que `productResult.productsRecreated` (los productos creados en la fase `"products"`, a partir de la hoja Inventario) representa el catálogo final. Es falso: `syncShifts()` (`migration.service.ts:242`, `prisma.product.upsert`) crea `Product` adicionales para toda descripción de venta ausente en Inventario. Caso real confirmado: `productsRecreated=57`, `Product` final = 113. La escritura de `salePrice` en sí **no** estaba acotada a los 57 (la query de `InventoryMovement` no filtra por origen del producto), así que el catálogo final sí recibía su precio correctamente — pero el contador informativo `productsLeftAtZero` podía salir negativo o subestimado, dato engañoso para el admin que lee el resultado de la Reconstruction.
+   - **Fix:** `restoreProductSalePrices()` ya no recibe `productsRecreated`; usa `prisma.product.count()` (una query extra, trivial junto al loop de updates) evaluada después de `syncShifts()`, cuando el catálogo ya es el final. Dev Notes y Tasks/Subtasks (T2.1) actualizados para no repetir la suposición errónea.
+2. **[Medio] Contrato HTTP no reflejaba el cambio.** `types/api/migracion.ts` (`ReconstructionPhaseSchema`, `ReconstructionExecutionResultSchema`) no incluía `"pricing"` ni `pricingResult` — el servicio podía devolver un `failedPhase` fuera del enum declarado y un campo (`pricingResult`) invisible para el tipo usado por el frontend (`ExecutionStep.tsx`, `ValidationReportStep.tsx`). No causaba crash en runtime (la ruta hace `Response.json(result)` sin `.parse()`), pero viola P-4 (contratos explícitos por capa) y deja el tipo de la API desincronizado con el servicio real.
+   - **Fix:** agregado `"pricing"` al enum, nuevo `ProductPricingResultSchema`, y campo `pricingResult` en `ReconstructionExecutionResultSchema`.
+
+### Verificado sin hallazgos
+
+- `computeLastSalePrices()`: último `unitPrice` cronológico correcto, filtra `SALE`/`!isCancelled`/`unitPrice!=null`, precio 0 se conserva, producto sin `SALE` queda fuera del Map (→ 0 default), desempate por `id` mayor en fechas idénticas, función pura sin Prisma/I-O.
+- Pipeline: pricing corre después de `shifts`, solo con `reimportProducts=true`, fallo produce `success:false` + `failedPhase:"pricing"` + return temprano, `finalizeSyncMode()` no corre tras el fallo, sin warning benigno, sin rollback inventado, sin segunda Reconstruction.
+- Tests: los 7 casos de `product-pricing-smoke-test.ts` ejercitan escenarios independientes de la implementación (conflicto de fechas, precio 0 vigente, cancelado, tipo no-SALE, vacío, empate de fecha, `unitPrice=null`) — no son un espejo trivial del código.
+
+### Action Items
+
+- [x] Corregir base de `productsLeftAtZero` (usar `prisma.product.count()` post-`syncShifts()`, no `productResult.productsRecreated`).
+- [x] Sincronizar `types/api/migracion.ts` con `"pricing"` y `pricingResult`.
+- [x] Re-ejecutar smoke suite completa + TypeScript + lint acotado.
+- [x] Actualizar Story (Dev Notes, File List, Change Log, Completion Notes).
