@@ -47,7 +47,7 @@ export const dashboardRoutes: NavRoute[] = [
   },
   {
     label: "Configuración",
-    href: "/configuracion",
+    href: "/configuracion/migracion",
     icon: Settings,
     adminOnly: true,
   },
