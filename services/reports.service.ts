@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { filtrarProductosFisicos } from "@/modules/inventory/domain";
+import type { Producto } from "@/types/models/producto";
 import {
   ReportPeriodQuerySchema,
   DashboardQuerySchema,
@@ -49,11 +51,12 @@ export function parseDashboardQuery(raw: DashboardQueryInput): DashboardParams {
 }
 
 // ==================== INTERNAL: LOW STOCK QUERY ====================
-// Duplica la consulta de products.service intencionalmente para mantener
-// reports como contexto autónomo sin importar otros services.
-//
 // DEUDA ACEPTADA (FASE 8D): No existe función de dominio equivalente para
 // queryLowStockProducts. La lógica de filtrado y mapeo permanece en el service.
+//
+// Story C1: recibe el set ya filtrado por filtrarProductosFisicos() —
+// no vuelve a consultar Product ni a decidir qué es "físico" (esa regla
+// vive únicamente en modules/inventory/domain/formatters.ts).
 
 interface ProductoBajoStockInterno {
   id: number;
@@ -64,9 +67,7 @@ interface ProductoBajoStockInterno {
   stockFaltante: { gym: number; warehouse: number };
 }
 
-async function queryLowStockProducts(): Promise<ProductoBajoStockInterno[]> {
-  const products = await prisma.product.findMany({ where: { isActive: true } });
-
+function queryLowStockProducts(products: Producto[]): ProductoBajoStockInterno[] {
   return products
     .filter((p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock)
     .map((p) => ({
@@ -188,10 +189,18 @@ export async function getDailySalesReport(
 }
 
 export async function getCurrentStockReport(): Promise<ReporteStockActual> {
-  const products = await prisma.product.findMany({
+  const rawProducts = await prisma.product.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
   });
+
+  // Story C1: filtra productos físicos ANTES de agregar cualquier métrica —
+  // stockSummary, products y lowStock derivan todos de este mismo set.
+  // Reutiliza la regla compartida con /inventario (filtrarProductosFisicos);
+  // no la reimplementa ni hardcodea nombres de pseudo-producto.
+  const products: Producto[] = filtrarProductosFisicos(
+    rawProducts.map((p) => ({ ...p, salePrice: Number(p.salePrice) })),
+  );
 
   // DEUDA ACEPTADA (FASE 8D): No existe función de dominio que encapsule
   // la construcción del stockSummary completo desde un array de productos Prisma.
@@ -203,13 +212,13 @@ export async function getCurrentStockReport(): Promise<ReporteStockActual> {
       acc.warehouse += p.warehouseStock;
       acc.gym += p.gymStock;
       acc.total += p.warehouseStock + p.gymStock;
-      acc.totalValue += Number(p.salePrice) * (p.warehouseStock + p.gymStock);
+      acc.totalValue += p.salePrice * (p.warehouseStock + p.gymStock);
       return acc;
     },
     { warehouse: 0, gym: 0, total: 0, totalValue: 0 },
   );
 
-  const lowStock = await queryLowStockProducts();
+  const lowStock = queryLowStockProducts(products);
 
   return {
     products: products.map((p) => ({
@@ -218,7 +227,7 @@ export async function getCurrentStockReport(): Promise<ReporteStockActual> {
       warehouseStock: p.warehouseStock,
       gymStock: p.gymStock,
       minStock: p.minStock,
-      salePrice: Number(p.salePrice),
+      salePrice: p.salePrice,
     })),
     stockSummary,
     lowStock,
@@ -259,18 +268,20 @@ export async function getDashboardSummary(
 
   const ticketsToday = new Set(salesToday.map((v) => v.ticket)).size;
 
-  // DEUDA ACEPTADA (FASE 8D): No existe función de dominio equivalente para
-  // contar productos bajo stock usando campos relacionales de Prisma (lt: fields.minStock).
-  // La query ORM permanece en el service.
-  const productsLowStock = await prisma.product.count({
-    where: {
-      isActive: true,
-      OR: [
-        { gymStock: { lt: prisma.product.fields.minStock } },
-        { warehouseStock: { lt: prisma.product.fields.minStock } },
-      ],
-    },
+  // Story C1: mismo bug que getCurrentStockReport() — este conteo usaba
+  // Product sin filtrarProductosFisicos(), así que pseudo-productos (ej.
+  // VISITA, con gymStock centinela) podían entrar o distorsionar "bajo
+  // stock". Se filtra el mismo set con la regla compartida antes de contar.
+  const activeProductRows = await prisma.product.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, gymStock: true, warehouseStock: true, minStock: true, salePrice: true, isActive: true, createdAt: true, updatedAt: true },
   });
+  const physicalActiveProducts: Producto[] = filtrarProductosFisicos(
+    activeProductRows.map((p) => ({ ...p, salePrice: Number(p.salePrice) })),
+  );
+  const productsLowStock = physicalActiveProducts.filter(
+    (p) => p.gymStock < p.minStock || p.warehouseStock < p.minStock,
+  ).length;
 
   return {
     salesToday: {
