@@ -49,7 +49,7 @@ export default function DashboardStats({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
-            Vencidos
+            Membresías Vencidas
           </CardTitle>
           <Users className="h-4 w-4 text-orange-500 dark:text-orange-400" />
         </CardHeader>
@@ -58,7 +58,7 @@ export default function DashboardStats({
             {sociosVencidos}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {sociosVencidos === 1 ? "socio" : "socios"}
+            excluye visitas
           </p>
         </CardContent>
       </Card>

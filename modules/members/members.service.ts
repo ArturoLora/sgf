@@ -433,9 +433,11 @@ export async function renewMembership(
 export async function getExpiredMembers(): Promise<SocioVencidoResponse[]> {
   const today = new Date();
 
+  // Story B1: isActive es un eje de estado operativo independiente de la
+  // vigencia de membresía — un socio inactivo con membresía vencida sigue
+  // siendo una membresía vencida real. No se exige isActive:true.
   const members = await prisma.member.findMany({
     where: {
-      isActive: true,
       endDate: { lt: today },
       membershipType: { not: "VISIT" },
     },

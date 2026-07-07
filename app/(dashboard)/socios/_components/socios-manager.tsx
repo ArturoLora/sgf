@@ -55,9 +55,18 @@ export function SociosManager({ initialMembers }: SociosManagerProps) {
     setLoading(false);
   }, []);
 
-  // Filtrar y ordenar
+  // Filtrar y ordenar (tabla) — conserva los 4 filtros completos.
   const membersFiltrados = useMemo(
     () => filtrarSocios(members, filtros),
+    [members, filtros],
+  );
+
+  // Story B1: universo de cards — solo búsqueda + tipoMembresia. estado y
+  // vigencia se neutralizan a "todos" (matchesEstado/matchesVigencia ya los
+  // tratan como no-op) para que las cards no hereden los ejes que ellas
+  // mismas resumen. Reutiliza filtrarSocios() sin duplicar su lógica.
+  const membersFiltradosParaCards = useMemo(
+    () => filtrarSocios(members, { ...filtros, estado: "todos", vigencia: "todos" }),
     [members, filtros],
   );
 
@@ -116,7 +125,7 @@ export function SociosManager({ initialMembers }: SociosManagerProps) {
         </div>
       )}
 
-      <SociosStats members={membersFiltrados} />
+      <SociosStats members={membersFiltradosParaCards} />
 
       <SociosFiltrosComponent onFiltrar={handleFiltrar} />
 

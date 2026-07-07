@@ -24,7 +24,7 @@ export default function AlertasDashboard({
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-400 shrink-0" />
-              Membresías Vencidas
+              Membresías Vencidas (excluye visitas)
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
