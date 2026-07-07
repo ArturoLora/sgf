@@ -21,6 +21,7 @@ import {
 } from "./migration.service";
 import type { DomainMember, DomainShift } from "./domain/domain.types";
 import { buildProductResetPlan } from "./domain/product-reset";
+import { computeLastSalePrices, type SaleMovementForPricing } from "./domain/product-pricing";
 import { classifyReconstructionSeverity, type ReconstructionSeverity } from "./domain/reconstruction-report";
 
 const execFileAsync = promisify(execFile);
@@ -155,7 +156,45 @@ async function resetProducts(productNames: string[]): Promise<ProductResetResult
   return { productsRecreated: plan.length, taxRatesPreserved };
 }
 
-export type ReconstructionPhase = "validation" | "delete" | "products" | "members" | "shifts" | "finalize";
+export interface ProductPricingResult {
+  productsPriced: number;
+  productsLeftAtZero: number;
+}
+
+// Story D2: resetProducts() (fase "products") only preserves {name, taxRate} —
+// salePrice reverts to the schema default 0. It cannot be fixed inside
+// resetProducts()/buildProductResetPlan() because InventoryMovement (the
+// source of unitPrice history) doesn't exist yet at that point in the
+// pipeline — deleteOperationalData() (fase "delete") wiped it, and syncShifts()
+// (fase "shifts") only recreates it later. This step must run after syncShifts()
+// succeeds, reading the freshly-created InventoryMovement rows.
+async function restoreProductSalePrices(productsRecreated: number): Promise<ProductPricingResult> {
+  const movements = await prisma.inventoryMovement.findMany({
+    where: { type: "SALE" },
+    select: { productId: true, unitPrice: true, isCancelled: true, type: true, date: true, id: true },
+  });
+
+  const pricesByProduct = computeLastSalePrices(
+    movements.map((m): SaleMovementForPricing => ({
+      productId: m.productId,
+      unitPrice: m.unitPrice === null ? null : Number(m.unitPrice),
+      isCancelled: m.isCancelled,
+      type: m.type,
+      date: m.date,
+      id: m.id,
+    })),
+  );
+
+  for (const [productId, salePrice] of pricesByProduct) {
+    await prisma.product.update({ where: { id: productId }, data: { salePrice } });
+  }
+
+  // productsLeftAtZero derived by subtraction (no extra count query) —
+  // productsRecreated is the total Product rows created by resetProducts().
+  return { productsPriced: pricesByProduct.size, productsLeftAtZero: productsRecreated - pricesByProduct.size };
+}
+
+export type ReconstructionPhase = "validation" | "delete" | "products" | "members" | "shifts" | "pricing" | "finalize";
 
 export interface ReconstructionExecutionResult {
   success: boolean;
@@ -165,6 +204,7 @@ export interface ReconstructionExecutionResult {
   productResult: ProductResetResult | null;
   membersResult: SyncMembersResult | null;
   shiftsResult: SyncShiftsResult | null;
+  pricingResult: ProductPricingResult | null;
   finalizeResult: FinalizeSyncResult | null;
   finalizeWarning: string | null;
 }
@@ -196,6 +236,7 @@ export async function executeReconstruction(
       productResult: null,
       membersResult: null,
       shiftsResult: null,
+      pricingResult: null,
       finalizeResult: null,
       finalizeWarning: null,
     };
@@ -214,6 +255,7 @@ export async function executeReconstruction(
         productResult: null,
         membersResult: null,
         shiftsResult: null,
+        pricingResult: null,
         finalizeResult: null,
         finalizeWarning: null,
       };
@@ -234,6 +276,7 @@ export async function executeReconstruction(
       productResult: null,
       membersResult: null,
       shiftsResult: null,
+      pricingResult: null,
       finalizeResult: null,
       finalizeWarning: null,
     };
@@ -254,6 +297,7 @@ export async function executeReconstruction(
         productResult: null,
         membersResult: null,
         shiftsResult: null,
+        pricingResult: null,
         finalizeResult: null,
         finalizeWarning: null,
       };
@@ -274,6 +318,7 @@ export async function executeReconstruction(
       productResult,
       membersResult: null,
       shiftsResult: null,
+      pricingResult: null,
       finalizeResult: null,
       finalizeWarning: null,
     };
@@ -288,6 +333,7 @@ export async function executeReconstruction(
       productResult,
       membersResult,
       shiftsResult: null,
+      pricingResult: null,
       finalizeResult: null,
       finalizeWarning: null,
     };
@@ -307,6 +353,7 @@ export async function executeReconstruction(
       productResult,
       membersResult,
       shiftsResult: null,
+      pricingResult: null,
       finalizeResult: null,
       finalizeWarning: null,
     };
@@ -321,9 +368,35 @@ export async function executeReconstruction(
       productResult,
       membersResult,
       shiftsResult,
+      pricingResult: null,
       finalizeResult: null,
       finalizeWarning: null,
     };
+  }
+
+  // Story D2: restoring salePrice is mandatory when reimportProducts=true —
+  // its failure aborts the whole Reconstruction (AC-10), unlike finalizeSyncMode
+  // below, which only produces a non-blocking warning.
+  let pricingResult: ProductPricingResult | null = null;
+  if (reimportProducts && productResult) {
+    try {
+      pricingResult = await restoreProductSalePrices(productResult.productsRecreated);
+    } catch (e) {
+      return {
+        success: false,
+        failedPhase: "pricing",
+        failureMessage:
+          "La base de datos fue vaciada, los socios y cortes se importaron correctamente, pero la restauración de precios de venta (salePrice) falló. Restaura desde el respaldo para recuperar el estado anterior. " +
+          (e instanceof Error ? e.message : "Error desconocido"),
+        deleteResult,
+        productResult,
+        membersResult,
+        shiftsResult,
+        pricingResult: null,
+        finalizeResult: null,
+        finalizeWarning: null,
+      };
+    }
   }
 
   // finalizeSyncMode failure is a warning, not a phase failure (AC9) — members
@@ -342,6 +415,7 @@ export async function executeReconstruction(
     success: true,
     failedPhase: null,
     failureMessage: null,
+    pricingResult,
     deleteResult,
     productResult,
     membersResult,

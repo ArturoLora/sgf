@@ -21,6 +21,7 @@
     "smoke:shift-sync": "tsx scripts/shift-sync-smoke-test.ts",
     "smoke:sync-finalize": "tsx scripts/sync-finalize-smoke-test.ts",
     "smoke:product-reset": "tsx scripts/product-reset-smoke-test.ts",
+    "smoke:product-pricing": "tsx scripts/product-pricing-smoke-test.ts",
     "smoke:reconstruction-report": "tsx scripts/reconstruction-report-smoke-test.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
