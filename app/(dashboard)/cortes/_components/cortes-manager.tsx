@@ -60,6 +60,10 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
   const [corteActivo, setCorteActivo] =
     useState<CorteActivoConVentasResponse | null>(null);
   const [totalCortes, setTotalCortes] = useState(0);
+  // Story A1: vienen del response (universo completo bajo baseWhere), no de
+  // .filter() sobre `cortes` (que solo contiene la página actual).
+  const [cortesCerrados, setCortesCerrados] = useState(0);
+  const [cortesAbiertos, setCortesAbiertos] = useState(0);
 
   // Estados de UI
   const [loading, setLoading] = useState(false);
@@ -129,6 +133,8 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
         if (resultado.success && resultado.data) {
           setCortes(resultado.data.shifts);
           setTotalCortes(resultado.data.total);
+          setCortesCerrados(resultado.data.closedCount);
+          setCortesAbiertos(resultado.data.openCount);
           setPaginaActual(pagina);
         } else {
           setError(resultado.error || "Error al cargar cortes");
@@ -265,8 +271,6 @@ export default function CortesManager({ cajeros }: CortesManagerProps) {
   };
 
   const totalPaginas = Math.ceil(totalCortes / ITEMS_POR_PAGINA);
-  const cortesCerrados = cortes.filter((c) => c.status === "CLOSED").length;
-  const cortesAbiertos = cortes.filter((c) => c.status === "OPEN").length;
 
   return (
     <div className="space-y-4 sm:space-y-6">

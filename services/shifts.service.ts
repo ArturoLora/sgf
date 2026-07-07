@@ -388,22 +388,27 @@ export async function getShifts(
   const page = params?.page || 1;
   const perPage = params?.perPage || 10;
 
-  const where: {
+  // Story A1: baseWhere = todos los filtros reales EXCEPTO status. Es el
+  // universo sobre el que se mide la distribución cerrados/abiertos — si
+  // status se incluyera aquí, closedCount/openCount se volverían triviales
+  // (0/N) en cuanto el usuario filtrara por status.
+  const baseWhere: {
     folio?: { contains: string; mode: "insensitive" };
     openingDate?: { gte: Date; lte: Date };
     cashierId?: string;
-    closingDate?: null | { not: null };
   } = {};
 
   if (params?.search) {
-    where.folio = { contains: params.search, mode: "insensitive" };
+    baseWhere.folio = { contains: params.search, mode: "insensitive" };
   }
 
   if (params?.startDate && params?.endDate) {
-    where.openingDate = { gte: params.startDate, lte: params.endDate };
+    baseWhere.openingDate = { gte: params.startDate, lte: params.endDate };
   }
 
-  if (params?.cashier) where.cashierId = params.cashier;
+  if (params?.cashier) baseWhere.cashierId = params.cashier;
+
+  const where: typeof baseWhere & { closingDate?: null | { not: null } } = { ...baseWhere };
 
   if (params?.status === "abiertos") {
     where.closingDate = null;
@@ -414,17 +419,20 @@ export async function getShifts(
   const orderByField = params?.orderBy === "folio" ? "folio" : "openingDate";
   const orderDirection = params?.order === "asc" ? "asc" : "desc";
 
-  const total = await prisma.shift.count({ where });
-
-  const shifts = await prisma.shift.findMany({
-    where,
-    include: {
-      cashier: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { [orderByField]: orderDirection },
-    skip: (page - 1) * perPage,
-    take: perPage,
-  });
+  const [total, closedCount, openCount, shifts] = await Promise.all([
+    prisma.shift.count({ where }),
+    prisma.shift.count({ where: { ...baseWhere, closingDate: { not: null } } }),
+    prisma.shift.count({ where: { ...baseWhere, closingDate: null } }),
+    prisma.shift.findMany({
+      where,
+      include: {
+        cashier: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { [orderByField]: orderDirection },
+      skip: (page - 1) * perPage,
+      take: perPage,
+    }),
+  ]);
 
   return {
     shifts: shifts.map(serializeShift),
@@ -432,6 +440,8 @@ export async function getShifts(
     page,
     perPage,
     totalPages: Math.ceil(total / perPage),
+    closedCount,
+    openCount,
   };
 }
 

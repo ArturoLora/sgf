@@ -181,6 +181,11 @@ export interface ListaCortesResponse {
   page: number;
   perPage: number;
   totalPages: number;
+  // Story A1: distribución real del universo bajo baseWhere (todos los
+  // filtros excepto status) — no del `where` filtrado por status, para que
+  // las cards Cerrados/Abiertos no se vuelvan triviales al filtrar por status.
+  closedCount: number;
+  openCount: number;
 }
 
 export interface EstadisticasCortesResponse {

@@ -24,6 +24,7 @@
     "smoke:product-pricing": "tsx scripts/product-pricing-smoke-test.ts",
     "smoke:reconstruction-report": "tsx scripts/reconstruction-report-smoke-test.ts",
     "smoke:stock-physical-filter": "tsx scripts/stock-report-physical-filter-smoke-test.ts",
+    "smoke:shifts-aggregate-stats": "tsx scripts/shifts-aggregate-stats-smoke-test.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {
