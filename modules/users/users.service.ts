@@ -6,12 +6,14 @@ import {
   CreateEmployeeInputSchema,
   UpdateEmployeeInputSchema,
   SetEmployeeActiveInputSchema,
+  ResetPasswordInputSchema,
 } from "@/types/api/users";
 import type {
   UsersQueryInput,
   CreateEmployeeInput,
   UpdateEmployeeInput,
   SetEmployeeActiveInput,
+  ResetPasswordInput,
 } from "@/types/api/users";
 import type { Employee, Role } from "./types";
 
@@ -55,6 +57,10 @@ export function parseSetEmployeeActiveInput(
   raw: unknown,
 ): SetEmployeeActiveInput {
   return SetEmployeeActiveInputSchema.parse(raw);
+}
+
+export function parseResetPasswordInput(raw: unknown): ResetPasswordInput {
+  return ResetPasswordInputSchema.parse(raw);
 }
 
 export async function listEmployees(
@@ -271,13 +277,49 @@ export async function setEmployeeActive(
   }
 }
 
+const PASSWORD_TOO_SHORT_MESSAGE = "La contraseña debe tener al menos 6 caracteres";
+
+// Story 3.5: reinicio de contraseña por ADMIN. Independiente de isActive —
+// no lee ni escribe ese campo. auth.api.setUserPassword() usa adminMiddleware
+// (mismo requisito que revokeUserSessions() en Story 3.4): exige headers
+// reales de la sesión ADMIN que ejecuta la acción. La validación de longitud
+// mínima ya la hace Better Auth internamente (minPasswordLength en lib/auth.ts)
+// — este service no la reimplementa, solo traduce el error real si ocurre.
+export async function resetEmployeePassword(
+  id: string,
+  newPassword: string,
+): Promise<Employee> {
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: EMPLOYEE_SELECT,
+  });
+  if (!target) throw new Error(NOT_FOUND_MESSAGE);
+
+  try {
+    await auth.api.setUserPassword({
+      headers: await headers(),
+      body: { userId: id, newPassword },
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "";
+    if (message.toLowerCase().includes("password too short")) {
+      throw new Error(PASSWORD_TOO_SHORT_MESSAGE);
+    }
+    throw e;
+  }
+
+  return target;
+}
+
 export const UsersService = {
   listEmployees,
   createEmployee,
   updateEmployee,
   setEmployeeActive,
+  resetEmployeePassword,
   parseUsersQuery,
   parseCreateEmployeeInput,
   parseUpdateEmployeeInput,
   parseSetEmployeeActiveInput,
+  parseResetPasswordInput,
 };

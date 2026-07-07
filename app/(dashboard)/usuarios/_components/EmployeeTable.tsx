@@ -9,6 +9,7 @@ interface EmployeeTableProps {
   employees: Employee[];
   onEditar: (employee: Employee) => void;
   onToggleActive: (employee: Employee) => void;
+  onResetPassword: (employee: Employee) => void;
 }
 
 function RoleBadge({ role }: { role: Employee["role"] }) {
@@ -36,17 +37,20 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-// KeyRound sigue deshabilitado — anclaje visual para Story 3.5 (reiniciar
-// contraseña). Power se habilita en Story 3.4 con lógica real (activar/
-// desactivar, toggle directo sin confirmación — ver Story 3.4 hallazgo H4).
+// Power se habilita en Story 3.4 (activar/desactivar, toggle directo sin
+// confirmación — ver Story 3.4 hallazgo H4). KeyRound se habilita en Story 3.5
+// (reiniciar contraseña — abre ResetPasswordModal, sin confirmación adicional,
+// mismo criterio de fricción que Power).
 function EmployeeActions({
   employee,
   onEditar,
   onToggleActive,
+  onResetPassword,
 }: {
   employee: Employee;
   onEditar: (employee: Employee) => void;
   onToggleActive: (employee: Employee) => void;
+  onResetPassword: (employee: Employee) => void;
 }) {
   return (
     <div className="flex items-center justify-center gap-1">
@@ -75,8 +79,8 @@ function EmployeeActions({
       <Button
         size="sm"
         variant="ghost"
-        disabled
-        title="Reiniciar contraseña — disponible en una próxima historia"
+        onClick={() => onResetPassword(employee)}
+        title="Reiniciar contraseña"
         className="h-8 w-8 p-0"
       >
         <KeyRound className="h-4 w-4" />
@@ -89,6 +93,7 @@ export function EmployeeTable({
   employees,
   onEditar,
   onToggleActive,
+  onResetPassword,
 }: EmployeeTableProps) {
   if (employees.length === 0) {
     return (
@@ -125,6 +130,7 @@ export function EmployeeTable({
                 employee={employee}
                 onEditar={onEditar}
                 onToggleActive={onToggleActive}
+                onResetPassword={onResetPassword}
               />
             </div>
           </div>
@@ -172,6 +178,7 @@ export function EmployeeTable({
                     employee={employee}
                     onEditar={onEditar}
                     onToggleActive={onToggleActive}
+                    onResetPassword={onResetPassword}
                   />
                 </td>
               </tr>

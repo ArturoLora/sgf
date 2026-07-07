@@ -8,6 +8,7 @@ import { EmployeeFilters } from "./EmployeeFilters";
 import { EmployeeTable } from "./EmployeeTable";
 import { CrearEmpleadoModal } from "./CrearEmpleadoModal";
 import { EditarEmpleadoModal } from "./EditarEmpleadoModal";
+import { ResetPasswordModal } from "./ResetPasswordModal";
 import type { Employee } from "@/modules/users/types";
 import {
   FILTROS_INICIALES,
@@ -31,6 +32,8 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
 
   const [modalCrear, setModalCrear] = useState(false);
   const [employeeEditar, setEmployeeEditar] = useState<Employee | null>(null);
+  const [employeeResetPassword, setEmployeeResetPassword] =
+    useState<Employee | null>(null);
 
   const empleadosFiltrados = useMemo(
     () => filtrarEmpleados(employees, filtros),
@@ -51,6 +54,10 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
 
   const handleEditar = useCallback((employee: Employee) => {
     setEmployeeEditar(employee);
+  }, []);
+
+  const handleResetPassword = useCallback((employee: Employee) => {
+    setEmployeeResetPassword(employee);
   }, []);
 
   const handleToggleActive = useCallback(
@@ -138,6 +145,7 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
             employees={empleadosFiltrados}
             onEditar={handleEditar}
             onToggleActive={handleToggleActive}
+            onResetPassword={handleResetPassword}
           />
         </CardContent>
       </Card>
@@ -151,6 +159,12 @@ export function UsuariosManager({ initialEmployees }: UsuariosManagerProps) {
       <EditarEmpleadoModal
         employee={employeeEditar}
         onClose={() => setEmployeeEditar(null)}
+        onSuccess={handleActualizar}
+      />
+
+      <ResetPasswordModal
+        employee={employeeResetPassword}
+        onClose={() => setEmployeeResetPassword(null)}
         onSuccess={handleActualizar}
       />
     </div>

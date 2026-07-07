@@ -2,8 +2,9 @@
 
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, UserCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 interface HeaderProps {
@@ -50,6 +51,15 @@ export function Header({ user, onMenuClick }: HeaderProps) {
 
       <div className="flex items-center gap-2 shrink-0">
         <ThemeToggle />
+        {/* Story 3.5: único punto de entrada a /mi-cuenta — no se agrega al
+            sidebar (decisión aprobada), sin dropdown nuevo (mismo criterio
+            que Story 3.4 H4). */}
+        <Button variant="ghost" size="sm" asChild className="gap-2 h-9">
+          <Link href="/mi-cuenta">
+            <UserCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Mi Cuenta</span>
+          </Link>
+        </Button>
         <Button
           variant="ghost"
           size="sm"

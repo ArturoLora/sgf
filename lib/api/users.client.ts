@@ -76,3 +76,15 @@ export async function setEmployeeActive(
   });
   return handleResponse<SetEmployeeActiveResponse>(res);
 }
+
+export async function resetEmployeePassword(
+  id: string,
+  newPassword: string,
+): Promise<ApiResponse<Employee>> {
+  const res = await fetch(`/api/usuarios/${id}/password`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ newPassword }),
+  });
+  return handleResponse<Employee>(res);
+}
