@@ -36,6 +36,7 @@ export function HistorialVentasManager({
     page: 1,
     perPage: ITEMS_PER_PAGE,
     totalPages: 0,
+    stats: { totalValue: 0, uniqueTickets: 0, cancelled: 0, totalItems: 0 },
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,7 +100,7 @@ export function HistorialVentasManager({
         </div>
       )}
 
-      <HistorialStats tickets={response.tickets} />
+      <HistorialStats stats={response.stats} />
 
       <HistorialFiltros
         onFilter={handleFilter}

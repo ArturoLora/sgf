@@ -3,6 +3,7 @@ import { Prisma, PaymentMethod } from "@/app/generated/prisma";
 import { serializeDecimal } from "../../services/utils";
 import { MEMBERSHIP_KEYWORDS } from "../../services/membership-helpers";
 import { paginar, calcularTotalPaginas } from "@/lib/domain/shared/pagination";
+import { calculateHistorialStats } from "@/lib/domain/sales";
 import type {
   HistorialVentasResponse,
   ObtenerHistorialVentasQuery,
@@ -233,6 +234,13 @@ export async function getSalesHistory(
     });
   }
 
+  // Story A2: stats sobre el universo COMPLETO (ticketsArray, antes de
+  // paginar) — reutiliza calculateHistorialStats() ya existente, sin
+  // duplicar el cálculo ni agregar queries.
+  const stats = calculateHistorialStats(
+    serializeDecimal(ticketsArray) as TicketVentaAgrupado[],
+  );
+
   // Delegado a lib/domain/shared/pagination.paginar()
   const { items: tickets } = paginar(ticketsArray, params.page, params.perPage);
 
@@ -245,6 +253,7 @@ export async function getSalesHistory(
     perPage: params.perPage,
     // Delegado a lib/domain/shared/pagination.calcularTotalPaginas()
     totalPages: calcularTotalPaginas(total, params.perPage),
+    stats,
   };
 }
 

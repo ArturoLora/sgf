@@ -1,17 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { calculateHistorialStats, formatCurrency } from "@/lib/domain/sales";
-import type { TicketVentaAgrupado } from "@/types/api/sales";
+import { formatCurrency } from "@/lib/domain/sales";
+import type { HistorialStatsResponse } from "@/types/api/sales";
 
 interface HistorialStatsProps {
-  tickets: TicketVentaAgrupado[];
+  // Story A2: stats precalculadas por getSalesHistory() sobre el universo
+  // completo bajo filtros — ya no se recalculan aquí sobre la página actual.
+  stats: HistorialStatsResponse;
 }
 
-export function HistorialStats({ tickets }: HistorialStatsProps) {
-  const stats = useMemo(() => calculateHistorialStats(tickets), [tickets]);
-
+export function HistorialStats({ stats }: HistorialStatsProps) {
   return (
     <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
       <Card>

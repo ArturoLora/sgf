@@ -1,5 +1,8 @@
 import { z } from "zod";
 import type { MetodoPago } from "../models/movimiento-inventario";
+// Story A2: HistorialStats es alias del tipo canónico del dominio — no se
+// duplica como tipo paralelo (mismo patrón que ResumenCorteResponse en shifts.ts).
+import type { HistorialStats as _HistorialStatsDomain } from "../../lib/domain/sales/types";
 
 // FASE 9B [ALTA-4]: TicketVentaAgrupado vs TicketAgrupado (lib/domain/sales/types.ts).
 //
@@ -105,12 +108,17 @@ export interface TicketVentaAgrupado {
   items: ItemVentaTicket[];
 }
 
+export type HistorialStatsResponse = _HistorialStatsDomain;
+
 export interface HistorialVentasResponse {
   tickets: TicketVentaAgrupado[];
   total: number;
   page: number;
   perPage: number;
   totalPages: number;
+  // Story A2: calculado sobre el universo completo bajo filtros (ticketsArray
+  // ANTES de paginar) — no sobre `tickets` (la página actual).
+  stats: HistorialStatsResponse;
 }
 
 export interface DetalleTicketResponse {
