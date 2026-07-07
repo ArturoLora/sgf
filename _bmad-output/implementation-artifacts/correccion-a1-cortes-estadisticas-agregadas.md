@@ -1,6 +1,6 @@
 # Story A1: Cortes — estadísticas agregadas reales (Total/Cerrados/Abiertos)
 
-**Status:** review
+**Status:** done
 **Epic:** Corrección Post-Reconstruction — Consistencia de Datos y Métricas (iniciativa ad-hoc, fuera de la numeración de Epic 1/2/3)
 **Prioridad:** Alta — corrige que `/cortes` pueda mostrar simultáneamente `242 Total Cortes` y `10 Cerrados`, una contradicción visible para cualquier admin.
 **Orden en el plan aprobado:** 4 de 6 (D2 → D1 → C1 → A1 → A2 → B1). D2, D1 y C1 ya están `done`. Esta Story es independiente de A2 y B1 y no los bloquea ni los implementa.
@@ -222,3 +222,26 @@ Esta Story es la cuarta (A1) de 6 en el plan aprobado de corrección post-Recons
 - `npx tsc --noEmit` → sin errores.
 - `npm run lint` acotado a los 4 archivos tocados (`npx eslint`) → 0 problemas.
 - No se ejecutó Sync ni Reconstruction, ni se escribió en la DB real.
+
+---
+
+## Senior Developer Review (AI)
+
+**Fecha:** 2026-07-06
+**Resultado:** Aprobada. Sin hallazgos bloqueantes.
+**Alcance revisado:** diff exacto del commit `1e66083` (`services/shifts.service.ts`, `types/api/shifts.ts`, `app/(dashboard)/cortes/_components/cortes-manager.tsx`). No se reauditó el módulo completo, no se usaron subagentes, no se escribió en DB.
+
+### Verificado sin hallazgos
+
+1. **`baseWhere` correcto** — conserva `folio` (search), `openingDate` (fecha), `cashierId` (cajero); excluye únicamente la rama de `status`. Confirmado línea por línea contra el diff.
+2. **Asignación de where correcta** — `total` usa `where` (con status); `closedCount` usa `{...baseWhere, closingDate:{not:null}}`; `openCount` usa `{...baseWhere, closingDate:null}`. El spread de `baseWhere` no tiene la clave `closingDate` en su tipo, así que no hay sobrescritura accidental.
+3. **`Promise.all` sin asignación cruzada** — el array `[total, closedCount, openCount, shifts]` en el destructuring coincide exactamente en orden con `[count(where), count(baseWhere+not null), count(baseWhere+null), findMany(where)]`. Sin swap.
+4. **UI ya no deriva de la página actual** — diff confirma que `cortes.filter((c) => c.status === "CLOSED"/"OPEN").length` fue eliminado por completo; `cortesCerrados`/`cortesAbiertos` ahora son estado poblado directamente desde `resultado.data.closedCount`/`.openCount` en `cargarDatos()`, sin pasar por transformación adicional. Sin swap entre los dos setState.
+
+### Observación no bloqueante
+
+5. **`smoke:shifts-aggregate-stats` no habría detectado el bug ORIGINAL.** El bug original vivía enteramente en `cortes-manager.tsx` (derivación `.filter()` sobre el array paginado) — una capa de UI. El smoke test nuevo ejercita `getShifts()` (backend), no el componente React; el repo no tiene infraestructura de test de componentes (ningún smoke test existente toca JSX/React). No se trata como hallazgo porque el fix no "tapa" el bug con un test — lo elimina estructuralmente: la UI ya no tiene ninguna lógica de derivación propia que pueda volver a romperse independientemente del backend. El smoke test sí cubre exhaustivamente la superficie que ahora SÍ tiene lógica real (`getShifts()`), incluyendo el caso específico que motivó la Story (status no trivializa Cerrados/Abiertos). Riesgo residual: si un futuro cambio en `cortes-manager.tsx` reintrodujera una derivación local en vez de leer el response, ningún test lo atraparía — aceptado dado que no existe convención de testing de componentes en el proyecto.
+
+### Action Items
+
+Ninguno — sin hallazgos que corregir.
