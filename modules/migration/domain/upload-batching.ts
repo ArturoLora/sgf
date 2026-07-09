@@ -187,6 +187,50 @@ export function rehydrateShiftDates(raw: ShiftDetailType): DomainShift {
   };
 }
 
+// ─── Completitud de staging antes de finalize ─────────────────────────────────
+// `finalize` NUNCA debe ejecutar syncShifts/finalizeSyncMode/executeReconstruction
+// sobre un conjunto de sub-batches incompleto (índices faltantes, discontinuos,
+// fuera de rango, o con `totalBatches` inconsistente entre sub-batches — p.ej.
+// tras un retry con una partición distinta). Pura, sin Prisma — testeable sin DB.
+
+export interface StagingBatchMeta {
+  batchIndex: number;
+  totalBatches: number;
+}
+
+export type StagingCompletenessResult = { ok: true } | { ok: false; reason: string };
+
+export function validateStagingCompleteness(rows: StagingBatchMeta[]): StagingCompletenessResult {
+  if (rows.length === 0) {
+    return { ok: false, reason: "No hay sub-batches en staging para este importId" };
+  }
+
+  const totalBatchesValues = new Set(rows.map((r) => r.totalBatches));
+  if (totalBatchesValues.size !== 1) {
+    return { ok: false, reason: "totalBatches inconsistente entre sub-batches — reinicia la importación" };
+  }
+  const totalBatches = rows[0].totalBatches;
+
+  if (rows.length !== totalBatches) {
+    return { ok: false, reason: `Faltan sub-batches: recibidos ${rows.length} de ${totalBatches} esperados` };
+  }
+
+  const indices = [...new Set(rows.map((r) => r.batchIndex))].sort((a, b) => a - b);
+  if (indices.length !== totalBatches) {
+    return { ok: false, reason: "Índices de sub-batch duplicados o inválidos" };
+  }
+  for (let i = 0; i < totalBatches; i++) {
+    if (indices[i] !== i) {
+      return {
+        ok: false,
+        reason: `Índices de sub-batch discontinuos o fuera de rango (esperado ${i}, encontrado ${indices[i]})`,
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 export function rehydrateMemberDates(raw: MemberPreviewType): DomainMember {
   return {
     memberNumber: raw.memberNumber,

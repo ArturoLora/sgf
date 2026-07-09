@@ -283,16 +283,18 @@ model CashWithdrawal {
 // Migración, sección "Mecanismo corregido").
 
 model MigrationImportStaging {
-  id          String   @id @default(cuid())
-  importId    String
-  adminUserId String
-  kind        String // "sync-shifts" | "reconstruccion-ejecutar"
-  batchIndex  Int
-  shiftsJson  Json
-  createdAt   DateTime @default(now())
+  id           String    @id @default(cuid())
+  importId     String
+  adminUserId  String
+  kind         String // "sync-shifts" | "reconstruccion-ejecutar" — parte de la clave única: un importId nunca mezcla sub-batches de los dos flujos
+  batchIndex   Int
+  totalBatches Int // declarado por el cliente en cada `stage` — permite a `finalize` verificar completitud antes de ejecutar negocio
+  shiftsJson   Json
+  claimedAt    DateTime? // set atómicamente por `finalize` (updateMany condicionado a claimedAt:null) — evita doble ejecución de syncShifts/executeReconstruction
+  createdAt    DateTime  @default(now())
 
-  @@unique([importId, batchIndex])
-  @@index([importId])
+  @@unique([importId, kind, batchIndex])
+  @@index([importId, kind])
   @@index([createdAt])
   @@map("migration_import_staging")
 }

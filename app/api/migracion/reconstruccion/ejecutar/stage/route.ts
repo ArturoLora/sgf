@@ -3,9 +3,12 @@ import { prisma } from "@/lib/db";
 import { ShiftDetailSchema } from "@/types/api/migracion";
 import { z } from "zod";
 
+const KIND = "reconstruccion-ejecutar";
+
 const StageBodySchema = z.object({
   importId: z.string().min(1),
   batchIndex: z.number().int().min(0),
+  totalBatches: z.number().int().min(1),
   shifts: z.array(ShiftDetailSchema),
 });
 
@@ -28,26 +31,49 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success) {
     return Response.json({ error: "Formato de sub-batch inválido" }, { status: 400 });
   }
-  const { importId, batchIndex, shifts } = parsed.data;
+  const { importId, batchIndex, totalBatches, shifts } = parsed.data;
 
-  // Barrido oportunista de filas abandonadas (>2h) — sin cron nuevo.
+  if (batchIndex >= totalBatches) {
+    return Response.json({ error: "batchIndex fuera de rango de totalBatches" }, { status: 400 });
+  }
+
+  // Aislamiento entre ADMINs: un importId ya usado por otro admin no puede
+  // ser sobrescrito ni "adoptado" por la sesión actual.
+  const existing = await prisma.migrationImportStaging.findUnique({
+    where: { importId_kind_batchIndex: { importId, kind: KIND, batchIndex } },
+    select: { adminUserId: true, claimedAt: true },
+  });
+  if (existing && existing.adminUserId !== adminUserId) {
+    return Response.json({ error: "importId en uso por otra sesión" }, { status: 403 });
+  }
+  if (existing?.claimedAt) {
+    return Response.json(
+      { error: "Esta importación ya está siendo finalizada — no se puede modificar" },
+      { status: 409 },
+    );
+  }
+
+  // Barrido oportunista de filas abandonadas (>2h) — sin cron nuevo. Excluye
+  // filas claimed (finalize en curso, aunque tarde más de 2h en completarse).
   await prisma.migrationImportStaging.deleteMany({
-    where: { createdAt: { lt: new Date(Date.now() - TTL_MS) } },
+    where: { createdAt: { lt: new Date(Date.now() - TTL_MS) }, claimedAt: null },
   });
 
-  // Upsert idempotente por (importId, batchIndex) — reintento nunca duplica.
+  // Upsert idempotente por (importId, kind, batchIndex) — reintento nunca
+  // duplica, y `kind` en la clave evita mezclar Reconstruction con sync-shifts.
   await prisma.migrationImportStaging.upsert({
-    where: { importId_batchIndex: { importId, batchIndex } },
+    where: { importId_kind_batchIndex: { importId, kind: KIND, batchIndex } },
     create: {
       importId,
       batchIndex,
+      totalBatches,
       adminUserId,
-      kind: "reconstruccion-ejecutar",
+      kind: KIND,
       shiftsJson: shifts,
     },
     update: {
       shiftsJson: shifts,
-      adminUserId,
+      totalBatches,
     },
   });
 

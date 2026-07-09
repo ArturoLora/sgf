@@ -38,7 +38,7 @@ export function ImportCortesStep({ shifts, totalShifts, employeeMapping, onCompl
         const res = await fetch("/api/migracion/sync-shifts/stage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ importId, batchIndex: i, shifts: batches[i] }),
+          body: JSON.stringify({ importId, batchIndex: i, totalBatches: batches.length, shifts: batches[i] }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));

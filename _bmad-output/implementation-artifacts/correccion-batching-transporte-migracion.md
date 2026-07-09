@@ -1,9 +1,9 @@
 # Story: Batching de Transporte HTTP para Importación de Lotes Grandes en Migración
 
-**Status:** review
+**Status:** done
 **Epic:** Corrección ad-hoc — Transporte HTTP del Wizard de Migración (fuera de la numeración de Epic 1/2). Originada en `_bmad-output/implementation-artifacts/investigations/http-413-migracion-upload-investigation.md`.
 **Prioridad:** Alta — bloquea el uso real del wizard con el lote histórico completo (243 `.xlsx`) en el entorno de despliegue real.
-**Implementado.** Todas las Tasks (T1–T14) completas, validado contra el lote real de 243 `.xlsx`. Pendiente code review.
+**Implementado y revisado.** Todas las Tasks (T1–T14) completas. Code review encontró 3 hallazgos High en el staging persistente (aislamiento por `kind`, completitud pre-`finalize`, doble ejecución concurrente) — los tres corregidos en la misma pasada de revisión y re-validados. Aprobada.
 
 ---
 
@@ -377,6 +377,8 @@ Introducir `MigrationImportStaging` agrega una tabla nueva, una migración de Pr
 
 - **Bloqueo de entorno encontrado y resuelto (no relacionado con esta Story):** el servidor `next dev` real devolvía `HTTP 500` en TODA request que tocara Prisma (incluido login). Causa: `app/generated/prisma/` tenía un binario de engine obsoleto `libquery_engine-darwin-arm64.dylib.node` (del 22 de mayo, de una máquina macOS) junto a los binarios Linux correctos (`debian-openssl-3.0.x`, `rhel-openssl-3.0.x`, generados hoy por `prisma migrate dev` de T8.1). El workaround de `next.config.ts` (`readdirSync(...).find(f => f.startsWith("libquery_engine"))`) toma el primer match alfabético — `darwin` ordena antes que `debian`/`rhel`, así que el dev server intentaba cargar el binario de macOS en Linux. **Fix aplicado:** se eliminó el binario obsoleto (`app/generated/prisma/` está en `.gitignore` — artefacto generado, no fuente). No se modificó `next.config.ts` ni ningún código de la Story — es limpieza de un artefacto de build, no un cambio de comportamiento. Esto ya estaba documentado como problema recurrente en memoria del proyecto ("Prisma Query Engine Binary Restoration Across Platforms").
 - Endpoint de login vía HTTP directo (`/api/auth/sign-in/email`) seguía devolviendo `500` incluso tras el fix — se usó `auth.api.signInEmail({..., asResponse: true})` en un script Node directo (mismo proceso, mismo `lib/auth.ts`) para obtener el cookie de sesión firmado y usarlo en las requests reales de la reproducción (T13). No se investigó más a fondo esa ruta específica de auth — fuera de alcance de esta Story, no bloqueaba el trabajo real.
+- **Code review:** confirmado que el fix de engine de Prisma (arriba) se mantuvo — el login HTTP directo funcionó normalmente esta vez (`401` correcto ante credenciales inválidas, no `500`), confirmando que el bloqueo de entorno anterior está resuelto de forma estable.
+- **Code review — verificación de aislamiento/completitud/claim:** 2 admins de prueba temporales (`review-admin-a@sgf.local`, `review-admin-b@sgf.local`) creados vía `auth.api.signUpEmail`/`signInEmail` directo, usados para 25 verificaciones contra el servidor real (idempotencia, aislamiento cross-admin, aislamiento cross-`kind`, completitud con batch faltante, `totalBatches` inconsistente, `batchIndex` fuera de rango, claim atómico vía `updateMany` concurrente contra Postgres). Ninguna verificación invocó `syncShifts`/`finalizeSyncMode`/`executeReconstruction` — las rutas de `finalize` rechazan antes de llegar a esas funciones en todos los casos probados; el claim atómico se probó directamente sobre Prisma, sin pasar por el endpoint HTTP de `finalize`. Ambos admins de prueba, sus sesiones/cuentas, y todo staging de prueba fueron eliminados al terminar — confirmado `MigrationImportStaging.count()===0` y `Member.count()`/`Shift.count()` sin cambios (652/242) tras la verificación completa.
 
 ### File List
 
@@ -388,8 +390,9 @@ Introducir `MigrationImportStaging` agrega una tabla nueva, una migración de Pr
 - `app/api/migracion/reconstruccion/ejecutar/finalize/route.ts`
 - `scripts/migracion-batching-smoke-test.ts`
 - `prisma/migrations/20260709042942_add_migration_import_staging/migration.sql`
+- `prisma/migrations/20260709051500_migration_staging_completeness_and_claim/migration.sql` (code review — unicidad compuesta con `kind`, `totalBatches`, `claimedAt`)
 
-**Modificados:**
+**Modificados (implementación inicial):**
 - `types/api/migracion.ts` (esquemas `SaleDetailSchema`, `InventoryRowDetailSchema`, `WithdrawalDetailSchema`, `ShiftDetailSchema`; `PreviewResponseSchema.shifts` ahora usa `ShiftDetailSchema`)
 - `app/api/migracion/preview/route.ts` (`serializeShift()` incluye detalle completo)
 - `app/(dashboard)/configuracion/migracion/_components/FileUploadStep.tsx`
@@ -406,6 +409,17 @@ Introducir `MigrationImportStaging` agrega una tabla nueva, una migración de Pr
 **Eliminados:**
 - `app/api/migracion/sync-shifts/route.ts` (reemplazado por `stage`+`finalize`)
 - `app/api/migracion/reconstruccion/ejecutar/route.ts` (reemplazado por `stage`+`finalize`)
+
+**Modificados (code review — hallazgos 1–3, ver Senior Developer Review):**
+- `prisma/schema.prisma` (`MigrationImportStaging`: `@@unique([importId, batchIndex])` → `@@unique([importId, kind, batchIndex])`; nuevos campos `totalBatches`, `claimedAt`)
+- `modules/migration/domain/upload-batching.ts` (nueva función pura `validateStagingCompleteness`)
+- `app/api/migracion/sync-shifts/stage/route.ts` (acepta `totalBatches`; valida rango; rechaza cross-admin `403`/cross-claim `409`; TTL excluye `claimedAt` no nulo)
+- `app/api/migracion/sync-shifts/finalize/route.ts` (verifica completitud antes de ejecutar; claim atómico; unclaim en fallo; cleanup solo en éxito/fallo-manejado)
+- `app/api/migracion/reconstruccion/ejecutar/stage/route.ts` (mismo fix que `sync-shifts/stage`)
+- `app/api/migracion/reconstruccion/ejecutar/finalize/route.ts` (mismo fix que `sync-shifts/finalize`)
+- `app/(dashboard)/configuracion/migracion/_components/ImportCortesStep.tsx` (envía `totalBatches` en cada `stage`)
+- `app/(dashboard)/configuracion/migracion/_components/ExecutionStep.tsx` (envía `totalBatches` en cada `stage`)
+- `scripts/migracion-batching-smoke-test.ts` (+6 casos de `validateStagingCompleteness`)
 
 **Artefacto de build eliminado (no versionado, no relacionado con el diff de esta Story):**
 - `app/generated/prisma/libquery_engine-darwin-arm64.dylib.node` (obsoleto, ver Debug Log References)
@@ -424,3 +438,36 @@ Introducir `MigrationImportStaging` agrega una tabla nueva, una migración de Pr
 ### Change Log
 
 - Implementación completa del batching de transporte HTTP para el wizard de Migración: partición pura por bytes (`partitionByByteBudget`), consolidación de `/validate` y `/preview` (incluye detección global de folios duplicados), enriquecimiento de `/preview` para transportar `DomainShift` completo, transporte JSON directo para `sync-members`, y mecanismo `stage`+`finalize` con staging temporal (`MigrationImportStaging`) para `sync-shifts` y `reconstruccion/ejecutar` — preserva ejecución única de `syncShifts`/`finalizeSyncMode`/`executeReconstruction` sin modificar ninguna de esas funciones de negocio. Validado contra el lote real de 243 `.xlsx` sin ejecutar Sync ni Reconstruction real.
+- **Code review (commit `39cfda3`):** 3 hallazgos High corregidos en `MigrationImportStaging` — unicidad compuesta con `kind` (evita mezclar sync-shifts/Reconstruction bajo el mismo `importId`), verificación de completitud (`totalBatches`, índices contiguos) antes de ejecutar negocio, y claim atómico (`claimedAt`) contra doble ejecución concurrente de `finalize`. Ver Senior Developer Review.
+
+---
+
+## Senior Developer Review (AI)
+
+**Fecha:** 2026-07-09
+**Alcance revisado:** commit `39cfda3` completo — batching de `/validate`/`/preview`, consolidación pura, staging `MigrationImportStaging`, las 4 superficies `stage`/`finalize`, rehidratación de `Date`, wiring del wizard. No se reauditó Migración completa, no se repitió la investigación del HTTP 413, no se ejecutó Sync ni Reconstruction real, no se usaron subagentes.
+**Resultado:** Aprobada — 3 hallazgos High encontrados, los 3 corregidos en esta misma pasada y re-validados. 0 hallazgos abiertos.
+
+### Hallazgos encontrados y corregidos
+
+1. **[High] Aislamiento por tipo de operación ausente en la clave única** — `@@unique([importId, batchIndex])` no incluía `kind`. Un mismo `importId` (coincidencia entre dos flujos del mismo admin, o un bug de cliente) podía mezclar sub-batches de `sync-shifts` y `reconstruccion-ejecutar` en la misma fila, contaminando el `finalize` de uno con datos del otro. **Fix:** unicidad compuesta `@@unique([importId, kind, batchIndex])` (migración `20260709051500_migration_staging_completeness_and_claim`) + verificación de propiedad (`adminUserId`) antes de cada upsert en `stage`, rechazando con `403` si el `importId`+`batchIndex`+`kind` ya pertenece a otra sesión. **Re-validado:** stage de `sync-shifts` y `reconstruccion-ejecutar` con el mismo `importId` y mismo admin produce 2 filas separadas, cada una con su propio payload intacto (verificado contra Postgres real). Admin B no puede sobrescribir ni leer el `importId` de Admin A (`403` al intentar stage, `400` — staging vacío — al intentar finalize).
+2. **[High] `finalize` no verificaba completitud de batches antes de ejecutar negocio** — `finalize` leía las filas de staging existentes y ejecutaba `syncShifts`/`finalizeSyncMode`/`executeReconstruction` directamente, sin comprobar que `rows.length` correspondiera al total de sub-batches enviados por el cliente. Un staging con batches `0,1,3` de `4` (falta el `2`, por red, bug de cliente, o un `importId` reutilizado de un intento previo abandonado) ejecutaría Sync/Reconstruction sobre un subconjunto, sin ningún error visible — exactamente el escenario CRÍTICO señalado en la revisión. **Fix:** nuevo campo `totalBatches` (declarado por el cliente en cada `stage`) + función pura `validateStagingCompleteness()` (`upload-batching.ts`) que rechaza: filas faltantes, índices discontinuos/fuera de rango, y `totalBatches` inconsistente entre sub-batches — aplicada en ambos `finalize` ANTES de tocar cualquier función de negocio. **Re-validado contra Postgres real:** staging `0,1,3` de `4` → `finalize` responde `400`, `Member.count()`/`Shift.count()` sin cambios, staging NO se borra (permite completar el batch faltante). `totalBatches` inconsistente entre sub-batches → `400`. `batchIndex >= totalBatches` → rechazado ya en `stage` (`400`), nunca llega a staging.
+3. **[High] Sin protección contra doble ejecución concurrente de `finalize`** — el flujo `leer staging → ejecutar negocio → cleanup` no tenía ningún claim: dos `finalize` casi simultáneos (doble click, retry del navegador) para el mismo `importId` podían leer el mismo staging antes de que cualquiera limpiara, ejecutando `syncShifts`/`finalizeSyncMode` — o, más grave, `executeReconstruction` (DELETE + recreate) — dos veces. **Fix:** claim atómico vía un único `updateMany({where: {..., claimedAt: null}, data: {claimedAt: now}})` — Postgres ejecuta el `UPDATE` como una sola operación atómica, así que de dos llamadas concurrentes con el mismo `where`, exactamente una afecta las filas (`count === rows.length`) y la otra afecta `0`. La perdedora responde `409` sin tocar ninguna función de negocio. En fallo de negocio (excepción no esperada), el claim se libera (`claimedAt: null`) para permitir un retry legítimo sin perder los datos ya transportados; en éxito (o fallo de negocio ya manejado, `success:false`), el staging se limpia. **Re-validado:** dos `updateMany` reales concurrentes contra Postgres con el mismo `where` (mismo primitivo que usa `finalize`) — resultado `counts=[0,1]` en 100% de las corridas, la fila queda `claimed` exactamente una vez. No se invocó `syncShifts`/`executeReconstruction` en esta verificación (se probó el primitivo Prisma/Postgres directamente, no el endpoint HTTP, para no arriesgar una ejecución real).
+
+### Verificado sin hallazgos
+
+- **Partición (`partitionByByteBudget`):** greedy, un recorrido, preserva orden; un item que excede el presupuesto por sí solo viaja solo (no crea batch vacío, no entra en loop infinito — confirmado con smoke test y con el caso real de 94,554 B máximo observado, muy por debajo de cualquier presupuesto usado). `MAX_BATCH_FILES=80` solo actúa como cierre de batch cuando `wouldExceedCount` es cierto — para el lote real (243 archivos / 4 batches ≈ 61 archivos/batch) nunca se activó, confirmando que el driver real es bytes, no cantidad.
+- **Secuencialidad y retry:** `FileUploadStep`/`PreviewStep` usan un `for` con `await` (nunca `Promise.all`). `handleRetryBatch` reintenta desde `failedBatchIndex` reusando `partialResults`/`partialResultsRef` — los batches ya exitosos no se re-envían ni se duplican en el resultado consolidado (confirmado leyendo el código: `collected = [...priorResults]`, se hace `push` solo de los batches nuevos).
+- **Consolidación (`concatAnalysisResults`, `consolidatePreviewBatches`, `detectDuplicateFolios`):** cubre los 6 campos reales de `PreviewResponseType` sin pérdida; `membershipTypeDistribution` suma por clave; `sellerNames` unión+dedup+sort global; `detectDuplicateFolios` corre sobre el arreglo `shifts` YA concatenado (cross-batch, no por-batch) y agrega exactamente 1 warning por folio repetido (no una por ocurrencia). 0 duplicados reales confirmado contra los 242 cortes reales.
+- **Rehidratación de fechas:** los 7 campos `Date` reales (`openingDate`, `saleDate`, `withdrawalDate`, `birthDate`, `startDate`, `endDate`, `lastVisit`) se rehidratan explícitamente; `null` se preserva; ningún otro campo `Date`/no-serializable quedó sin cubrir en `DomainMember`/`DomainShift`/`DomainSale`/`DomainInventoryRow`/`DomainWithdrawal` (confirmado contra `domain.types.ts`). Las funciones de negocio (`syncMembers`, `syncShifts`, `finalizeSyncMode`, `executeReconstruction`) siguen recibiendo `Date` real — cero lógica de JSON dentro de ellas.
+- **Contratos:** `EmployeeMappingSchema` solo viaja en los `finalize` que lo necesitan; `reimportProducts` llega intacto a `executeReconstruction`; `failedPhase`/resultado se devuelven sin transformar (`Response.json(result)` directo).
+- **Wizard de una sola operación:** ningún `stage` importa `MigrationService`/`reconstruction.service` — solo `finalize` puede ejecutar negocio. `MigracionManager`/`ReconstructionManager` conservan un único `onAnalysisComplete`/`onPreviewComplete`/`onComplete` por paso.
+- **TTL:** 2 horas exactas (`2 * 60 * 60 * 1000`), comparación `createdAt < now - TTL` correcta, barrido corre en cada `stage` (no cron), y ahora excluye filas `claimedAt != null` (no borra una finalización en curso aunque tarde más de 2h).
+
+### Observación no bloqueante
+
+4. **Ventana teórica de TTL durante staging muy lento (no corregido, severidad Baja):** si un admin tardara más de 2 horas en completar la secuencia de `stage` de un mismo import (el loop es automático/secuencial dentro de una sola llamada async, normalmente segundos a minutos — no hay pausa de usuario entre sub-batches), el barrido de TTL de OTRO import podría borrar sub-batches ya subidos pero aún no `claimed` (el claim solo protege desde `finalize` en adelante). Dado que la secuencia de `stage` no depende de interacción humana entre sub-batches, este escenario es prácticamente inalcanzable en el uso real del wizard. No se agregó un campo adicional de "actividad reciente" para cubrirlo — hubiera requerido más estado por fila para un riesgo con probabilidad despreciable, desproporcionado para esta Story.
+
+### Action Items
+
+Ninguno — los 3 hallazgos encontrados fueron corregidos y re-validados en esta misma pasada.

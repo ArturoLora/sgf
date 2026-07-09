@@ -13,6 +13,7 @@ import {
   detectDuplicateFolios,
   rehydrateShiftDates,
   rehydrateMemberDates,
+  validateStagingCompleteness,
 } from "../modules/migration/domain/upload-batching";
 import type {
   AnalysisResultType,
@@ -264,6 +265,59 @@ console.log("\n── rehydrateShiftDates / rehydrateMemberDates ──");
   const member = rehydrateMemberDates(raw);
   expectTrue("birthDate rehidratado a Date", member.birthDate instanceof Date);
   expect("startDate null se preserva como null", member.startDate, null);
+}
+
+// ─── validateStagingCompleteness ───────────────────────────────────────────────
+
+console.log("\n── validateStagingCompleteness ──");
+
+{
+  const rows = [
+    { batchIndex: 0, totalBatches: 3 },
+    { batchIndex: 1, totalBatches: 3 },
+    { batchIndex: 2, totalBatches: 3 },
+  ];
+  expectTrue("completo (0,1,2 de 3) → ok", validateStagingCompleteness(rows).ok === true);
+}
+
+{
+  // CRÍTICO: batches 0,1,3 de 4 — falta el 2 — NUNCA debe pasar.
+  const rows = [
+    { batchIndex: 0, totalBatches: 4 },
+    { batchIndex: 1, totalBatches: 4 },
+    { batchIndex: 3, totalBatches: 4 },
+  ];
+  const result = validateStagingCompleteness(rows);
+  expectTrue("batch faltante (0,1,3 de 4) → rechazado", result.ok === false, `got ${JSON.stringify(result)}`);
+}
+
+{
+  const rows = [{ batchIndex: 0, totalBatches: 2 }];
+  const result = validateStagingCompleteness(rows);
+  expectTrue("recibidos < totalBatches → rechazado", result.ok === false, `got ${JSON.stringify(result)}`);
+}
+
+{
+  const rows = [
+    { batchIndex: 0, totalBatches: 2 },
+    { batchIndex: 5, totalBatches: 2 },
+  ];
+  const result = validateStagingCompleteness(rows);
+  expectTrue("batchIndex fuera de rango → rechazado", result.ok === false, `got ${JSON.stringify(result)}`);
+}
+
+{
+  const rows = [
+    { batchIndex: 0, totalBatches: 2 },
+    { batchIndex: 1, totalBatches: 3 },
+  ];
+  const result = validateStagingCompleteness(rows);
+  expectTrue("totalBatches inconsistente entre filas → rechazado", result.ok === false, `got ${JSON.stringify(result)}`);
+}
+
+{
+  const result = validateStagingCompleteness([]);
+  expectTrue("sin filas → rechazado", result.ok === false);
 }
 
 // ─── Summary ─────────────────────────────────────────────────────────────────

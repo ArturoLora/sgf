@@ -2,8 +2,10 @@ import { requireActiveAdminApi } from "@/lib/require-role";
 import { prisma } from "@/lib/db";
 import { MigrationService } from "@/modules/migration/migration.service";
 import { EmployeeMappingSchema, ShiftDetailSchema } from "@/types/api/migracion";
-import { rehydrateShiftDates } from "@/modules/migration/domain/upload-batching";
+import { rehydrateShiftDates, validateStagingCompleteness } from "@/modules/migration/domain/upload-batching";
 import { z } from "zod";
+
+const KIND = "sync-shifts";
 
 const FinalizeBodySchema = z.object({
   importId: z.string().min(1),
@@ -31,31 +33,55 @@ export async function POST(request: Request): Promise<Response> {
   }
   const { importId, employeeMapping } = parsed.data;
 
-  // Aislamiento: solo filas de este importId Y de este admin.
+  // Aislamiento: solo filas de este importId Y de este admin Y de este kind.
   const rows = await prisma.migrationImportStaging.findMany({
-    where: { importId, adminUserId, kind: "sync-shifts" },
+    where: { importId, adminUserId, kind: KIND },
     orderBy: { batchIndex: "asc" },
   });
 
-  if (rows.length === 0) {
+  // Completitud: rechaza batches faltantes, discontinuos, fuera de rango, o
+  // con totalBatches inconsistente ANTES de ejecutar cualquier lógica de negocio.
+  const completeness = validateStagingCompleteness(rows);
+  if (!completeness.ok) {
+    return Response.json({ error: completeness.reason }, { status: 400 });
+  }
+
+  // Claim atómico: un solo UPDATE condicionado a claimedAt:null. Si dos
+  // finalize concurrentes (doble click, retry del navegador) llegan casi
+  // simultáneamente, solo uno afecta `rows.length` filas — el otro afecta 0
+  // y debe rechazar sin ejecutar syncShifts/finalizeSyncMode.
+  const claim = await prisma.migrationImportStaging.updateMany({
+    where: { importId, adminUserId, kind: KIND, claimedAt: null },
+    data: { claimedAt: new Date() },
+  });
+  if (claim.count !== rows.length) {
     return Response.json(
-      { error: "No hay datos en staging para este importId — reinicia la importación" },
-      { status: 400 },
+      { error: "Esta importación ya está siendo finalizada (posible doble ejecución) — no se ejecutó de nuevo" },
+      { status: 409 },
     );
   }
 
-  const rawShifts = rows.flatMap((row) => {
-    const result = z.array(ShiftDetailSchema).safeParse(row.shiftsJson);
-    return result.success ? result.data : [];
-  });
+  try {
+    const rawShifts = rows.flatMap((row) => {
+      const result = z.array(ShiftDetailSchema).safeParse(row.shiftsJson);
+      return result.success ? result.data : [];
+    });
+    const shifts = rawShifts.map(rehydrateShiftDates);
 
-  const shifts = rawShifts.map(rehydrateShiftDates);
+    const syncResult = await MigrationService.syncShifts(shifts, employeeMapping);
+    const finalize = await MigrationService.finalizeSyncMode(shifts, syncResult);
 
-  const syncResult = await MigrationService.syncShifts(shifts, employeeMapping);
-  const finalize = await MigrationService.finalizeSyncMode(shifts, syncResult);
+    // Cleanup en el camino feliz.
+    await prisma.migrationImportStaging.deleteMany({ where: { importId, adminUserId, kind: KIND } });
 
-  // Cleanup en el camino feliz.
-  await prisma.migrationImportStaging.deleteMany({ where: { importId, adminUserId, kind: "sync-shifts" } });
-
-  return Response.json({ ...syncResult, finalize });
+    return Response.json({ ...syncResult, finalize });
+  } catch (e) {
+    // Libera el claim para permitir un retry legítimo — no se oculta el error.
+    await prisma.migrationImportStaging.updateMany({
+      where: { importId, adminUserId, kind: KIND },
+      data: { claimedAt: null },
+    });
+    const message = e instanceof Error ? e.message : "Error inesperado durante la sincronización";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
