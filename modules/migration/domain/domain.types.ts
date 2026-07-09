@@ -175,6 +175,8 @@ export interface UserRef {
   id: string;
   name: string;
   email: string;
+  role: "ADMIN" | "EMPLEADO"; // literal propio — evita acoplar migration a modules/users
+  isActive: boolean;
 }
 
 export interface EmployeeMappingEntry {

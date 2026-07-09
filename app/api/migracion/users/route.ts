@@ -8,9 +8,12 @@ export async function GET(): Promise<Response> {
     return Response.json({ error: "No autenticado" }, { status: 401 });
   }
 
+  // Historia ciclo-de-vida-empleados: sin filtro isActive — un User inactivo
+  // es una identidad histórica válida para el mapeo (ver investigación
+  // employee-mapping-historical-authorship). No cambia la autenticación de
+  // esta ruta.
   const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true },
     orderBy: { name: "asc" },
   });
 

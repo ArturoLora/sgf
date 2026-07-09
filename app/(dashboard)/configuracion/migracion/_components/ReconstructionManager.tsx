@@ -34,6 +34,7 @@ export function ReconstructionManager({ onExit }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [previewResult, setPreviewResult] = useState<PreviewResponseType | null>(null);
   const [employeeMapping, setEmployeeMapping] = useState<Record<string, string>>({});
+  const [usersToDelete, setUsersToDelete] = useState<string[]>([]);
   const [restoreCommand, setRestoreCommand] = useState<string | null>(null);
   const [reimportProducts, setReimportProducts] = useState(false);
 
@@ -47,8 +48,9 @@ export function ReconstructionManager({ onExit }: Props) {
     setStep(3);
   }
 
-  function handleInconsistencyComplete(mapping: Record<string, string>) {
+  function handleInconsistencyComplete(mapping: Record<string, string>, selectedUsersToDelete: string[]) {
     setEmployeeMapping(mapping);
+    setUsersToDelete(selectedUsersToDelete);
     setStep(4);
   }
 
@@ -81,7 +83,11 @@ export function ReconstructionManager({ onExit }: Props) {
       {step === 2 && <PreviewStep files={files} onPreviewComplete={handlePreviewComplete} />}
 
       {step === 3 && previewResult && (
-        <InconsistencyStep previewResult={previewResult} onComplete={handleInconsistencyComplete} />
+        <InconsistencyStep
+          previewResult={previewResult}
+          mode="reconstruction"
+          onComplete={handleInconsistencyComplete}
+        />
       )}
 
       {step === 4 && <DeletionPreviewStep onContinue={() => setStep(5)} />}
@@ -102,6 +108,7 @@ export function ReconstructionManager({ onExit }: Props) {
           members={previewResult?.members ?? []}
           shifts={previewResult?.shifts ?? []}
           employeeMapping={employeeMapping}
+          usersToDelete={usersToDelete}
           reimportProducts={reimportProducts}
           restoreCommand={restoreCommand}
           expectedMembers={previewResult?.members.length ?? 0}

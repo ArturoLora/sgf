@@ -16,6 +16,7 @@ const FinalizeBodySchema = z.object({
   members: z.array(MemberPreviewSchema),
   employeeMapping: EmployeeMappingSchema.optional().default({}),
   reimportProducts: z.boolean().default(false),
+  usersToDelete: z.array(z.string().min(1)).default([]),
 });
 
 // Reconstruye el conjunto GLOBAL de shifts desde staging y ejecuta
@@ -39,6 +40,9 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Formato de finalize inválido" }, { status: 400 });
   }
   const { importId, employeeMapping, reimportProducts } = parsed.data;
+  // Normaliza duplicados antes de validar — el contrato Zod por sí solo no
+  // los previene (z.array(z.string()) permite repetidos).
+  const dedupedUsersToDelete = [...new Set(parsed.data.usersToDelete)];
 
   // Aislamiento: solo filas de este importId Y de este admin Y de este kind.
   const rows = await prisma.migrationImportStaging.findMany({
@@ -75,7 +79,14 @@ export async function POST(request: Request): Promise<Response> {
     const shifts = rawShifts.map(rehydrateShiftDates);
     const members = parsed.data.members.map(rehydrateMemberDates);
 
-    const result = await executeReconstruction(members, shifts, employeeMapping, reimportProducts);
+    const result = await executeReconstruction(
+      members,
+      shifts,
+      employeeMapping,
+      reimportProducts,
+      dedupedUsersToDelete,
+      adminUserId,
+    );
 
     // Cleanup en el camino feliz.
     await prisma.migrationImportStaging.deleteMany({ where: { importId, adminUserId, kind: KIND } });

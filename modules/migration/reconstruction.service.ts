@@ -23,6 +23,12 @@ import type { DomainMember, DomainShift } from "./domain/domain.types";
 import { buildProductResetPlan } from "./domain/product-reset";
 import { computeLastSalePrices, type SaleMovementForPricing } from "./domain/product-pricing";
 import { classifyReconstructionSeverity, type ReconstructionSeverity } from "./domain/reconstruction-report";
+import { validateUsersToDelete } from "./domain/employee-lifecycle";
+import {
+  fetchUsersForDeletionCheck,
+  removeSelectedEmployees,
+  type EmployeeRemovalResult,
+} from "./employee-lifecycle.service";
 
 const execFileAsync = promisify(execFile);
 
@@ -206,13 +212,22 @@ async function restoreProductSalePrices(): Promise<ProductPricingResult> {
   return { productsPriced: pricesByProduct.size, productsLeftAtZero: totalProducts - pricesByProduct.size };
 }
 
-export type ReconstructionPhase = "validation" | "delete" | "products" | "members" | "shifts" | "pricing" | "finalize";
+export type ReconstructionPhase =
+  | "validation"
+  | "delete"
+  | "employees"
+  | "products"
+  | "members"
+  | "shifts"
+  | "pricing"
+  | "finalize";
 
 export interface ReconstructionExecutionResult {
   success: boolean;
   failedPhase: ReconstructionPhase | null;
   failureMessage: string | null;
   deleteResult: DeleteOperationalDataResult | null;
+  employeeRemovalResult: EmployeeRemovalResult | null;
   productResult: ProductResetResult | null;
   membersResult: SyncMembersResult | null;
   shiftsResult: SyncShiftsResult | null;
@@ -231,6 +246,8 @@ export async function executeReconstruction(
   shifts: DomainShift[],
   employeeMapping: Record<string, string>,
   reimportProducts: boolean,
+  usersToDelete: string[],
+  authenticatedAdminId: string,
 ): Promise<ReconstructionExecutionResult> {
   // Guard: refuse to wipe the database when the replacement data is empty.
   // FileUploadStep/PreviewStep never required both socios and cortes files
@@ -245,6 +262,7 @@ export async function executeReconstruction(
       failureMessage:
         "No se detectaron socios y/o cortes en los archivos subidos — la reconstrucción requiere ambos tipos de archivo con contenido válido. No se eliminó ningún dato.",
       deleteResult: null,
+      employeeRemovalResult: null,
       productResult: null,
       membersResult: null,
       shiftsResult: null,
@@ -264,6 +282,38 @@ export async function executeReconstruction(
         failureMessage:
           "Se pidió reimportar productos, pero no se encontró ningún producto en las hojas de Inventario de los archivos subidos. No se eliminó ningún dato.",
         deleteResult: null,
+        employeeRemovalResult: null,
+        productResult: null,
+        membersResult: null,
+        shiftsResult: null,
+        pricingResult: null,
+        finalizeResult: null,
+        finalizeWarning: null,
+      };
+    }
+  }
+
+  // Guardia de usersToDelete (AC-19/AC-20) — validar el conjunto COMPLETO
+  // ANTES de deleteOperationalData(). executeReconstruction() es la single
+  // source of truth: no se confía en ningún cálculo hecho en el cliente.
+  if (usersToDelete.length > 0) {
+    const existingUsers = await fetchUsersForDeletionCheck(usersToDelete);
+    const validation = validateUsersToDelete(
+      usersToDelete,
+      existingUsers,
+      employeeMapping,
+      authenticatedAdminId,
+    );
+    if (!validation.valid) {
+      return {
+        success: false,
+        failedPhase: "validation",
+        failureMessage:
+          "La selección de empleados a eliminar no es válida — " +
+          (validation.reason ?? "ids inválidos") +
+          ". No se eliminó ningún dato.",
+        deleteResult: null,
+        employeeRemovalResult: null,
         productResult: null,
         membersResult: null,
         shiftsResult: null,
@@ -285,6 +335,7 @@ export async function executeReconstruction(
         "No se pudo completar el borrado de datos operativos. La transacción se revirtió — la base de datos no fue modificada. " +
         (e instanceof Error ? e.message : "Error desconocido"),
       deleteResult: null,
+      employeeRemovalResult: null,
       productResult: null,
       membersResult: null,
       shiftsResult: null,
@@ -292,6 +343,36 @@ export async function executeReconstruction(
       finalizeResult: null,
       finalizeWarning: null,
     };
+  }
+
+  // Fase "employees": elimina los usersToDelete YA VALIDADOS, después de
+  // deleteOperationalData() (las 3 relaciones bloqueantes de User ya están
+  // vacías para TODOS los usuarios) y antes de resetProducts/syncMembers/
+  // syncShifts (employeeMapping nunca puede apuntar a un User eliminado —
+  // ya lo garantiza la guardia de arriba). Fallo aquí aborta de inmediato,
+  // sin continuar al resto del pipeline — no se envuelve en una transacción
+  // Prisma (Better Auth nunca participa de prisma.$transaction()).
+  let employeeRemovalResult: EmployeeRemovalResult | null = null;
+  if (usersToDelete.length > 0) {
+    try {
+      employeeRemovalResult = await removeSelectedEmployees(usersToDelete);
+    } catch (e) {
+      return {
+        success: false,
+        failedPhase: "employees",
+        failureMessage:
+          "La base de datos fue vaciada pero la eliminación de empleados seleccionados falló. Restaura desde el respaldo para recuperar el estado anterior. " +
+          (e instanceof Error ? e.message : "Error desconocido"),
+        deleteResult,
+        employeeRemovalResult: null,
+        productResult: null,
+        membersResult: null,
+        shiftsResult: null,
+        pricingResult: null,
+        finalizeResult: null,
+        finalizeWarning: null,
+      };
+    }
   }
 
   let productResult: ProductResetResult | null = null;
@@ -306,6 +387,7 @@ export async function executeReconstruction(
           "La base de datos fue vaciada pero el reset de productos falló. Restaura desde el respaldo para recuperar el estado anterior. " +
           (e instanceof Error ? e.message : "Error desconocido"),
         deleteResult,
+        employeeRemovalResult,
         productResult: null,
         membersResult: null,
         shiftsResult: null,
@@ -327,6 +409,7 @@ export async function executeReconstruction(
         "La base de datos fue vaciada pero la importación de socios falló. Restaura desde el respaldo para recuperar el estado anterior. " +
         (e instanceof Error ? e.message : "Error desconocido"),
       deleteResult,
+      employeeRemovalResult,
       productResult,
       membersResult: null,
       shiftsResult: null,
@@ -342,6 +425,7 @@ export async function executeReconstruction(
       failureMessage:
         "La base de datos fue vaciada pero la importación de socios falló. Restaura desde el respaldo para recuperar el estado anterior.",
       deleteResult,
+      employeeRemovalResult,
       productResult,
       membersResult,
       shiftsResult: null,
@@ -362,6 +446,7 @@ export async function executeReconstruction(
         "La base de datos fue vaciada, los socios se importaron, pero la importación de cortes falló. Restaura desde el respaldo para recuperar el estado anterior. " +
         (e instanceof Error ? e.message : "Error desconocido"),
       deleteResult,
+      employeeRemovalResult,
       productResult,
       membersResult,
       shiftsResult: null,
@@ -377,6 +462,7 @@ export async function executeReconstruction(
       failureMessage:
         "La base de datos fue vaciada, los socios se importaron, pero la importación de cortes falló. Restaura desde el respaldo para recuperar el estado anterior.",
       deleteResult,
+      employeeRemovalResult,
       productResult,
       membersResult,
       shiftsResult,
@@ -401,6 +487,7 @@ export async function executeReconstruction(
           "La base de datos fue vaciada, los socios y cortes se importaron correctamente, pero la restauración de precios de venta (salePrice) falló. Restaura desde el respaldo para recuperar el estado anterior. " +
           (e instanceof Error ? e.message : "Error desconocido"),
         deleteResult,
+        employeeRemovalResult,
         productResult,
         membersResult,
         shiftsResult,
@@ -429,6 +516,7 @@ export async function executeReconstruction(
     failureMessage: null,
     pricingResult,
     deleteResult,
+    employeeRemovalResult,
     productResult,
     membersResult,
     shiftsResult,

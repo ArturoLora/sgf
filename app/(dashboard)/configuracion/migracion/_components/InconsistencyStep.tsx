@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlertCircle, CheckCircle2, AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,19 +13,37 @@ import {
 } from "@/components/ui/select";
 import { classifyInconsistencies } from "@/modules/migration/domain/inconsistency-classifier";
 import type { InconsistencyReport, UserRef } from "@/modules/migration/domain/domain.types";
-import type { PreviewResponseType, ParseWarningType } from "@/types/api/migracion";
+import type {
+  PreviewResponseType,
+  ParseWarningType,
+  DeletionCandidateType,
+} from "@/types/api/migracion";
 
 interface Props {
   previewResult: PreviewResponseType;
-  onComplete: (mapping: Record<string, string>) => void;
+  // Reconstruction habilita la sección "Empleados no utilizados" — Sync
+  // nunca la muestra ni elimina empleados (mode="sync" por default).
+  mode?: "sync" | "reconstruction";
+  onComplete: (mapping: Record<string, string>, usersToDelete: string[]) => void;
 }
 
-export function InconsistencyStep({ previewResult, onComplete }: Props) {
+export function InconsistencyStep({ previewResult, mode = "sync", onComplete }: Props) {
   const [users, setUsers] = useState<UserRef[]>([]);
   const [report, setReport] = useState<InconsistencyReport | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Crear empleado histórico — estado por fila para idempotencia ante doble
+  // click/retry (mismo patrón que ImportSociosStep/ImportCortesStep).
+  const [creatingRows, setCreatingRows] = useState<Record<string, boolean>>({});
+  const [createdRows, setCreatedRows] = useState<Record<string, boolean>>({});
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+
+  // Candidatos de eliminación — solo Reconstruction.
+  const [candidates, setCandidates] = useState<DeletionCandidateType[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [usersToDelete, setUsersToDelete] = useState<string[]>([]);
 
   const { sellerNames, warnings } = previewResult;
 
@@ -57,6 +75,47 @@ export function InconsistencyStep({ previewResult, onComplete }: Props) {
     init();
   }, [sellerNames, warnings]);
 
+  const currentBlocking = report
+    ? report.employeeMappings.filter((e) => !mapping[e.historicalName]).length
+    : 0;
+  const canProceedNow = report ? currentBlocking === 0 : false;
+  const mappingKey = JSON.stringify(mapping);
+
+  // Reconstruction: recalcular candidatos cada vez que el mapping cambia. Un
+  // User que pasa a ser destino del mapping deja de listarse — y si estaba
+  // marcado para borrar, se remueve automáticamente de usersToDelete.
+  useEffect(() => {
+    if (mode !== "reconstruction" || !canProceedNow) {
+      setCandidates([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setCandidatesLoading(true);
+      try {
+        const res = await fetch("/api/migracion/reconstruccion/candidatos-eliminacion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employeeMapping: mapping }),
+        });
+        if (!res.ok) throw new Error("Error al calcular candidatos de eliminación");
+        const data: DeletionCandidateType[] = await res.json();
+        if (cancelled) return;
+        setCandidates(data);
+        const candidateIds = new Set(data.map((c) => c.id));
+        setUsersToDelete((prev) => prev.filter((id) => candidateIds.has(id)));
+      } catch {
+        if (!cancelled) setCandidates([]);
+      } finally {
+        if (!cancelled) setCandidatesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mappingKey ya es la serialización estable de `mapping`
+  }, [mode, canProceedNow, mappingKey]);
+
   if (loading) {
     return (
       <div className="rounded-lg border border-border p-6 text-sm text-muted-foreground">
@@ -73,12 +132,6 @@ export function InconsistencyStep({ previewResult, onComplete }: Props) {
     );
   }
 
-  const currentBlocking = report.employeeMappings.filter(
-    (e) => !mapping[e.historicalName],
-  ).length;
-
-  const canProceedNow = currentBlocking === 0;
-
   function handleUserSelect(historicalName: string, userId: string) {
     setMapping((prev) => {
       if (!userId) {
@@ -90,8 +143,44 @@ export function InconsistencyStep({ previewResult, onComplete }: Props) {
     });
   }
 
+  async function handleCreateEmployee(historicalName: string) {
+    if (creatingRows[historicalName] || createdRows[historicalName]) return;
+    setCreatingRows((prev) => ({ ...prev, [historicalName]: true }));
+    setCreateErrors((prev) => {
+      const next = { ...prev };
+      delete next[historicalName];
+      return next;
+    });
+    try {
+      const res = await fetch("/api/migracion/reconstruccion/empleados-historicos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ historicalName }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      const newUser: UserRef = await res.json();
+      setUsers((prev) => [...prev, newUser]);
+      setMapping((prev) => ({ ...prev, [historicalName]: newUser.id }));
+      setCreatedRows((prev) => ({ ...prev, [historicalName]: true }));
+    } catch (e) {
+      setCreateErrors((prev) => ({
+        ...prev,
+        [historicalName]: e instanceof Error ? e.message : "Error al crear empleado",
+      }));
+    } finally {
+      setCreatingRows((prev) => ({ ...prev, [historicalName]: false }));
+    }
+  }
+
+  function handleToggleUserToDelete(userId: string, checked: boolean) {
+    setUsersToDelete((prev) => (checked ? [...prev, userId] : prev.filter((id) => id !== userId)));
+  }
+
   function handleContinue() {
-    onComplete(mapping);
+    onComplete(mapping, mode === "reconstruction" ? usersToDelete : []);
   }
 
   return (
@@ -119,60 +208,96 @@ export function InconsistencyStep({ previewResult, onComplete }: Props) {
               const resolvedUser = users.find((u) => u.id === resolvedId);
               const isMapped = Boolean(resolvedId);
               const wasAutoMapped = entry.isAutoMapped && isMapped;
+              const wasCreated = Boolean(createdRows[entry.historicalName]);
+              const isCreating = Boolean(creatingRows[entry.historicalName]);
+              const createError = createErrors[entry.historicalName];
 
               return (
                 <div
                   key={entry.historicalName}
-                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
+                  className="flex flex-col gap-2 border-b border-border/60 pb-3 last:border-b-0 last:pb-0"
                 >
-                  {/* Historical name + badge */}
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="font-mono text-sm font-medium truncate">
-                      {entry.historicalName}
-                    </span>
-                    {isMapped ? (
-                      wasAutoMapped ? (
-                        <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">
-                          Auto-mapeado
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">
-                          Mapeado
-                        </Badge>
-                      )
-                    ) : (
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 shrink-0">
-                        Requiere mapeo
-                      </Badge>
-                    )}
-                    {resolvedUser && (
-                      <span className="text-xs text-muted-foreground truncate">
-                        → {resolvedUser.name}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    {/* Historical name + badge */}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="font-mono text-sm font-medium truncate">
+                        {entry.historicalName}
                       </span>
+                      {isMapped ? (
+                        wasCreated ? (
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 shrink-0">
+                            Creado
+                          </Badge>
+                        ) : wasAutoMapped ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">
+                            Auto-mapeado
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">
+                            Mapeado
+                          </Badge>
+                        )
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200 shrink-0">
+                          Requiere mapeo
+                        </Badge>
+                      )}
+                      {resolvedUser && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          → {resolvedUser.name}
+                          {!resolvedUser.isActive && " (inactivo)"}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* User dropdown */}
+                    <div className="w-full sm:w-56 shrink-0">
+                      <Select
+                        value={resolvedId ?? ""}
+                        onValueChange={(val) =>
+                          handleUserSelect(entry.historicalName, val === "__CLEAR__" ? "" : val)
+                        }
+                      >
+                        <SelectTrigger className="w-full text-sm">
+                          <SelectValue placeholder="Seleccionar usuario…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__CLEAR__" className="text-muted-foreground">
+                            Sin asignar
+                          </SelectItem>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name}
+                              {!u.isActive && " (Inactivo)"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {!isMapped && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isCreating}
+                        onClick={() => handleCreateEmployee(entry.historicalName)}
+                        className="shrink-0"
+                      >
+                        {isCreating ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            Creando…
+                          </>
+                        ) : (
+                          "Crear nuevo empleado"
+                        )}
+                      </Button>
                     )}
                   </div>
-
-                  {/* User dropdown */}
-                  <div className="w-full sm:w-56 shrink-0">
-                    <Select
-                      value={resolvedId ?? ""}
-                      onValueChange={(val) => handleUserSelect(entry.historicalName, val === "__CLEAR__" ? "" : val)}
-                    >
-                      <SelectTrigger className="w-full text-sm">
-                        <SelectValue placeholder="Seleccionar usuario…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__CLEAR__" className="text-muted-foreground">
-                          Sin asignar
-                        </SelectItem>
-                        {users.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {createError && (
+                    <p className="text-xs text-destructive">{createError}</p>
+                  )}
                 </div>
               );
             })}
@@ -216,6 +341,68 @@ export function InconsistencyStep({ previewResult, onComplete }: Props) {
           </div>
         )}
       </section>
+
+      {/* ── Empleados no utilizados (solo Reconstruction) ────────────────── */}
+      {mode === "reconstruction" && canProceedNow && (
+        <section className="rounded-lg border border-border p-4 flex flex-col gap-3">
+          <h2 className="font-semibold text-sm">Empleados no utilizados en esta reconstrucción</h2>
+          <p className="text-xs text-muted-foreground">
+            Eliminar es opcional. Ningún empleado viene seleccionado por default.
+          </p>
+
+          {candidatesLoading ? (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Calculando candidatos…
+            </p>
+          ) : candidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ningún empleado sobrante — todos están en uso por el mapeo actual.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {candidates.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex items-start gap-3 rounded border border-border p-3 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={usersToDelete.includes(c.id)}
+                    onChange={(e) => handleToggleUserToDelete(c.id, e.target.checked)}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate">{c.name}</span>
+                      <Badge
+                        className={
+                          c.isActive
+                            ? "bg-amber-100 text-amber-800 border-amber-200 shrink-0"
+                            : "bg-muted text-muted-foreground border-border shrink-0"
+                        }
+                      >
+                        {c.isActive ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {c.shiftsCount} turno{c.shiftsCount !== 1 ? "s" : ""}, {c.movementsCount}{" "}
+                      movimiento{c.movementsCount !== 1 ? "s" : ""}, {c.withdrawalsCount} retiro
+                      {c.withdrawalsCount !== 1 ? "s" : ""} registrados
+                    </span>
+                    {c.isActive && (
+                      <span className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        Este empleado está activo — verifica antes de eliminar
+                      </span>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── Blocking message + Continue ──────────────────────────────────── */}
       {!canProceedNow && (

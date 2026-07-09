@@ -16,9 +16,9 @@ function assert(description: string, condition: boolean): void {
 }
 
 const users: UserRef[] = [
-  { id: "u1", name: "Andrew", email: "andrew@gym.mx" },
-  { id: "u2", name: "Carlos", email: "carlos@gym.mx" },
-  { id: "u3", name: "María", email: "maria@gym.mx" },
+  { id: "u1", name: "Andrew", email: "andrew@gym.mx", role: "EMPLEADO", isActive: true },
+  { id: "u2", name: "Carlos", email: "carlos@gym.mx", role: "EMPLEADO", isActive: true },
+  { id: "u3", name: "María", email: "maria@gym.mx", role: "EMPLEADO", isActive: true },
 ];
 
 const warnings: ParseWarning[] = [

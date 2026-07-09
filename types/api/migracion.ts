@@ -138,12 +138,43 @@ export const UserRefSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string(),
+  role: z.enum(["ADMIN", "EMPLEADO"]),
+  isActive: z.boolean(),
 });
 
 export const UserListResponseSchema = z.array(UserRefSchema);
 
 export type UserRefType = z.infer<typeof UserRefSchema>;
 export type UserListResponseType = z.infer<typeof UserListResponseSchema>;
+
+// ─── Ciclo de vida de empleados en Reconstruction ──────────────────────────────
+
+// El cliente NO puede enviar role/email/password — se fijan server-side
+// (ver modules/migration/employee-lifecycle.service.ts).
+export const CreateHistoricalEmployeeInputSchema = z.object({
+  historicalName: z.string().min(1),
+});
+
+export type CreateHistoricalEmployeeInputType = z.infer<
+  typeof CreateHistoricalEmployeeInputSchema
+>;
+
+export const DeletionCandidateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  isActive: z.boolean(),
+  shiftsCount: z.number(),
+  movementsCount: z.number(),
+  withdrawalsCount: z.number(),
+});
+
+export type DeletionCandidateType = z.infer<typeof DeletionCandidateSchema>;
+
+export const DeletionCandidatesResponseSchema = z.array(DeletionCandidateSchema);
+
+export const DeletionCandidatesRequestSchema = z.object({
+  employeeMapping: z.record(z.string(), z.string()),
+});
 
 // ─── Story 1.4: sync members result ──────────────────────────────────────────
 
@@ -244,9 +275,16 @@ export const ProductPricingResultSchema = z.object({
   productsLeftAtZero: z.number(),
 });
 
+// Ciclo de vida de empleados: eliminación de usersToDelete vía Better Auth.
+export const EmployeeRemovalResultSchema = z.object({
+  requested: z.number(),
+  removed: z.number(),
+});
+
 export const ReconstructionPhaseSchema = z.enum([
   "validation",
   "delete",
+  "employees",
   "products",
   "members",
   "shifts",
@@ -259,6 +297,7 @@ export const ReconstructionExecutionResultSchema = z.object({
   failedPhase: ReconstructionPhaseSchema.nullable(),
   failureMessage: z.string().nullable(),
   deleteResult: DeleteOperationalDataResultSchema.nullable(),
+  employeeRemovalResult: EmployeeRemovalResultSchema.nullable(),
   productResult: ProductResetResultSchema.nullable(),
   membersResult: SyncMembersResultSchema.nullable(),
   shiftsResult: SyncShiftsResultSchema.nullable(),

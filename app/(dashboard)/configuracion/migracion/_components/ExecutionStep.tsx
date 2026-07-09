@@ -11,6 +11,7 @@ interface Props {
   members: MemberPreviewType[];
   shifts: ShiftDetailType[];
   employeeMapping: Record<string, string>;
+  usersToDelete: string[];
   reimportProducts: boolean;
   restoreCommand: string | null;
   expectedMembers: number;
@@ -22,6 +23,7 @@ export function ExecutionStep({
   members,
   shifts,
   employeeMapping,
+  usersToDelete,
   reimportProducts,
   restoreCommand,
   expectedMembers,
@@ -61,7 +63,7 @@ export function ExecutionStep({
         const res = await fetch("/api/migracion/reconstruccion/ejecutar/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ importId, members, employeeMapping, reimportProducts }),
+          body: JSON.stringify({ importId, members, employeeMapping, reimportProducts, usersToDelete }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
