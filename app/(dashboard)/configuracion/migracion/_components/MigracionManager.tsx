@@ -92,10 +92,10 @@ export function MigracionManager() {
           </button>
           <button
             onClick={() => setMode("reconstruction")}
-            className="rounded-lg border border-amber-300 bg-amber-50/50 p-5 text-left hover:border-amber-500 transition-colors"
+            className="rounded-lg border border-amber-300 bg-amber-50/50 p-5 text-left hover:border-amber-500 transition-colors dark:border-amber-800/40 dark:bg-amber-900/10 dark:hover:border-amber-600"
           >
-            <p className="font-semibold text-sm text-amber-900">Reconstrucción</p>
-            <p className="text-xs text-amber-800 mt-1">
+            <p className="font-semibold text-sm text-amber-900 dark:text-amber-400">Reconstrucción</p>
+            <p className="text-xs text-amber-800 mt-1 dark:text-amber-300">
               Elimina los datos operativos y reconstruye desde cero. Requiere confirmación explícita.
             </p>
           </button>
