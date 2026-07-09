@@ -38,6 +38,50 @@ function serializeShift(s: DomainShift) {
     inventoryCount: s.inventory.length,
     withdrawalCount: s.withdrawals.length,
     legacyNotes: s.legacyNotes,
+    // Detalle completo (Story de batching) — transporte interno para
+    // sync-shifts/ejecutar sin volver a subir/parsear archivos. La UI de
+    // preview sigue leyendo solo los campos de resumen de arriba.
+    cashierName: s.cashierName,
+    sales: s.sales.map((sale) => ({
+      ticket: sale.ticket,
+      saleDate: sale.saleDate?.toISOString() ?? null,
+      memberNumber: sale.memberNumber,
+      memberName: sale.memberName,
+      description: sale.description,
+      paymentMethod: sale.paymentMethod,
+      sellerName: sale.sellerName,
+      price: sale.price,
+      discount: sale.discount,
+      surcharge: sale.surcharge,
+      isCancelled: sale.isCancelled,
+      isMembership: sale.isMembership,
+    })),
+    inventory: s.inventory.map((row) => ({
+      productName: row.productName,
+      gymStock: row.gymStock,
+      warehouseStock: row.warehouseStock,
+      adjustment: row.adjustment,
+      entries: row.entries,
+    })),
+    withdrawals: s.withdrawals.map((w) => ({
+      withdrawalDate: w.withdrawalDate?.toISOString() ?? null,
+      concept: w.concept,
+      amount: w.amount,
+    })),
+    initialCash: s.initialCash,
+    ticketCount: s.ticketCount,
+    membershipSales: s.membershipSales,
+    productSales0Tax: s.productSales0Tax,
+    productSales16Tax: s.productSales16Tax,
+    subtotal: s.subtotal,
+    tax: s.tax,
+    totalSales: s.totalSales,
+    cashAmount: s.cashAmount,
+    debitCardAmount: s.debitCardAmount,
+    creditCardAmount: s.creditCardAmount,
+    totalVoucher: s.totalVoucher,
+    totalWithdrawalsAmount: s.totalWithdrawalsAmount,
+    totalCash: s.totalCash,
   };
 }
 

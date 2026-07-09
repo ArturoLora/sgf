@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { Users, FileText, AlertCircle, CheckCircle2, Upload, Loader2, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AnalysisResultType } from "@/types/api/migracion";
+import { partitionByByteBudget, concatAnalysisResults } from "@/modules/migration/domain/upload-batching";
 
 interface FileUploadStepProps {
   onAnalysisComplete: (files: File[], results: AnalysisResultType[]) => void;
@@ -15,6 +16,10 @@ export function FileUploadStep({ onAnalysisComplete }: FileUploadStepProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [batches, setBatches] = useState<File[][]>([]);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [failedBatchIndex, setFailedBatchIndex] = useState<number | null>(null);
+  const [partialResults, setPartialResults] = useState<AnalysisResultType[][]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function addFiles(incoming: FileList | null) {
@@ -46,33 +51,66 @@ export function FileUploadStep({ onAnalysisComplete }: FileUploadStepProps) {
     addFiles(e.dataTransfer.files);
   }, []);
 
+  // Batches son solo transporte — el lote completo sigue siendo un único
+  // análisis lógico. Secuencial (no Promise.all): ninguna razón real para
+  // paralelizar, y preserva orden determinista de consolidación.
+  async function runBatches(allBatches: File[][], startIndex: number, priorResults: AnalysisResultType[][]) {
+    const collected = [...priorResults];
+    for (let i = startIndex; i < allBatches.length; i++) {
+      setBatchProgress({ current: i + 1, total: allBatches.length });
+      try {
+        const formData = new FormData();
+        allBatches[i].forEach((f) => formData.append("files", f));
+
+        const res = await fetch("/api/migracion/validate", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `Error ${res.status}`);
+        }
+
+        const data: AnalysisResultType[] = await res.json();
+        collected.push(data);
+      } catch (err) {
+        setFailedBatchIndex(i);
+        setPartialResults(collected);
+        setError(
+          `Error en lote ${i + 1} de ${allBatches.length}: ${err instanceof Error ? err.message : "Error inesperado"}`,
+        );
+        setLoading(false);
+        return;
+      }
+    }
+
+    setResults(concatAnalysisResults(collected));
+    setFailedBatchIndex(null);
+    setPartialResults([]);
+    setBatchProgress(null);
+    setLoading(false);
+  }
+
   async function handleAnalyze() {
     if (selectedFiles.length === 0) return;
     setLoading(true);
     setError(null);
     setResults(null);
+    setFailedBatchIndex(null);
+    setPartialResults([]);
 
-    try {
-      const formData = new FormData();
-      selectedFiles.forEach((f) => formData.append("files", f));
+    const partition = partitionByByteBudget(selectedFiles, (f) => f.size);
+    const newBatches = partition.map((idxs) => idxs.map((i) => selectedFiles[i]));
+    setBatches(newBatches);
+    await runBatches(newBatches, 0, []);
+  }
 
-      const res = await fetch("/api/migracion/validate", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Error ${res.status}`);
-      }
-
-      const data: AnalysisResultType[] = await res.json();
-      setResults(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error inesperado");
-    } finally {
-      setLoading(false);
-    }
+  async function handleRetryBatch() {
+    if (failedBatchIndex === null) return;
+    setLoading(true);
+    setError(null);
+    await runBatches(batches, failedBatchIndex, partialResults);
   }
 
   return (
@@ -131,6 +169,12 @@ export function FileUploadStep({ onAnalysisComplete }: FileUploadStepProps) {
         </ul>
       )}
 
+      {loading && batchProgress && batchProgress.total > 1 && (
+        <p className="text-xs text-muted-foreground">
+          Lote {batchProgress.current} de {batchProgress.total}
+        </p>
+      )}
+
       {error && (
         <p className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -138,20 +182,28 @@ export function FileUploadStep({ onAnalysisComplete }: FileUploadStepProps) {
         </p>
       )}
 
-      <Button
-        onClick={handleAnalyze}
-        disabled={selectedFiles.length === 0 || loading}
-        className="self-start"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Analizando…
-          </>
-        ) : (
-          "Analizar archivos"
+      <div className="flex gap-2">
+        <Button
+          onClick={handleAnalyze}
+          disabled={selectedFiles.length === 0 || loading}
+          className="self-start"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Analizando…
+            </>
+          ) : (
+            "Analizar archivos"
+          )}
+        </Button>
+
+        {failedBatchIndex !== null && !loading && (
+          <Button onClick={handleRetryBatch} variant="outline" className="self-start">
+            Reintentar lote {failedBatchIndex + 1}
+          </Button>
         )}
-      </Button>
+      </div>
 
       {/* Analysis results */}
       {results && results.length > 0 && (

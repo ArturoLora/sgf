@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Users, FileText, Package, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PreviewResponseType, ParseWarningType } from "@/types/api/migracion";
+import { partitionByByteBudget, consolidatePreviewBatches } from "@/modules/migration/domain/upload-batching";
 
 interface PreviewStepProps {
   files: File[];
@@ -14,14 +15,21 @@ export function PreviewStep({ files, onPreviewComplete }: PreviewStepProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewResponseType | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [failedBatchIndex, setFailedBatchIndex] = useState<number | null>(null);
+  const batchesRef = useRef<File[][]>([]);
+  const partialResultsRef = useRef<PreviewResponseType[]>([]);
 
-  useEffect(() => {
-    async function fetchPreview() {
-      setLoading(true);
-      setError(null);
+  // Batches son solo transporte — el lote completo sigue siendo un único
+  // preview lógico. Secuencial (no Promise.all): preserva orden determinista
+  // de consolidación, sin razón real para paralelizar.
+  async function runBatches(allBatches: File[][], startIndex: number, priorResults: PreviewResponseType[]) {
+    const collected = [...priorResults];
+    for (let i = startIndex; i < allBatches.length; i++) {
+      setBatchProgress({ current: i + 1, total: allBatches.length });
       try {
         const formData = new FormData();
-        files.forEach((f) => formData.append("files", f));
+        allBatches[i].forEach((f) => formData.append("files", f));
 
         const res = await fetch("/api/migracion/preview", {
           method: "POST",
@@ -34,23 +42,59 @@ export function PreviewStep({ files, onPreviewComplete }: PreviewStepProps) {
         }
 
         const data: PreviewResponseType = await res.json();
-        setPreview(data);
+        collected.push(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error inesperado");
-      } finally {
+        setFailedBatchIndex(i);
+        partialResultsRef.current = collected;
+        setError(
+          `Error en lote ${i + 1} de ${allBatches.length}: ${err instanceof Error ? err.message : "Error inesperado"}`,
+        );
         setLoading(false);
+        return;
       }
+    }
+
+    setPreview(consolidatePreviewBatches(collected));
+    setFailedBatchIndex(null);
+    partialResultsRef.current = [];
+    setBatchProgress(null);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    async function fetchPreview() {
+      setLoading(true);
+      setError(null);
+      setFailedBatchIndex(null);
+      partialResultsRef.current = [];
+
+      const partition = partitionByByteBudget(files, (f) => f.size);
+      const newBatches = partition.map((idxs) => idxs.map((i) => files[i]));
+      batchesRef.current = newBatches;
+      await runBatches(newBatches, 0, []);
     }
 
     if (files.length > 0) fetchPreview();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function handleRetryBatch() {
+    if (failedBatchIndex === null) return;
+    setLoading(true);
+    setError(null);
+    await runBatches(batchesRef.current, failedBatchIndex, partialResultsRef.current);
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin" />
         <p className="text-sm">Parseando y transformando registros históricos…</p>
+        {batchProgress && batchProgress.total > 1 && (
+          <p className="text-xs">
+            Lote {batchProgress.current} de {batchProgress.total}
+          </p>
+        )}
       </div>
     );
   }
@@ -60,9 +104,15 @@ export function PreviewStep({ files, onPreviewComplete }: PreviewStepProps) {
       <div className="flex flex-col items-center justify-center gap-3 py-10 text-destructive">
         <AlertTriangle className="h-8 w-8" />
         <p className="text-sm font-medium">{error}</p>
-        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-          Reintentar
-        </Button>
+        {failedBatchIndex !== null ? (
+          <Button variant="outline" size="sm" onClick={handleRetryBatch}>
+            Reintentar lote {failedBatchIndex + 1}
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            Reintentar
+          </Button>
+        )}
       </div>
     );
   }

@@ -59,9 +59,64 @@ export const ShiftPreviewSchema = z.object({
   legacyNotes: z.string().nullable(),
 });
 
+// ─── Story de batching: detalle completo de shift para transporte interno ────
+// Superset de ShiftPreviewSchema — la UI sigue leyendo solo los campos de
+// resumen; estos campos adicionales existen para que sync-shifts/ejecutar
+// reciban el DomainShift completo sin volver a subir/parsear archivos.
+
+export const SaleDetailSchema = z.object({
+  ticket: z.string(),
+  saleDate: z.string().nullable(), // ISO string — requiere rehidratación a Date
+  memberNumber: z.string().nullable(),
+  memberName: z.string().nullable(),
+  description: z.string(),
+  paymentMethod: z.string().nullable(),
+  sellerName: z.string().nullable(),
+  price: z.number(),
+  discount: z.number(),
+  surcharge: z.number(),
+  isCancelled: z.boolean(),
+  isMembership: z.boolean(),
+});
+
+export const InventoryRowDetailSchema = z.object({
+  productName: z.string(),
+  gymStock: z.number(),
+  warehouseStock: z.number(),
+  adjustment: z.number(),
+  entries: z.number(),
+});
+
+export const WithdrawalDetailSchema = z.object({
+  withdrawalDate: z.string().nullable(), // ISO string — requiere rehidratación a Date
+  concept: z.string(),
+  amount: z.number(),
+});
+
+export const ShiftDetailSchema = ShiftPreviewSchema.extend({
+  cashierName: z.string().nullable(),
+  sales: z.array(SaleDetailSchema),
+  inventory: z.array(InventoryRowDetailSchema),
+  withdrawals: z.array(WithdrawalDetailSchema),
+  initialCash: z.number(),
+  ticketCount: z.number(),
+  membershipSales: z.number(),
+  productSales0Tax: z.number(),
+  productSales16Tax: z.number(),
+  subtotal: z.number(),
+  tax: z.number(),
+  totalSales: z.number(),
+  cashAmount: z.number(),
+  debitCardAmount: z.number(),
+  creditCardAmount: z.number(),
+  totalVoucher: z.number(),
+  totalWithdrawalsAmount: z.number(),
+  totalCash: z.number(),
+});
+
 export const PreviewResponseSchema = z.object({
   members: z.array(MemberPreviewSchema),
-  shifts: z.array(ShiftPreviewSchema),
+  shifts: z.array(ShiftDetailSchema),
   warnings: z.array(ParseWarningSchema),
   membershipTypeDistribution: z.record(z.string(), z.number()),
   totalWarnings: z.number(),
@@ -71,6 +126,10 @@ export const PreviewResponseSchema = z.object({
 export type ParseWarningType = z.infer<typeof ParseWarningSchema>;
 export type MemberPreviewType = z.infer<typeof MemberPreviewSchema>;
 export type ShiftPreviewType = z.infer<typeof ShiftPreviewSchema>;
+export type SaleDetailType = z.infer<typeof SaleDetailSchema>;
+export type InventoryRowDetailType = z.infer<typeof InventoryRowDetailSchema>;
+export type WithdrawalDetailType = z.infer<typeof WithdrawalDetailSchema>;
+export type ShiftDetailType = z.infer<typeof ShiftDetailSchema>;
 export type PreviewResponseType = z.infer<typeof PreviewResponseSchema>;
 
 // ─── Story 1.3: user list for employee mapping ────────────────────────────────

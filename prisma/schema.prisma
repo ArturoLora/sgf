@@ -273,3 +273,26 @@ model CashWithdrawal {
   @@index([shiftId])
   @@map("cash_withdrawal")
 }
+
+// ==================== MIGRATION IMPORT STAGING ====================
+// Buffer de tránsito TEMPORAL para transportar `DomainShift[]` en sub-batches
+// JSON hacia una única ejecución final (sync-shifts/finalize,
+// reconstruccion/ejecutar/finalize). No es dato de negocio — nunca se lee
+// fuera de ese flujo de finalize, se borra en el camino feliz, y se
+// autolimpia por TTL en el camino de abandono (ver Story de batching de
+// Migración, sección "Mecanismo corregido").
+
+model MigrationImportStaging {
+  id          String   @id @default(cuid())
+  importId    String
+  adminUserId String
+  kind        String // "sync-shifts" | "reconstruccion-ejecutar"
+  batchIndex  Int
+  shiftsJson  Json
+  createdAt   DateTime @default(now())
+
+  @@unique([importId, batchIndex])
+  @@index([importId])
+  @@index([createdAt])
+  @@map("migration_import_staging")
+}

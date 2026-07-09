@@ -183,7 +183,7 @@ export function MigracionManager() {
 
       {step === 4 && previewResult && (
         <ImportSociosStep
-          files={analysisFiles}
+          members={previewResult.members}
           totalMembers={previewResult.members.length}
           onComplete={handleSyncComplete}
         />
@@ -191,7 +191,7 @@ export function MigracionManager() {
 
       {step === 5 && previewResult && (
         <ImportCortesStep
-          files={analysisFiles}
+          shifts={previewResult.shifts}
           totalShifts={previewResult.shifts.length}
           employeeMapping={employeeMapping}
           onComplete={handleSyncShiftsComplete}

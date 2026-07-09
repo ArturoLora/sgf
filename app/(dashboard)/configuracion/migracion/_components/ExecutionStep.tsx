@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ValidationReportStep } from "./ValidationReportStep";
-import type { ReconstructionExecutionResultType } from "@/types/api/migracion";
+import type { MemberPreviewType, ShiftDetailType, ReconstructionExecutionResultType } from "@/types/api/migracion";
+import { partitionByByteBudget, estimateJsonBytes } from "@/modules/migration/domain/upload-batching";
 
 interface Props {
-  files: File[];
+  members: MemberPreviewType[];
+  shifts: ShiftDetailType[];
   employeeMapping: Record<string, string>;
   reimportProducts: boolean;
   restoreCommand: string | null;
@@ -17,7 +19,8 @@ interface Props {
 }
 
 export function ExecutionStep({
-  files,
+  members,
+  shifts,
   employeeMapping,
   reimportProducts,
   restoreCommand,
@@ -27,17 +30,39 @@ export function ExecutionStep({
 }: Props) {
   const [result, setResult] = useState<ReconstructionExecutionResultType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // Los sub-batches de `stage` son solo transporte de `shifts` — una sola
+  // ejecución lógica de Reconstruction. `finalize` corre executeReconstruction
+  // EXACTAMENTE UNA VEZ, con el conjunto global reconstruido server-side.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const fd = new FormData();
-      for (const f of files) fd.append("files", f);
-      fd.append("employeeMapping", JSON.stringify(employeeMapping));
-      fd.append("reimportProducts", String(reimportProducts));
-
       try {
-        const res = await fetch("/api/migracion/reconstruccion/ejecutar", { method: "POST", body: fd });
+        const importId = crypto.randomUUID();
+        const partition = partitionByByteBudget(shifts, estimateJsonBytes);
+        const batches = partition.map((idxs) => idxs.map((i) => shifts[i]));
+
+        for (let i = 0; i < batches.length; i++) {
+          if (cancelled) return;
+          setBatchProgress({ current: i + 1, total: batches.length });
+          const res = await fetch("/api/migracion/reconstruccion/ejecutar/stage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ importId, batchIndex: i, shifts: batches[i] }),
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body?.error ?? `HTTP ${res.status}`);
+          }
+        }
+
+        if (cancelled) return;
+        const res = await fetch("/api/migracion/reconstruccion/ejecutar/finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ importId, members, employeeMapping, reimportProducts }),
+        });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -46,6 +71,8 @@ export function ExecutionStep({
         if (!cancelled) setResult(data);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Error de red");
+      } finally {
+        if (!cancelled) setBatchProgress(null);
       }
     })();
     return () => {
@@ -74,6 +101,11 @@ export function ExecutionStep({
         <p className="text-xs text-muted-foreground">
           Este proceso puede tardar varios minutos según el volumen de archivos.
         </p>
+        {batchProgress && batchProgress.total > 1 && (
+          <p className="text-xs text-muted-foreground">
+            Lote {batchProgress.current} de {batchProgress.total}
+          </p>
+        )}
       </div>
     );
   }

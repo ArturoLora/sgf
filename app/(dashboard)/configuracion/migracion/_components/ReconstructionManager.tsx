@@ -99,7 +99,8 @@ export function ReconstructionManager({ onExit }: Props) {
 
       {step === 7 && (
         <ExecutionStep
-          files={files}
+          members={previewResult?.members ?? []}
+          shifts={previewResult?.shifts ?? []}
           employeeMapping={employeeMapping}
           reimportProducts={reimportProducts}
           restoreCommand={restoreCommand}

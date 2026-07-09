@@ -27,6 +27,7 @@
     "smoke:shifts-aggregate-stats": "tsx scripts/shifts-aggregate-stats-smoke-test.ts",
     "smoke:historial-stats": "tsx scripts/historial-stats-smoke-test.ts",
     "smoke:socios-stats-semantics": "tsx scripts/socios-stats-semantics-smoke-test.ts",
+    "smoke:migracion-batching": "tsx scripts/migracion-batching-smoke-test.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {

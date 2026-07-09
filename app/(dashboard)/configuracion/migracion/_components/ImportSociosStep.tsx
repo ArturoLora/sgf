@@ -3,30 +3,33 @@
 import { useState } from "react";
 import { CheckCircle2, AlertCircle, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SyncMembersResultType } from "@/types/api/migracion";
+import type { MemberPreviewType, SyncMembersResultType } from "@/types/api/migracion";
 
 type ImportState = "idle" | "importing" | "done" | "error";
 
 interface Props {
-  files: File[];
+  members: MemberPreviewType[];
   totalMembers: number;
   onComplete: (result: SyncMembersResultType) => void;
 }
 
-export function ImportSociosStep({ files, totalMembers, onComplete }: Props) {
+export function ImportSociosStep({ members, totalMembers, onComplete }: Props) {
   const [state, setState] = useState<ImportState>("idle");
   const [result, setResult] = useState<SyncMembersResultType | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Una sola request JSON — medido 259,056 B para el lote real (16.5% del
+  // cap de 1.5 MB), no requiere staging por batches.
   async function handleImport() {
     setState("importing");
     setErrorMsg(null);
 
-    const fd = new FormData();
-    for (const f of files) fd.append("files", f);
-
     try {
-      const res = await fetch("/api/migracion/sync-members", { method: "POST", body: fd });
+      const res = await fetch("/api/migracion/sync-members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ members }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error ?? `HTTP ${res.status}`);

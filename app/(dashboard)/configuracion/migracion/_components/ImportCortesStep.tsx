@@ -3,32 +3,54 @@
 import { useState } from "react";
 import { CheckCircle2, AlertCircle, Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SyncShiftsResponseType } from "@/types/api/migracion";
+import type { ShiftDetailType, SyncShiftsResponseType } from "@/types/api/migracion";
+import { partitionByByteBudget, estimateJsonBytes } from "@/modules/migration/domain/upload-batching";
 
 type ImportState = "idle" | "importing" | "done" | "error";
 
 interface Props {
-  files: File[];
+  shifts: ShiftDetailType[];
   totalShifts: number;
   employeeMapping: Record<string, string>;
   onComplete: (result: SyncShiftsResponseType) => void;
 }
 
-export function ImportCortesStep({ files, totalShifts, employeeMapping, onComplete }: Props) {
+export function ImportCortesStep({ shifts, totalShifts, employeeMapping, onComplete }: Props) {
   const [state, setState] = useState<ImportState>("idle");
   const [result, setResult] = useState<SyncShiftsResponseType | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // Los sub-batches de `stage` son solo transporte de `shifts` — una sola
+  // ejecución lógica de Sync. `finalize` corre syncShifts+finalizeSyncMode
+  // EXACTAMENTE UNA VEZ, con el conjunto global reconstruido server-side.
   async function handleImport() {
     setState("importing");
     setErrorMsg(null);
 
-    const fd = new FormData();
-    for (const f of files) fd.append("files", f);
-    fd.append("employeeMapping", JSON.stringify(employeeMapping));
-
     try {
-      const res = await fetch("/api/migracion/sync-shifts", { method: "POST", body: fd });
+      const importId = crypto.randomUUID();
+      const partition = partitionByByteBudget(shifts, estimateJsonBytes);
+      const batches = partition.map((idxs) => idxs.map((i) => shifts[i]));
+
+      for (let i = 0; i < batches.length; i++) {
+        setBatchProgress({ current: i + 1, total: batches.length });
+        const res = await fetch("/api/migracion/sync-shifts/stage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ importId, batchIndex: i, shifts: batches[i] }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error ?? `HTTP ${res.status}`);
+        }
+      }
+
+      const res = await fetch("/api/migracion/sync-shifts/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importId, employeeMapping }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -39,6 +61,8 @@ export function ImportCortesStep({ files, totalShifts, employeeMapping, onComple
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Error de red");
       setState("error");
+    } finally {
+      setBatchProgress(null);
     }
   }
 
@@ -73,9 +97,16 @@ export function ImportCortesStep({ files, totalShifts, employeeMapping, onComple
     return (
       <div className="rounded-lg border border-border p-6 flex items-center gap-4">
         <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
-        <p className="text-sm font-medium">
-          Importando cortes ({totalShifts} corte{totalShifts !== 1 ? "s" : ""})...
-        </p>
+        <div>
+          <p className="text-sm font-medium">
+            Importando cortes ({totalShifts} corte{totalShifts !== 1 ? "s" : ""})...
+          </p>
+          {batchProgress && batchProgress.total > 1 && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Lote {batchProgress.current} de {batchProgress.total}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
