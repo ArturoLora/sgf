@@ -1,6 +1,6 @@
 # Story: Ciclo de Vida de Empleados en el Wizard de Reconstruction
 
-**Status:** review
+**Status:** done
 **Epic:** Corrección/extensión ad-hoc — fuera de la numeración de Epic 1/2/3. Origen: `_bmad-output/implementation-artifacts/investigations/employee-mapping-historical-authorship-investigation.md` + `_bmad-output/implementation-artifacts/investigations/reconstruction-employee-lifecycle-investigation.md`.
 **Prioridad:** Alta — sin esto, cada Reconstruction futura repite la pérdida de atribución histórica (caso Alicia/Angélica) y no existe forma de limpiar empleados sintéticos sobrantes sin salir del wizard.
 **No implementado.** Solo Story. No se investigó desde cero — ambas investigaciones fuente están `Concluded`, sin gaps bloqueantes. No se ejecutó Sync/Reconstruction real, no se escribió en DB, no se usaron subagentes.
@@ -265,3 +265,52 @@ El generador de email (`@sgf.internal`) es una convención NUEVA de código, no 
 ### Change Log
 
 - Implementación de ciclo de vida de empleados en Reconstruction: mapping ve Users activos/inactivos, creación inmediata de empleado histórico idempotente, candidatos de eliminación server-side con selección opcional del ADMIN, y fase nueva `"employees"` en `executeReconstruction()` con guardias completas antes de eliminar vía `auth.api.removeUser`.
+- Code Review (2026-07-09): sin hallazgos High/Critical. Aprobada sin cambios de código.
+
+---
+
+## Senior Developer Review (AI)
+
+**Fecha:** 2026-07-09
+**Alcance revisado:** commit `8209bf1` (implementación completa de esta Story), acotado a los 4 riesgos críticos señalados por el pedido de review. No se reaudita batching/staging/claim en general, no se releen las investigaciones completas, no se reabren Stories 3.1-3.5, no se usaron subagentes (instrucción explícita del pedido).
+**Resultado:** **Aprobada — sin hallazgos High/Critical.** 2 observaciones Medium/Low documentadas abajo, no bloqueantes, no corregidas en esta pasada por decisión explícita del pedido ("si no hay High/Critical: aprueba").
+
+### Riesgo 1 — Creación histórica
+
+- `createHistoricalEmployee()` fuerza `role:"EMPLEADO"` en la llamada a `UsersService.createEmployee()` y encadena `UsersService.setEmployeeActive(id, false)` — el cliente nunca puede enviar `role`/`email`/`password` (`CreateHistoricalEmployeeInputSchema` solo acepta `historicalName`). Confirmado por lectura directa del endpoint y el service.
+- `modules/users/users.service.ts` (`createEmployee()` normal, usado por `/api/usuarios`) **no aparece en el diff** — comportamiento previo intacto, confirmado.
+- Idempotencia: la única protección es client-side (`creatingRows[historicalName]` deshabilita el botón). Es el mismo patrón ya usado por `ImportSociosStep`/`ImportCortesStep` en este proyecto y la mitigación explícitamente aceptada por la investigación fuente (sin idempotency-key server-side, riesgo de `User` huérfano documentado y aceptado como no peor que cualquier timeout ya posible desde `/usuarios`).
+  - **[Medium, no bloqueante]** El guard `if (creatingRows[historicalName] || createdRows[historicalName]) return;` lee un valor de estado de React capturado en el closure del handler — en un doble-click físico suficientemente rápido (antes de que React confirme el re-render que deshabilita el botón), ambas invocaciones podrían leer `creatingRows[historicalName] === false` y crear 2 `User` para el mismo intento lógico. Ventana de carrera de baja probabilidad (un doble-click humano típico ya da tiempo de sobra a React para re-renderizar), agravada solo por double-click muy rápido o scripted. Mismo patrón ya presente en `ImportSociosStep`/`ImportCortesStep` — no es una regresión introducida por esta Story, y la investigación fuente ya aceptó explícitamente el riesgo residual de "doble click" con esta misma mitigación. No se corrige en esta pasada (no es High/Critical, y cambiar el mecanismo de guard —ej. a un `useRef`— tocaría un patrón ya replicado en 2 componentes existentes fuera del alcance de esta Story).
+
+### Riesgo 2 — Candidatos y aliases
+
+- `computeDeletionCandidateIds()` implementa exactamente `allNonAdminUserIds` menos `Set(Object.values(employeeMapping))` — confirmado por lectura y por smoke test #1/#3/#12.
+- Aliases convergentes: `employeeMapping` sigue siendo `Record<string,string>` sin restricción de valores únicos (`EmployeeMappingSchema` no tocado) — dos claves con el mismo `User.id` colapsan en una sola entrada del `Set`, confirmado por smoke test #3 y el caso Alicia/Angélica (#12).
+- Un `User` usado por el mapping no puede quedar seleccionado para borrar: doble capa confirmada — (a) servidor, `getDeletionCandidates()` lo excluye del resultado; (b) cliente, `InconsistencyStep` recalcula candidatos en cada cambio de `mapping` (`useEffect` con dep `mappingKey`) y filtra `usersToDelete` para remover ids que dejaron de ser candidatos (`setUsersToDelete((prev) => prev.filter((id) => candidateIds.has(id)))`). Sin hallazgos.
+
+### Riesgo 3 — Eliminación
+
+Verificado por lectura directa del archivo final (no solo el diff), `modules/migration/reconstruction.service.ts`:
+
+- Orden real confirmado línea por línea: `deleteOperationalData()` (L329) → guardia+`removeSelectedEmployees()` (L299-301 valida, L358 ejecuta) → `resetProducts()` (L381) → `syncMembers()` (L403) → `syncShifts()` (L440) → `restoreProductSalePrices()` (L481) → `finalizeSyncMode()` (L506). Coincide exactamente con el orden exigido.
+- La validación de `usersToDelete` (L299-322) corre ANTES del `try { deleteResult = await deleteOperationalData() }` (L327-329) — confirmado, cero eliminación de ningún tipo ocurre si la validación falla.
+- Las 4 guardias (`validateUsersToDelete` en `domain/employee-lifecycle.ts`) rechazan: no-existe, `role==="ADMIN"`, `id===authenticatedAdminId`, destino del mapping — las 4 cubiertas por smoke tests #5-#8, sin lógica adicional que las contradiga.
+- Sin eliminación parcial por lista mixta: `validation.valid` exige que TODOS los ids pasen; si cualquiera falla, la función retorna de inmediato con `failedPhase:"validation"` antes de tocar `deleteOperationalData()` — confirmado por smoke test #10 (a nivel función pura) y por lectura de la orquestación (a nivel pipeline).
+- `auth.api.removeUser` es el único mecanismo de eliminación en todo el diff — cero `prisma.user.delete()` nuevo (el único `prisma.user.delete()` del repo es el rollback preexistente de `createEmployee()`, no tocado, fuera de alcance).
+- Fallo de `removeSelectedEmployees()` → `catch` retorna de inmediato `{success:false, failedPhase:"employees", employeeRemovalResult:null, ...}` — al ser un `return` de función, estructuralmente imposible que el código de `resetProducts`/`syncMembers`/`syncShifts`/`pricing`/`finalize` se ejecute después. Confirmado.
+  - **[Low, no bloqueante]** `removeSelectedEmployees()` procesa `usersToDelete` secuencialmente sin deduplicar internamente — si `executeReconstruction()` fuera invocada alguna vez con ids duplicados (hoy imposible por los únicos 2 caminos reales: el checkbox de la UI no puede duplicar un id, y la ruta `finalize` ya dedupea con `[...new Set(...)]` antes de llamar), un id repetido válido causaría una segunda llamada a `auth.api.removeUser` sobre un `User` ya eliminado, fallando y abortando con `failedPhase:"employees"` pese a que la selección original era válida. La Story documenta `executeReconstruction()` como "single source of truth" de las guardias, pero la deduplicación en sí vive solo en la ruta, no en el service — inconsistencia menor de diseño, sin impacto real hoy dado que no hay ningún caller que produzca duplicados. No se corrige en esta pasada por no ser explotable con el código actual.
+
+### Riesgo 4 — Wiring Reconstruction
+
+- Cadena completa rastreada: `InconsistencyStep` (checkbox → estado local `usersToDelete`) → `onComplete(mapping, mode==="reconstruction"?usersToDelete:[])` → `ReconstructionManager.handleInconsistencyComplete` → estado → prop de `ExecutionStep` → body JSON de `POST .../ejecutar/finalize` → `FinalizeBodySchema` → dedup → `executeReconstruction(...)`. Sin eslabones rotos.
+- Sync: `app/api/migracion/sync-shifts/finalize/route.ts` no tiene `usersToDelete` en su `FinalizeBodySchema` (confirmado, no tocado por el diff) — y `InconsistencyStep` en modo `sync` (default de `MigracionManager`) siempre envía `[]` sin importar el estado local. Doble barrera, confirmado.
+- Claim atómico contra doble finalize: el bloque `updateMany({where:{...claimedAt:null}})` + chequeo `claim.count !== rows.length` → `409` no aparece modificado en el diff — solo se tocaron el schema, la destructuración, y la llamada a `executeReconstruction`. Confirmado intacto por inspección directa del archivo final.
+- `usersToDelete=[]` (default): ambos bloques nuevos (validación y eliminación) están condicionados a `usersToDelete.length > 0` — con lista vacía, cero llamadas nuevas a Prisma/Better Auth, `employeeRemovalResult` queda `null` en toda la ejecución, y el resto del pipeline corre idéntico a antes de esta Story — confirmado además por las 6 suites de regresión (todas verdes, sin modificar sus fixtures salvo el `UserRef` ampliado).
+
+### Sobre el smoke 12/12 — qué cubre y qué no
+
+Revisados los asserts uno por uno (no aceptado el verde a ciegas): el smoke test cubre completamente el **Riesgo 2** (candidatos/aliases, incluido el caso Alicia/Angélica) y las **4 guardias + no-partición** del **Riesgo 3** — todo a nivel de las 2 funciones puras (`computeDeletionCandidateIds`, `validateUsersToDelete`). **No cubre** — porque no puede sin DB/HTTP, y la propia Story ya documentaba esto como decisión, no como omisión — la idempotencia real de creación (Riesgo 1) ni el orden de ejecución/wiring end-to-end (partes de Riesgo 3 y todo el Riesgo 4). Esas dos últimas se verificaron en esta revisión por lectura directa del archivo final (no del diff, para descartar hunks engañosos), reportado línea por línea arriba.
+
+### Action Items
+
+Ninguno bloqueante. 2 observaciones quedan documentadas arriba (Medium: ventana de carrera en doble-click de creación; Low: dedup de `usersToDelete` vive solo en la ruta, no en el service) para consideración futura si se decide endurecer idempotencia/guardias más allá del alcance de esta Story.
