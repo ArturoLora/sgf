@@ -29,29 +29,40 @@ Violations of these principles constitute active architectural debt. Exceptions 
 
 ```
 /
-├── app/                    # HTTP boundary — API routes and server-rendered pages
+├── app/
+│   ├── (dashboard)/[context]/    # Server pages + per-page component trees
+│   │   ├── page.tsx              # Fetches initial data server-side, passes to Manager
+│   │   └── _components/          # [Context]Manager + all presentational components
+│   ├── api/[context]/route.ts    # Validates input via types/api, calls one Service, returns response
+│   └── generated/prisma/         # Generated Prisma Client (custom output path)
+│
+├── modules/                # Canonical home for domain logic (actively migrated to)
+│   ├── members/ products/ inventory/ sales/ users/ migration/
 │   └── [context]/
-│       ├── route.ts        # Entry point: validates input, calls one Service, returns response
-│       └── page.tsx        # Server page: fetches initial data, passes to Manager
+│       ├── *.service.ts    # Use-case functions (async, touches Prisma)
+│       ├── types.ts        # Module-level types
+│       └── domain/         # Pure functions: filters, payloads, formatters, calculations
+│
+├── services/               # Legacy use-case layer for shifts/reports/users — being migrated
+│   └── index.ts            # Re-exports all services (both old and new module locations)
 │
 ├── lib/
-│   ├── domain/             # Pure domain layer — business rules, calculations, validators
-│   │   ├── [context]/      # Domain logic per bounded context
-│   │   └── shared/         # Cross-context pure utilities
-│   ├── services/           # Use case layer — orchestrates persistence + domain
-│   │   └── [context]/      # One Service per context; each method is a use case
-│   └── api/                # Client-side fetch wrappers (called only from Manager)
+│   ├── domain/              # Legacy domain logic (sales, shifts, reports, shared)
+│   ├── api/                 # Client-side fetch wrappers — called ONLY from Manager components
+│   ├── auth.ts               # better-auth instance (email + password, Prisma adapter)
+│   ├── db.ts                 # Prisma singleton (legacy contexts)
+│   └── require-role.ts       # Server-side role guard
 │
 ├── types/
-│   └── api/                # HTTP contract layer — Zod schemas and inferred TypeScript types
+│   ├── api/                 # HTTP contract layer — Zod schemas and inferred TypeScript types
+│   └── models/               # Domain model types (Socio, Producto, Corte, etc.)
 │
 └── components/
-    └── [context]/
-        ├── [Context]Manager.tsx   # Orchestrates UI state; only component that calls lib/api
-        └── [Component].tsx        # Presentational components — props in, render out
+    ├── ui/                   # shadcn/ui primitives
+    └── layout/               # Sidebar, Header, ThemeToggle
 ```
 
-Each context (e.g., `members`, `sales`, `shifts`, `inventory`) follows the same internal structure. Deviations from this layout are considered structural violations.
+Each context follows the same internal structure. Deviations from this layout are considered structural violations.
 
 ---
 
@@ -61,13 +72,12 @@ Each context (e.g., `members`, `sales`, `shifts`, `inventory`) follows the same 
 
 ```
 HTTP Request
-  → API Route (app/[context]/route.ts)
+  → API Route (app/api/[context]/route.ts)
       Validates input via types/api schemas
       Calls exactly one Service method
-  → Service (lib/services/[context])
-      Reads entities via Prisma
-      Delegates business logic to lib/domain
-      Writes results to database
+  → Service (modules/[context]/*.service.ts, or services/*.service.ts for legacy contexts)
+      Reads/writes entities via Prisma
+      Delegates business logic to domain/
       Returns typed response
   → API Route serializes and returns HTTP response
 ```
@@ -77,14 +87,14 @@ No business logic lives in the route. No Prisma access occurs in the domain. The
 ### Frontend
 
 ```
-Server Page (app/[context]/page.tsx)
+Server Page (app/(dashboard)/[context]/page.tsx)
   Fetches initial data server-side
   Passes data as props to Manager
 
-Manager ([Context]Manager.tsx)
-  Owns all UI state (selected item, open modals, filters)
-  Calls lib/api for mutations
-  Imports logic from lib/domain only
+Manager ([Context]Manager.tsx — "use client")
+  Owns all UI state (selected item, open modals, filters, pagination)
+  Calls lib/api/*.client.ts for mutations and refreshes
+  Imports pure logic from modules/[context]/domain or lib/domain
   Distributes data and callbacks to child components
 
 Presentational Components
@@ -124,29 +134,43 @@ Rules marked as absolute (NUNCA / NEVER in the constitution) have no exception p
 | ----------------- | ---------------------------------------- |
 | Framework         | Next.js (App Router)                     |
 | Language          | TypeScript                               |
-| ORM / Persistence | Prisma                                   |
+| ORM / Persistence | Prisma (client generated into `app/generated/prisma/`) |
+| Authentication    | better-auth (email + password, Prisma adapter) |
 | Validation        | Zod                                      |
 | Styling           | Tailwind CSS                             |
-| UI Components     | React (functional components with hooks) |
+| UI Components     | React (functional components with hooks), shadcn/ui |
 
 ---
 
 ## How to Run
 
-> Setup and run instructions will be added once the environment configuration is stabilized. This section is a placeholder.
-
 ```bash
 # Install dependencies
 npm install
 
-# Run database migrations
-npx prisma migrate dev
+# Development
+npm run dev              # Start Next.js dev server
 
-# Start development server
-npm run dev
+# Build & lint
+npm run build
+npm run lint
+
+# Database (Prisma)
+npm run prisma:generate  # Regenerate Prisma client after schema changes
+npm run prisma:migrate   # Create and apply a new migration
+npm run prisma:push      # Push schema without a migration file (dev only)
+npm run prisma:studio    # Open Prisma Studio
+npm run prisma:seed      # Seed the database (tsx prisma/seed.ts)
+npm run prisma:reset     # Drop and recreate the database + seed
 ```
 
-Environment variables (database connection string, etc.) should be configured in a `.env` file. See `.env.example` for reference.
+Required environment variables (see `.env.example`):
+
+```
+DATABASE_URL=
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=
+```
 
 ---
 
